@@ -1,1 +1,2 @@
+https://github.com/splunk/botsv3/blob/master -dataset is a synthetic security log dataset created using Splunk and it contains cloudtrail and network logs
 
