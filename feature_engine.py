@@ -17,7 +17,6 @@ class FeatureEngineer:
         }
 
     def get_temporal_features(self, log):
-        """Extracts the 19 numerical features for the Ensemble"""
         features = []
         
         # 1. MFA Check (Binary)
@@ -41,12 +40,12 @@ class FeatureEngineer:
         return features
 
 # TEST BLOCK
-sample_invictus_log = {
+'''sample_invictus_log = {
     "eventTime": "2026-03-24T10:00:00Z",
     "eventName": "PutUserPolicy",
     "userIdentity": {"arn": "arn:aws:iam::123:user/Attacker"},
     "additionalEventData": {"MFAUsed": "No"}
-}
+}'''
 
 engine = FeatureEngineer()
 print("Structural:", engine.get_structural_data(sample_invictus_log))
