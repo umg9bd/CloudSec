@@ -43,12 +43,12 @@ pip install -r requirements.txt
 ### 3. Run the Graph Builder
 
 ```bash
-python3 invictus_neo4j_builder.py
+python3 neo4j_graph_builder.py
 ```
 
 To rebuild from scratch (wipes existing graph first):
 ```bash
-python3 invictus_neo4j_builder.py
+python3 neo4j_graph_builder.py
 ```
 The script always runs `MATCH (n) DETACH DELETE n` before ingesting, so re-running is always safe.
 
