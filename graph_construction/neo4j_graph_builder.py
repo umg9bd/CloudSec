@@ -38,7 +38,7 @@ FEATURE ENGINEERING (aligned with FeatureEngineer class)
 
 Run:
     pip install neo4j pandas
-    python invictus_neo4j_builder.py
+    python3 neo4j_graph_builder.py
 """
 
 import pandas as pd
