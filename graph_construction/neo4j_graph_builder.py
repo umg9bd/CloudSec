@@ -28,14 +28,6 @@ FEATURE ENGINEERING (aligned with FeatureEngineer class)
     action_encoded        → integer encoding of event_name
     hour_normalized       → hour-of-day / 23.0  (0.0–1.0)
     is_error              → 0 = success, 1 = error
-    is_read_only          → 0 = mutating, 1 = read-only
-    label                 → event-level ground truth (0/1)
-    session_label         → session-level ground truth (0/1)
-    attack_technique      → MITRE technique string (empty = benign)
-    privilege_score       → 1.0 for privilege-escalation events, else 0.0
-    is_attack_user        → 1 if username is a known attacker identity
-    event_source_category → short service name (iam, s3, sts, kms …)
-
 Run:
     pip install neo4j pandas
     python3 neo4j_graph_builder.py
