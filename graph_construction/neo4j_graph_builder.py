@@ -46,9 +46,9 @@ from datetime import datetime, timezone
 from neo4j import GraphDatabase
 
 # ── Connection ────────────────────────────────────────────────────────────────
-URI      = "bolt://localhost:7687"          # change to neo4j+s://... for Aura
+URI      = "bolt://localhost:7687"          
 USER     = "neo4j"
-PASSWORD = "test1234"                       # change to your password
+PASSWORD = "test1234"                      
 CSV_PATH = "./invictus_synthetic_1000.csv"
 
 # ── Known attacker identities (from IR report) ────────────────────────────────
