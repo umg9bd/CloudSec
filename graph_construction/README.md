@@ -109,7 +109,7 @@ RETURN p, r, s LIMIT 100
 
 | File | Description |
 |---|---|
-| `invictus_neo4j_builder.py` | Main graph builder script |
+| `neo4j_graph_builder.py` | Main graph builder script |
 | `invictus_labeled_final.csv` | Real Invictus IR CloudTrail dataset (2,900 events) |
 | `invictus_synthetic_1000.csv` | Synthetic dataset with 4 features extracted (1,000 events) |
 | `requirements.txt` | Python dependencies |
