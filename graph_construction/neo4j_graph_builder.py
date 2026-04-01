@@ -79,7 +79,7 @@ READ_ONLY_PREFIXES = (
     "Scan", "Query", "Search", "Check", "Validate",
 )
 
-# ── Action encoding map (extend as needed) ───────────────────────────────────
+# ── Action encoding map ───────────────────────────────────
 ACTION_MAP = {
     "AssumeRole": 1,
     "PutUserPolicy": 2, "PutRolePolicy": 3, "PutGroupPolicy": 4,
