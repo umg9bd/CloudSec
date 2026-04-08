@@ -34,10 +34,9 @@ class StateTracker:
 class FeatureEngineer:
     def __init__(self):
         self.tracker = StateTracker()
-        # Expanded Action Map for better security signal
         self.action_map = {
-            # --- 1. RECONNAISSANCE (Low Weight, but Essential for GNN Edges) ---
-        "GetCallerIdentity": 2,      # Who am I? (First thing an attacker runs)
+            # --- 1. RECONNAISSANCE ---
+        "GetCallerIdentity": 2,      # Who am I?
         "ListBuckets": 2,            # What data is here?
         "DescribeInstances": 2,      # What servers are here?
         "ListUsers": 2,              # Mapping the IAM landscape
@@ -46,15 +45,15 @@ class FeatureEngineer:
         # --- 2. PERSISTENCE (Creating Backdoors) ---
         "CreateUser": 7, 
         "CreateRole": 7, 
-        "CreateAccessKey": 8,        # High risk: Long-term backdoor
-        "CreateLoginProfile": 8,     # Adding a password to a console-less user
+        "CreateAccessKey": 8,        # (High risk) Long-term backdoor
+        "CreateLoginProfile": 8,     
 
-        # --- 3. PRIVILEGE ESCALATION (The "Crown Jewels" of Creep) ---
+        # --- 3. PRIVILEGE ESCALATION---
         "PutUserPolicy": 10, 
         "AttachUserPolicy": 10, 
         "UpdateAssumeRolePolicy": 10,
-        "PassRole": 9,               # CRITICAL: Used to give a role to a service (e.g., EC2)
-        "CreatePolicyVersion": 9,    # Sneaky: Changing an existing policy to "Allow *"
+        "PassRole": 9,               
+        "CreatePolicyVersion": 9,    # Changing an existing policy to "Allow *"
         "SetDefaultPolicyVersion": 9,
 
         # --- 4. CREDENTIAL ACCESS & EXFILTRATION ---
@@ -62,7 +61,7 @@ class FeatureEngineer:
         "Decrypt": 7,                # KMS: Decrypting sensitive data
         "AssumeRole": 6,             # Lateral movement proxy
 
-        # --- 5. DEFENSE EVASION (Blindfolding the Admin) ---
+        # --- 5. DEFENSE EVASION ---
         "DeleteTrail": 10, 
         "StopLogging": 10,
         "UpdateDetector": 9,         # GuardDuty: Disabling the very thing that catches them
@@ -87,14 +86,14 @@ class FeatureEngineer:
         }
 
     def get_temporal_features(self, log):
-        """Generates 25D Vector for Nandan."""
+        """Generates 25D Vector."""
         f = []
         p_arn = log.get('principal_arn', 'unknown')
         
         # Timestamp parsing - handle both field names and formats
         timestamp_str = log.get('timestamp') or log.get('eventTime')
         
-        if 'T' in timestamp_str:  # ISO format (2026-04-01T10:00:00Z)
+        if 'T' in timestamp_str:  
             dt = datetime.fromisoformat(timestamp_str.replace('Z', '+00:00'))
         else:  # Standard format (2026-03-31 10:00:00+0000)
             dt = datetime.strptime(timestamp_str, "%Y-%m-%d %H:%M:%S%z")
