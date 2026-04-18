@@ -154,75 +154,65 @@ class FeatureEngineer:
         return f
 
 if __name__ == "__main__":
+    import csv
+    import os
+    
     engine = FeatureEngineer()
-
-    # Log 1:
-    log1 = {
-        "timestamp": "2026-03-31 10:00:00+0000",
-        "event_name": "GetCallerIdentity",
-        "event_source": "sts.amazonaws.com",
-        "principal_type": "IAMUser",
-        "principal_arn": "arn:aws:iam::123:user/Attacker",
-        "source_ip": "10.0.0.5",
-        "user_agent": "aws-cli/2.0",
-        "read_only": "true",
-        "aws_region": "us-east-1",
-        "mfa_authenticated": "true"
-    }
-
-    # Log 2: 
-    log2 = {
-        "timestamp": "2026-03-31 10:00:02+0000", # 2s later
-        "event_name": "PutUserPolicy",
-        "event_source": "iam.amazonaws.com",
-        "principal_type": "IAMUser",
-        "principal_arn": "arn:aws:iam::123:user/Attacker",
-        "source_ip": "192.175.1.1",
-        "user_agent": "pacu/aws-exploitation-framework",
-        "read_only": "false",
-        "aws_region": "us-east-1",
-        "mfa_authenticated": "false"
-    }
-    log3= {
-        "eventVersion": "1.08",
-        "userIdentity": {
-            "type": "IAMUser",
-            "principalId": "AIDASCYV6JEXAMPLE",
-            "arn": "arn:aws:iam::123456789012:user/Udi",
-            "accountId": "123456789012",
-            "accessKeyId": "AKIAIOSFODNN7EXAMPLE"
-        },
-        "eventTime": "2026-04-01T10:00:00Z",
-        "eventSource": "ec2.amazonaws.com",
-        "eventName": "DescribeInstances",
-        "awsRegion": "us-east-1",
-        "sourceIPAddress": "10.0.0.15",
-        "userAgent": "aws-cli/2.15.0 Python/3.11.6",
-        "requestParameters": None,
-        "responseElements": None,
-        "readOnly": True,
-        "eventType": "AwsApiCall",
-        "managementEvent": True,
-        "recipientAccountId": "123456789012",
-        "eventCategory": "Management"
-    }
-
-    # Log 1:
-    print(f"Structural 1: {engine.get_structural_data(log1)}")
-    print(f"Temporal 1: {engine.get_temporal_features(log1)}")
-
-    print("\n")
-
-    # Output for Log 2:
-
-    struct = engine.get_structural_data(log2)
-    vector = engine.get_temporal_features(log2)
-
-    print(f"Structural 2: {struct}")
-    print(f"Temporal 2: {vector}\n")
-
-    #output for log 3
-    struct3 = engine.get_structural_data(log3)
-    vector3 = engine.get_temporal_features(log3)
-    print(f"Structural 3: {struct3}")
-    print(f"Temporal 3: {vector3}\n")
+    
+    input_file = "datasets/privilege-escalation/invictus_enriched.csv"
+    output_struct_file = "datasets/privilege-escalation/invictus_structural.csv"
+    output_temporal_file = "datasets/privilege-escalation/invictus_temporal.csv"
+    
+    print(f"Reading logs from {input_file}...")
+    
+    # Ensure the dataset exists
+    if not os.path.exists(input_file):
+        print(f"Error: Could not find {input_file}")
+        exit(1)
+    
+    with open(input_file, mode='r', encoding='utf-8') as infile, \
+         open(output_struct_file, mode='w', newline='', encoding='utf-8') as struct_out, \
+         open(output_temporal_file, mode='w', newline='', encoding='utf-8') as temp_out:
+        
+        reader = csv.DictReader(infile)
+        
+        # Define structural columns
+        struct_fieldnames = ["log_id", "source_node", "target_node", "edge_type", "label"]
+        struct_writer = csv.DictWriter(struct_out, fieldnames=struct_fieldnames)
+        struct_writer.writeheader()
+        
+        # Define temporal columns
+        temporal_cols = [f"t{i}" for i in range(1, 26)]
+        temp_fieldnames = ["log_id"] + temporal_cols + ["label"]
+        temp_writer = csv.DictWriter(temp_out, fieldnames=temp_fieldnames)
+        temp_writer.writeheader()
+        
+        count = 0
+        for row in reader:
+            struct = engine.get_structural_data(row)
+            temporal = engine.get_temporal_features(row)
+            label = row.get("label", "0")
+            
+            # Write structural row
+            struct_writer.writerow({
+                "log_id": count,
+                "source_node": struct["source_node"],
+                "target_node": struct["target_node"],
+                "edge_type": struct["edge_type"],
+                "label": label
+            })
+            
+            # Write temporal row
+            temp_row = {
+                "log_id": count,
+                "label": label
+            }
+            for i, val in enumerate(temporal):
+                temp_row[f"t{i+1}"] = val
+                
+            temp_writer.writerow(temp_row)
+            count += 1
+            
+    print(f"Successfully processed {count} logs.")
+    print(f"Saved structural triplets to {output_struct_file}")
+    print(f"Saved temporal vectors to {output_temporal_file}")
