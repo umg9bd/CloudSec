@@ -182,7 +182,15 @@ if __name__ == "__main__":
         struct_writer.writeheader()
         
         # Define temporal columns
-        temporal_cols = [f"t{i}" for i in range(1, 26)]
+        temporal_cols = [
+            "no_mfa", "principal_risk", "has_access_key", "action_velocity", "is_new_action",
+            "time_sin", "time_cos", "is_weekend", "is_off_hours",
+            "mitre_action_risk", "is_write_action", "has_error", "is_access_denied",
+            "is_iam_event", "is_recon_action", "is_defense_evasion", "is_get_caller_identity",
+            "is_malicious_user_agent", "is_public_ip", "params_length_normalized",
+            "targets_sensitive_resource", "is_non_default_region", "is_create_key",
+            "is_secrets_or_kms", "is_permission_modification"
+        ]
         temp_fieldnames = ["log_id"] + temporal_cols + ["label"]
         temp_writer = csv.DictWriter(temp_out, fieldnames=temp_fieldnames)
         temp_writer.writeheader()
@@ -208,7 +216,7 @@ if __name__ == "__main__":
                 "label": label
             }
             for i, val in enumerate(temporal):
-                temp_row[f"t{i+1}"] = val
+                temp_row[temporal_cols[i]] = val
                 
             temp_writer.writerow(temp_row)
             count += 1
