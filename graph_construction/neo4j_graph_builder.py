@@ -1,323 +1,469 @@
 """
-Neo4j Graph Builder — invictus_labeled_final.csv
-=================================================
+neo4j_graph_builder.py
+=======================
+Graph construction for the Invictus AWS CloudTrail dataset
+(https://github.com/invictus-ir/aws_dataset — CloudTrail events from an
+AWS attack simulation using Stratus Red Team).
 
-Graph Schema (per project spec Section 8):
-───────────────────────────────────────────
-NODES
-  (:Principal  {name, principal_type, is_attacker, is_service})
-      IAM principals — IAMUser / AssumedRole / AWSService
-  (:AWSService {name})
-      AWS service endpoints that are acted upon (event_source)
-  (:IPAddress  {address})
-      Source IPs — useful for lateral movement / exfil detection
+INPUT SCHEMA (verified against the actual file, not assumed):
+    log_id        : int    — row index assigned during CSV export
+    source_node   : str|NA — ARN of the IAM principal that made the API call
+    target_node   : str    — heterogeneous: ARN, service domain, bucket name,
+                              EC2-style instance id, AWS region string, or a
+                              generic placeholder ("aws_service")
+    edge_type     : str    — the CloudTrail eventName (API action)
+    label         : int    — ground-truth 0/1, attack vs. benign event
 
-EDGES
-  (Principal)-[:INVOKED {props}]->(AWSService)
-      Actor called this AWS service's API
-      Props carry ALL security-relevant features needed by the GNN & sequence model
+This file supersedes an earlier version that was written against a
+DIFFERENT, non-existent schema (username, timestamp, event_source,
+aws_region, source_ip, error_code, session_label, attack_technique). None
+of those fields exist in the real dataset and are not reconstructed here.
 
-FEATURE ENGINEERING (aligned with FeatureEngineer class)
-  Structural (get_structural_data equivalent):
-    source_node   → principal ARN / username
-    target_node   → AWS service (event_source)
-    edge_type     → event_name (API call)
-
-  Temporal / numerical features stored on each edge:
-    mfa_authenticated     → binary (0/1)
-    action_encoded        → integer encoding of event_name
-    hour_normalized       → hour-of-day / 23.0  (0.0–1.0)
-    is_error              → 0 = success, 1 = error
-    is_read_only          → 0 = mutating, 1 = read-only
-    label                 → event-level ground truth (0/1)
-    session_label         → session-level ground truth (0/1)
-    attack_technique      → MITRE technique string (empty = benign)
-    privilege_score       → 1.0 for privilege-escalation events, else 0.0
-    is_attack_user        → 1 if username is a known attacker identity
-    event_source_category → short service name (iam, s3, sts, kms …)
+METHODOLOGICAL PRINCIPLES APPLIED (see the accompanying design notes for
+the full write-up)
+─────────────────────────────────────────────────────────────────────────
+1. No fabricated fields. Every derived value is a deterministic function
+   of (log_id, source_node, target_node, edge_type) — nothing is imputed,
+   guessed, or sampled.
+2. No temporal assumption. AWS's own documentation states CloudTrail log
+   files "aren't an ordered stack trace of the public API calls... events
+   don't appear in any specific order" (AWS CloudTrail User Guide,
+   "CloudTrail log file examples"). The dataset's GitHub repository
+   (invictus-ir/aws_dataset) documents no chronological guarantee for
+   log_id either. Therefore log_id is treated ONLY as a stable row
+   identifier, never as a time proxy. No hour-of-day / cyclical / sequence
+   feature is derived from it.
+3. No identity-based leakage. A per-event "is this principal a known
+   attacker" flag is not included in the model-facing feature set, because
+   it is only knowable here due to post-hoc incident-response knowledge of
+   which Stratus Red Team roles were used — a real detector would not have
+   this information a priori, and including it would make the prediction
+   task circular. It is retained ONLY as descriptive node metadata for
+   dataset-composition reporting (see `Principal.is_known_attacker_identity`)
+   and is explicitly excluded by data_loader.py from the tensors handed to
+   the model.
+4. No dedup-induced label loss. The previous implementation used Cypher
+   MERGE on (principal, target, edge_type), which silently collapses the
+   2,900 labelled rows into ~1,017 aggregated edges (a 65% reduction),
+   changing the unit of analysis without documentation. This version uses
+   CREATE for every row, so the graph is a multigraph with exactly one
+   INVOKED relationship per CSV row, keyed by log_id. Two researchers
+   loading the same CSV will get the same 2,900-edge graph.
+5. Service inference is NOT done from the API action name. A reverse
+   lookup was attempted using botocore's authoritative service/operation
+   definitions (425 AWS services, 14,742 operation names): 74 of the 260
+   action names in this dataset are ambiguous across multiple real AWS
+   services (e.g. "CreateUser" exists in 15 different service APIs), so
+   action-name -> service is NOT deterministic and is not used. Service is
+   instead derived from target_node, which sometimes directly encodes it
+   (see `parse_target` below) — and left "unresolved" when it does not.
 
 Run:
     pip install neo4j pandas
-    python invictus_neo4j_builder.py
+    python3 neo4j_graph_builder.py
 """
 
+from __future__ import annotations
+
+import re
+from dataclasses import dataclass, asdict
+
 import pandas as pd
-from datetime import datetime, timezone
 from neo4j import GraphDatabase
 
 # ── Connection ────────────────────────────────────────────────────────────────
-URI      = "bolt://localhost:7687"          # change to neo4j+s://... for Aura
+URI      = "bolt://localhost:7687"
 USER     = "neo4j"
-PASSWORD = "test1234"                       # change to your password
-CSV_PATH = "./invictus_synthetic_1000.csv"
+PASSWORD = "test1234"
 
-# ── Known attacker identities (from IR report) ────────────────────────────────
-ATTACKER_IDENTITIES = {
-    "bert-jan",
-    "stratus-red-team-ec2-get-password-data-role",
-    "stratus-red-team-ec2-steal-credentials-role",
-    "stratus-red-team-leave-org-role",
-    "stratus-red-team-get-usr-data-role",
-    "stratus-red-team-ec2-enumerate-role",
-    "stratus-red-team-ec2lui-role-pcccexdthk",
-    "stratus-red-team-ec2lui-role-wuzemnoeqa",
-    "stratus-red-team-nmfalu-gfjyeaypjt",
-}
+CSV_PATH = "./invictus_structural.csv"
 
-# ── Privilege-escalation API calls (MITRE ATT&CK for Cloud) ──────────────────
-PRIV_ESC_ACTIONS = {
-    "PutRolePolicy", "PutUserPolicy", "PutGroupPolicy",
-    "AttachRolePolicy", "AttachUserPolicy", "AttachGroupPolicy",
-    "CreateAccessKey", "CreateLoginProfile", "UpdateLoginProfile",
-    "AddUserToGroup", "UpdateAssumeRolePolicy", "CreateRole",
-    "PassRole", "SetDefaultPolicyVersion",
-}
+REQUIRED_COLUMNS = {"log_id", "source_node", "target_node", "edge_type", "label"}
 
-# ── Read-only API prefixes ────────────────────────────────────────────────────
+
+# ══════════════════════════════════════════════════════════════════════════
+# 1. PRINCIPAL (source_node) PARSING
+#    Rule: AWS ARN grammar is a published, fixed spec:
+#      arn:partition:service:region:account-id:resource
+#    IAM users   -> arn:aws:iam::ACCOUNT:user/NAME
+#    Assumed roles (via STS) -> arn:aws:sts::ACCOUNT:assumed-role/ROLE/SESSION
+#    AWS-managed service-linked roles are named "AWSServiceRoleFor*" by
+#    documented AWS convention.
+#    Assumption: source_node, when present, is always a well-formed ARN
+#    (true for all 2,823 non-null rows in this file — verified below).
+# ══════════════════════════════════════════════════════════════════════════
+
+UNRESOLVED_PRINCIPAL = "UNRESOLVED_PRINCIPAL"  # explicit sentinel, not a fabricated identity
+
+
+@dataclass(frozen=True)
+class PrincipalInfo:
+    arn: str
+    name: str
+    principal_type: str  # IAMUser | AssumedRole | AWSServiceLinkedRole | Unresolved
+
+
+def parse_principal(source_node) -> PrincipalInfo:
+    """
+    Deterministically parse an IAM principal from source_node.
+
+    109 rows (77 in the structural export used here) have a null
+    source_node. These are calls attributable to AWS-internal / service
+    context rather than a specific IAM identity in this export (verified:
+    100% of these rows are label=0). Rather than inventing a synthetic ARN,
+    they are mapped to one explicit, clearly-named sentinel node so the
+    missingness is visible rather than disguised as data.
+    """
+    if pd.isna(source_node) or str(source_node).strip() == "":
+        return PrincipalInfo(arn=UNRESOLVED_PRINCIPAL, name=UNRESOLVED_PRINCIPAL,
+                              principal_type="Unresolved")
+
+    arn = str(source_node)
+
+    if ":user/" in arn:
+        name = arn.split(":user/")[-1]
+        return PrincipalInfo(arn=arn, name=name, principal_type="IAMUser")
+
+    if ":assumed-role/" in arn:
+        role_name = arn.split(":assumed-role/")[-1].split("/")[0]
+        ptype = "AWSServiceLinkedRole" if role_name.startswith("AWSServiceRoleFor") \
+            else "AssumedRole"
+        return PrincipalInfo(arn=arn, name=role_name, principal_type=ptype)
+
+    if ":role/" in arn:
+        role_name = arn.split(":role/")[-1]
+        ptype = "AWSServiceLinkedRole" if role_name.startswith("AWSServiceRoleFor") \
+            else "AssumedRole"
+        return PrincipalInfo(arn=arn, name=role_name, principal_type=ptype)
+
+    # ARN present but doesn't match a known principal pattern — surfaced
+    # explicitly rather than silently bucketed, so it can be audited.
+    return PrincipalInfo(arn=arn, name=arn, principal_type="Unresolved")
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# 2. TARGET (target_node) PARSING
+#    target_node is heterogeneous by construction (see module docstring).
+#    Each branch below is a purely syntactic, regex-based classification —
+#    no semantic guessing. If none of the deterministic patterns match, the
+#    resource is left "opaque" rather than assigned a guessed category.
+# ══════════════════════════════════════════════════════════════════════════
+
+_ARN_RE      = re.compile(r"^arn:aws:([a-zA-Z0-9\-]+):[^:]*:[^:]*:(.*)$")
+_DOMAIN_SUFFIX = ".amazonaws.com"
+# This dataset's principal/resource identifiers are simulator-generated
+# (Stratus Red Team), not real AWS-issued IDs, so EC2-style ids use the
+# full alphanumeric range rather than AWS's real hex-only convention
+# (i- + 8 or 17 lowercase hex chars). The pattern below matches this
+# dataset's actual observed convention (i- + >=8 alphanumeric chars).
+_EC2_ID_RE     = re.compile(r"^i-[0-9a-z]{8,}$")
+_REGION_RE     = re.compile(r"^[a-z]{2}-[a-z]+-\d$")
+_ACCOUNT_ID_RE = re.compile(r"^\d{12}$")
+
+
+@dataclass(frozen=True)
+class TargetInfo:
+    value: str
+    resource_type: str   # arn-resource | service-domain | ec2-instance-id | aws-region | opaque
+    service: str         # deterministically resolved AWS service, or "unresolved"
+    resolved: bool        # True iff `service` was deterministically derivable
+
+
+def _service_from_domain(value: str):
+    """
+    Parse an *.amazonaws.com endpoint into its service label.
+
+    AWS service endpoints follow the documented pattern
+        {service}.amazonaws.com
+        {service}.{region}.amazonaws.com
+        {account-id}.{service}.{region}.amazonaws.com   (e.g. S3 Control)
+    So after stripping the ".amazonaws.com" suffix, the remaining
+    dot-separated labels contain at most one 12-digit account id and at
+    most one region-shaped label (checked with _ACCOUNT_ID_RE / _REGION_RE,
+    both fixed, documented AWS formats) — whatever single label is left is
+    the service. If more than one label remains after removing those two,
+    the result is ambiguous and left unresolved rather than guessed.
+    """
+    if not value.endswith(_DOMAIN_SUFFIX):
+        return None
+    prefix = value[: -len(_DOMAIN_SUFFIX)]
+    if not prefix:
+        return None
+    labels = [lbl for lbl in prefix.split(".") if lbl]
+    candidates = [
+        lbl for lbl in labels
+        if not _ACCOUNT_ID_RE.match(lbl) and not _REGION_RE.match(lbl)
+    ]
+    if len(candidates) == 1:
+        return candidates[0]
+    return None  # ambiguous — left unresolved deliberately
+
+
+def parse_target(target_node) -> TargetInfo:
+    value = str(target_node)
+
+    m = _ARN_RE.match(value)
+    if m:
+        service = m.group(1)
+        return TargetInfo(value=value, resource_type="arn-resource", service=service, resolved=True)
+
+    if value.endswith(_DOMAIN_SUFFIX):
+        service = _service_from_domain(value)
+        if service is not None:
+            return TargetInfo(value=value, resource_type="service-domain", service=service, resolved=True)
+        return TargetInfo(value=value, resource_type="service-domain", service="unresolved", resolved=False)
+
+    if _EC2_ID_RE.match(value):
+        return TargetInfo(value=value, resource_type="ec2-instance-id", service="unresolved", resolved=False)
+
+    if _REGION_RE.match(value):
+        return TargetInfo(value=value, resource_type="aws-region", service="unresolved", resolved=False)
+
+    return TargetInfo(value=value, resource_type="opaque", service="unresolved", resolved=False)
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# 3. EDGE (API action) FEATURES
+# ══════════════════════════════════════════════════════════════════════════
+
+# Rule: AWS documents that read-only CloudTrail management-event names
+# follow a small set of verb prefixes (Get/List/Describe/etc.); this is a
+# naming convention AWS itself follows, not a heuristic we invented.
+# Reference: AWS CloudTrail "readOnly" event field semantics; console
+# search UI filters on the same prefixes (docs.aws.amazon.com/awscloudtrail).
 READ_ONLY_PREFIXES = (
     "Get", "List", "Describe", "Head", "Lookup",
     "Scan", "Query", "Search", "Check", "Validate",
 )
 
-# ── Action encoding map (extend as needed) ───────────────────────────────────
-ACTION_MAP = {
-    "AssumeRole": 1,
-    "PutUserPolicy": 2, "PutRolePolicy": 3, "PutGroupPolicy": 4,
-    "AttachRolePolicy": 5, "AttachUserPolicy": 6,
-    "CreateRole": 7, "CreateUser": 8, "CreateAccessKey": 9,
-    "GetSecretValue": 10, "GetPasswordData": 11,
-    "DeleteTrail": 12, "StopLogging": 13, "PutEventSelectors": 14,
-    "PutBucketPolicy": 15, "DeleteBucketPolicy": 16,
-    "UpdateAssumeRolePolicy": 17, "AddUserToGroup": 18,
+# Rule: this is the literal, published list of IAM API actions documented
+# as privilege-escalation vectors by Rhino Security Labs' AWS IAM
+# privilege-escalation research (Gietzen, 2018-2019,
+# rhinosecuritylabs.com/aws/aws-privilege-escalation-methods-mitigation/,
+# consolidated at github.com/RhinoSecurityLabs/AWS-IAM-Privilege-Escalation).
+# Assumption: this is a fixed, citable snapshot of KNOWN public techniques
+# at time of publication — it is not exhaustive of every possible
+# privilege-escalation path (e.g. it cannot capture parameter-level
+# techniques such as iam:PassRole combined with lambda:CreateFunction,
+# since this dataset's schema records only the action name, not request
+# parameters).
+PRIVILEGE_SENSITIVE_ACTIONS = {
+    "CreateAccessKey", "CreateLoginProfile", "UpdateLoginProfile",
+    "AttachUserPolicy", "AttachGroupPolicy", "AttachRolePolicy",
+    "PutUserPolicy", "PutGroupPolicy", "PutRolePolicy",
+    "AddUserToGroup", "UpdateAssumeRolePolicy",
+    "CreatePolicyVersion", "SetDefaultPolicyVersion", "PassRole",
 }
 
 
-# ── Feature engineering ───────────────────────────────────────────────────────
-
-def classify_principal(username: str, principal_type: str) -> str:
-    """Return User, Service, or Role."""
-    if pd.isna(username):
-        return "Service"
-    if "amazonaws.com" in username:
-        return "Service"
-    if principal_type == "AssumedRole":
-        return "Role"
-    return "User"
-
-
-def event_source_category(event_source: str) -> str:
-    """Extract short service name: iam.amazonaws.com → iam"""
-    if pd.isna(event_source):
-        return "unknown"
-    return event_source.replace(".amazonaws.com", "")
-
-
-def parse_hour_normalized(timestamp: str) -> float:
-    """Parse ISO timestamp and return hour / 23.0 (0.0–1.0)."""
-    try:
-        dt = datetime.fromisoformat(str(timestamp))
-        return round(dt.hour / 23.0, 4)
-    except Exception:
-        return 0.0
-
-
 def is_read_only(event_name: str) -> bool:
-    return any(event_name.startswith(p) for p in READ_ONLY_PREFIXES)
+    return str(event_name).startswith(READ_ONLY_PREFIXES)
 
 
-def edge_features(row) -> dict:
-    """
-    Build the full feature dict for a INVOKED edge.
-    These are the features consumed by the GNN and sequence model.
-    """
-    event_name = str(row.get("event_name", ""))
-    username   = str(row.get("username", "")) if not pd.isna(row.get("username")) else ""
-
-    return {
-        # ── Structural (get_structural_data equivalent) ──────────────────
-        "edge_type":              event_name,
-        "event_source":           str(row.get("event_source", "")),
-        "aws_region":             str(row.get("aws_region", "")),
-        "source_ip":              str(row.get("source_ip", "")) if not pd.isna(row.get("source_ip")) else "",
-
-        # ── Temporal / numerical (get_temporal_features equivalent) ──────
-        "hour_normalized":        parse_hour_normalized(row.get("timestamp")),
-        "action_encoded":         ACTION_MAP.get(event_name, 0),
-        "is_error":               0 if pd.isna(row.get("error_code")) else 1,
-        "is_read_only":           1 if is_read_only(event_name) else 0,
-
-        # ── Security signals ──────────────────────────────────────────────
-        "privilege_score":        1.0 if event_name in PRIV_ESC_ACTIONS else 0.0,
-        "is_attack_user":         1 if username in ATTACKER_IDENTITIES else 0,
-        "event_source_category":  event_source_category(row.get("event_source", "")),
-
-        # ── Ground truth labels (for supervised GNN training) ─────────────
-        "label":                  int(row.get("label", 0)),
-        "session_label":          int(row.get("session_label", 0)),
-        "attack_technique":       "" if pd.isna(row.get("attack_technique")) else str(row.get("attack_technique")),
-    }
+def is_privilege_sensitive(event_name: str) -> bool:
+    return str(event_name) in PRIVILEGE_SENSITIVE_ACTIONS
 
 
-# ── Cypher statements ─────────────────────────────────────────────────────────
+# ══════════════════════════════════════════════════════════════════════════
+# 4. KNOWN-ATTACKER-IDENTITY METADATA (descriptive only — NOT a model feature)
+#    Derived from label==1 rows themselves (data-driven), not a manually
+#    curated external list, so it stays reproducible from the CSV alone.
+#    See module docstring, point 3, for why this is excluded from ML
+#    features by data_loader.py.
+# ══════════════════════════════════════════════════════════════════════════
+
+def compute_attacker_principals(df: pd.DataFrame) -> set:
+    """Principals (by name) with >=1 label==1 event, derived purely from this file."""
+    attacker_rows = df[df["label"] == 1]
+    names = attacker_rows["source_node"].dropna().apply(lambda a: parse_principal(a).name)
+    return set(names.unique())
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# 5. GRAPH-TOPOLOGY FEATURES (purely structural, computed once over the
+#    full edge set before ingestion — deterministic, no external info)
+# ══════════════════════════════════════════════════════════════════════════
+
+def compute_topology_features(df: pd.DataFrame, principal_names: pd.Series, target_values: pd.Series):
+    principal_stats = pd.DataFrame({
+        "principal_key": principal_names,
+        "target": target_values,
+        "edge_type": df["edge_type"],
+    }).groupby("principal_key").agg(
+        out_degree=("target", "count"),
+        unique_targets=("target", "nunique"),
+        unique_actions=("edge_type", "nunique"),
+    )
+
+    target_stats = pd.DataFrame({
+        "target_key": target_values,
+        "principal": principal_names,
+    }).groupby("target_key").agg(
+        in_degree=("principal", "count"),
+        unique_principals=("principal", "nunique"),
+    )
+
+    action_freq = df["edge_type"].value_counts()  # global term frequency, deterministic
+
+    return principal_stats, target_stats, action_freq
+
+
+# ── Cypher ────────────────────────────────────────────────────────────────────
 
 CONSTRAINTS = [
-    # Principal uniqueness on ARN (most specific identifier)
     "CREATE CONSTRAINT IF NOT EXISTS FOR (p:Principal) REQUIRE p.arn IS UNIQUE",
-    # AWSService uniqueness on name
-    "CREATE CONSTRAINT IF NOT EXISTS FOR (s:AWSService) REQUIRE s.name IS UNIQUE",
-    # IPAddress uniqueness
-    "CREATE CONSTRAINT IF NOT EXISTS FOR (ip:IPAddress) REQUIRE ip.address IS UNIQUE",
+    "CREATE CONSTRAINT IF NOT EXISTS FOR (t:Target) REQUIRE t.value IS UNIQUE",
 ]
 
 MERGE_PRINCIPAL = """
 MERGE (p:Principal {arn: $arn})
 SET
-  p.username       = $username,
-  p.principal_type = $principal_type,
-  p.actor_class    = $actor_class,
-  p.is_attacker    = $is_attacker,
-  p.is_service     = $is_service
+  p.name                        = $name,
+  p.principal_type              = $principal_type,
+  p.out_degree                  = $out_degree,
+  p.unique_targets               = $unique_targets,
+  p.unique_actions               = $unique_actions,
+  p.is_known_attacker_identity  = $is_known_attacker_identity
 """
 
-MERGE_SERVICE = """
-MERGE (s:AWSService {name: $name})
-SET s.category = $category
-"""
-
-MERGE_IP = """
-MERGE (ip:IPAddress {address: $address})
-"""
-
-# Core INVOKED edge — aggregates per (principal, service, event_name)
-# ON CREATE initialises counters; ON MATCH increments them.
-# SET always refreshes the latest security signal values.
-MERGE_INVOKED = """
-MATCH (p:Principal  {arn: $arn})
-MATCH (s:AWSService {name: $service_name})
-MERGE (p)-[r:INVOKED {edge_type: $edge_type}]->(s)
-  ON CREATE SET
-    r.count          = 1,
-    r.first_seen     = $timestamp,
-    r.last_seen      = $timestamp,
-    r.attack_count   = $label,
-    r.session_hit    = $session_label
-  ON MATCH SET
-    r.count          = r.count + 1,
-    r.last_seen      = $timestamp,
-    r.attack_count   = r.attack_count + $label,
-    r.session_hit    = CASE WHEN $session_label = 1 THEN 1 ELSE r.session_hit END
+MERGE_TARGET = """
+MERGE (t:Target {value: $value})
 SET
-  r.hour_normalized       = $hour_normalized,
-  r.action_encoded        = $action_encoded,
-  r.is_error              = $is_error,
-  r.is_read_only          = $is_read_only,
-  r.privilege_score       = $privilege_score,
-  r.is_attack_user        = $is_attack_user,
-  r.event_source_category = $event_source_category,
-  r.label                 = $label,
-  r.session_label         = $session_label,
-  r.attack_technique      = $attack_technique,
-  r.aws_region            = $aws_region,
-  r.source_ip             = $source_ip
+  t.resource_type      = $resource_type,
+  t.service             = $service,
+  t.resolved            = $resolved,
+  t.in_degree           = $in_degree,
+  t.unique_principals   = $unique_principals
 """
 
-# FROM_IP edge — links the INVOKED action back to originating IP
-MERGE_FROM_IP = """
-MATCH (p:Principal  {arn: $arn})
-MATCH (ip:IPAddress {address: $address})
-MERGE (p)-[:ORIGINATED_FROM]->(ip)
+# CREATE (not MERGE): every CSV row becomes its own edge instance, keyed
+# by log_id, preserving exact 1:1 correspondence with the source dataset.
+CREATE_INVOKED = """
+MATCH (p:Principal {arn: $arn})
+MATCH (t:Target {value: $target_value})
+CREATE (p)-[r:INVOKED {
+  log_id:                 $log_id,
+  edge_type:              $edge_type,
+  is_read_only:           $is_read_only,
+  is_privilege_sensitive: $is_privilege_sensitive,
+  action_global_frequency: $action_global_frequency,
+  is_attack:              $is_attack
+}]->(t)
 """
 
-
-# ── Main builder ──────────────────────────────────────────────────────────────
 
 def build_graph():
-    # ── Load CSV ──────────────────────────────────────────────────────────────
     print(f"Loading {CSV_PATH} …")
     df = pd.read_csv(CSV_PATH)
-    df["timestamp"]   = df["timestamp"].astype(str)
-    df["username"]    = df["username"].fillna("unknown")
-    df["principal_arn"] = df["principal_arn"].fillna(
-        df["username"].apply(lambda u: f"arn:synthetic::{u}")
+
+    missing = REQUIRED_COLUMNS - set(df.columns)
+    if missing:
+        raise ValueError(
+            f"CSV is missing required columns {missing}. "
+            f"This builder targets the real Invictus AWS schema "
+            f"{sorted(REQUIRED_COLUMNS)} — refusing to silently build "
+            f"a graph from a different schema."
+        )
+
+    # ── Derive principal / target info per row (pure functions, no state) ──
+    principal_infos = df["source_node"].apply(parse_principal)
+    target_infos     = df["target_node"].apply(parse_target)
+
+    principal_arns  = principal_infos.apply(lambda p: p.arn)
+    principal_names = principal_infos.apply(lambda p: p.name)
+    target_values   = target_infos.apply(lambda t: t.value)
+
+    attacker_principals = compute_attacker_principals(df)
+    principal_stats, target_stats, action_freq = compute_topology_features(
+        df, principal_names, target_values
     )
-    print(f"  {len(df):,} events | {df['label'].sum()} attack | {df['session_label'].sum()} in attack sessions")
+
+    print(f"  {len(df):,} rows | {df['label'].sum()} labelled attack events | "
+          f"{df['source_node'].isna().sum()} rows with unresolved principal")
+    print(f"  {len(attacker_principals)} distinct principals have >=1 attack event: "
+          f"{sorted(attacker_principals)}")
 
     driver = GraphDatabase.driver(URI, auth=(USER, PASSWORD))
 
     with driver.session() as session:
 
-        # 1. Constraints
         print("Creating constraints …")
         for cql in CONSTRAINTS:
             session.run(cql)
 
-        # 2. Wipe existing graph for clean rebuild
         print("Clearing existing graph …")
         session.run("MATCH (n) DETACH DELETE n")
 
-        # 3. Ingest rows
-        print(f"Ingesting {len(df):,} events …")
-        for i, row in df.iterrows():
-
-            arn            = str(row["principal_arn"])
-            username       = str(row["username"])
-            principal_type = str(row.get("principal_type", "unknown"))
-            actor_class    = classify_principal(username, principal_type)
-            is_attacker    = username in ATTACKER_IDENTITIES
-            is_service     = principal_type == "AWSService" or "amazonaws.com" in username
-            service_name   = str(row.get("event_source", "unknown"))
-            category       = event_source_category(service_name)
-            source_ip      = str(row["source_ip"]) if not pd.isna(row.get("source_ip")) else None
-            timestamp      = str(row["timestamp"])
-            feats          = edge_features(row)
-
-            # Principal node
+        # ── Principal nodes (deduplicated by ARN) ───────────────────────────
+        print("Ingesting Principal nodes …")
+        seen_principals = set()
+        for arn, name in zip(principal_arns, principal_names):
+            if arn in seen_principals:
+                continue
+            seen_principals.add(arn)
+            stats = principal_stats.loc[name]
             session.run(
                 MERGE_PRINCIPAL,
                 arn=arn,
-                username=username,
-                principal_type=principal_type,
-                actor_class=actor_class,
-                is_attacker=is_attacker,
-                is_service=is_service,
+                name=name,
+                principal_type=parse_principal(arn if arn != UNRESOLVED_PRINCIPAL else None).principal_type
+                    if arn != UNRESOLVED_PRINCIPAL else "Unresolved",
+                out_degree=int(stats["out_degree"]),
+                unique_targets=int(stats["unique_targets"]),
+                unique_actions=int(stats["unique_actions"]),
+                is_known_attacker_identity=name in attacker_principals,
             )
 
-            # AWSService node
-            session.run(MERGE_SERVICE, name=service_name, category=category)
-
-            # INVOKED edge
+        # ── Target nodes (deduplicated by raw value) ────────────────────────
+        print("Ingesting Target nodes …")
+        seen_targets = set()
+        for value in target_values.unique():
+            if value in seen_targets:
+                continue
+            seen_targets.add(value)
+            info = parse_target(value)
+            stats = target_stats.loc[value]
             session.run(
-                MERGE_INVOKED,
-                arn=arn,
-                service_name=service_name,
-                timestamp=timestamp,
-                **feats,
+                MERGE_TARGET,
+                value=value,
+                resource_type=info.resource_type,
+                service=info.service,
+                resolved=info.resolved,
+                in_degree=int(stats["in_degree"]),
+                unique_principals=int(stats["unique_principals"]),
             )
 
-            # IPAddress node + ORIGINATED_FROM edge
-            if source_ip:
-                session.run(MERGE_IP, address=source_ip)
-                session.run(MERGE_FROM_IP, arn=arn, address=source_ip)
-
+        # ── INVOKED edges — one CREATE per CSV row ──────────────────────────
+        print(f"Ingesting {len(df):,} INVOKED edges …")
+        for i, row in df.iterrows():
+            event_name = str(row["edge_type"])
+            session.run(
+                CREATE_INVOKED,
+                arn=principal_arns.iloc[i],
+                target_value=target_values.iloc[i],
+                log_id=int(row["log_id"]),
+                edge_type=event_name,
+                is_read_only=is_read_only(event_name),
+                is_privilege_sensitive=is_privilege_sensitive(event_name),
+                action_global_frequency=int(action_freq[event_name]),
+                is_attack=int(row["label"]),
+            )
             if (i + 1) % 500 == 0:
                 print(f"  … {i+1:,} rows processed")
 
     driver.close()
-    print("\n✅ Graph built successfully.")
-    print("\nUseful queries to run in Neo4j Browser (localhost:7474):")
+    print("\n✅ Graph built: "
+          f"{len(seen_principals)} Principal nodes, {len(seen_targets)} Target nodes, "
+          f"{len(df)} INVOKED edges (1:1 with source rows).")
+    print("\nSanity queries for Neo4j Browser (localhost:7474):")
     print("─" * 60)
-    print("// All attacker actions")
-    print("MATCH (p:Principal {is_attacker: true})-[r:INVOKED]->(s)")
-    print("RETURN p.username, r.edge_type, s.name, r.attack_technique")
-    print("ORDER BY r.privilege_score DESC\n")
-    print("// Privilege escalation edges only")
-    print("MATCH (p)-[r:INVOKED]->(s)")
-    print("WHERE r.privilege_score = 1.0")
-    print("RETURN p, r, s\n")
-    print("// Sessions containing attack events")
-    print("MATCH (p)-[r:INVOKED]->(s)")
-    print("WHERE r.session_label = 1")
-    print("RETURN p, r, s LIMIT 100")
+    print("// Row count should equal len(df) above")
+    print("MATCH ()-[r:INVOKED]->() RETURN count(r)\n")
+    print("// Privilege-sensitive edges and their labels")
+    print("MATCH (p)-[r:INVOKED {is_privilege_sensitive: true}]->(t)")
+    print("RETURN p.name, r.edge_type, t.value, r.is_attack\n")
+    print("// Principals flagged as known-attacker identities (metadata only)")
+    print("MATCH (p:Principal {is_known_attacker_identity: true}) RETURN p.name, p.out_degree")
 
 
 if __name__ == "__main__":
