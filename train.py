@@ -6,19 +6,31 @@ Full training pipeline for:
   - GAT anomaly detector        (COMPARISON)
 
 Includes:
-  - Time-aware train/val/test split
+  - Reproducible edge split (stratified-random by default; principal-disjoint
+    available as a documented, high-variance alternative — see
+    data_loader.py). NO temporal-order split is offered, because this
+    dataset has no verified event ordering (see neo4j_graph_builder.py and
+    data_loader.py module docstrings).
   - Focal loss + weighted BCE (configurable)
   - Early stopping
   - Evaluation at each epoch (F1, AUC, confusion)
   - Model comparison table
   - Explainability via GNNExplainerWrapper + FeatureAblation
-  - Session-level LSTM hybrid demo
-  - Mini-batch path (NeighborLoader) for 100K+ edge graphs
+  - Mini-batch path (NeighborLoader) for scale-up beyond this dataset's
+    current ~2,900 edges
+
+NOTE: the session-level Hybrid SAGE+LSTM path from the previous version has
+been REMOVED from this training script. It required a `session_label` and
+a verified temporal ordering, neither of which exist in
+invictus_structural.csv (see utils.py `HybridSAGELSTM` docstring). The
+architecture is still defined in utils.py for use with a genuinely
+time-stamped dataset.
 
 Run:
     python3 train.py --model sage --epochs 100 --hidden 128 --loss focal
     python3 train.py --model gat  --epochs 100 --hidden 128 --loss focal
     python3 train.py --model both --epochs 100 --compare
+    python3 train.py --model both --split principal_disjoint --seed 7
 """
 
 from __future__ import annotations
@@ -28,7 +40,6 @@ import logging
 import os
 import time
 from copy import deepcopy
-from typing import Optional
 
 import torch
 import torch.nn as nn
@@ -38,7 +49,8 @@ from torch.optim.lr_scheduler import CosineAnnealingLR
 from data_loader import (
     CloudTrailGraphLoader,
     compute_class_weights,
-    time_aware_split,
+    principal_disjoint_split,
+    stratified_edge_split,
 )
 from model_gat import GATAnomalyDetector
 from model_graphsage import GraphSAGEAnomalyDetector
@@ -46,7 +58,6 @@ from utils import (
     FeatureAblation,
     FocalLoss,
     GNNExplainerWrapper,
-    HybridSAGELSTM,
     evaluate,
     print_comparison_table,
     print_confusion_matrix,
@@ -63,7 +74,7 @@ log = logging.getLogger(__name__)
 # ── Argument parsing ──────────────────────────────────────────────────────────
 
 def parse_args():
-    p = argparse.ArgumentParser(description="CloudTrail GNN Trainer")
+    p = argparse.ArgumentParser(description="Invictus-AWS Structural GNN Trainer")
     p.add_argument("--model",    choices=["sage", "gat", "both"], default="both")
     p.add_argument("--epochs",   type=int,   default=100)
     p.add_argument("--hidden",   type=int,   default=128)
@@ -74,10 +85,16 @@ def parse_args():
     p.add_argument("--compare",  action="store_true", help="Print comparison table")
     p.add_argument("--explain",  action="store_true", help="Run explainability")
     p.add_argument("--ablation", action="store_true", help="Run feature ablation")
-    p.add_argument("--hybrid",   action="store_true", help="Train SAGE+LSTM hybrid")
     p.add_argument("--threshold", type=float, default=0.5)
     p.add_argument("--patience", type=int,   default=15,
                    help="Early stopping patience (epochs without val F1 improvement)")
+    p.add_argument("--split",    choices=["stratified", "principal_disjoint"],
+                   default="stratified",
+                   help="stratified = random edge split preserving label ratio (default, "
+                        "no ordering assumption). principal_disjoint = entity-disjoint split "
+                        "for testing inductive generalisation; HIGH VARIANCE on this dataset "
+                        "(only 14 principals, 2 with attack edges) — see data_loader.py.")
+    p.add_argument("--seed",     type=int,   default=42, help="Split random seed")
     p.add_argument("--neo4j_uri",  default="bolt://localhost:7687")
     p.add_argument("--neo4j_user", default="neo4j")
     p.add_argument("--neo4j_pass", default="test1234")
@@ -89,14 +106,14 @@ def parse_args():
 # ── Model factory ─────────────────────────────────────────────────────────────
 
 def build_model(name: str, meta: dict, args) -> nn.Module:
-    p_feat   = meta["n_principal_feat"]
-    s_feat   = meta["n_service_feat"]
-    e_feat   = meta["edge_feat_dim"]
+    p_feat = meta["n_principal_feat"]
+    t_feat = meta["n_target_feat"]
+    e_feat = meta["edge_feat_dim"]
 
     if name == "sage":
         return GraphSAGEAnomalyDetector(
             principal_feat_dim=p_feat,
-            service_feat_dim=s_feat,
+            target_feat_dim=t_feat,
             edge_feat_dim=e_feat,
             hidden_dim=args.hidden,
             num_sage_layers=args.layers,
@@ -105,7 +122,7 @@ def build_model(name: str, meta: dict, args) -> nn.Module:
     elif name == "gat":
         return GATAnomalyDetector(
             principal_feat_dim=p_feat,
-            service_feat_dim=s_feat,
+            target_feat_dim=t_feat,
             edge_feat_dim=e_feat,
             hidden_dim=args.hidden,
             heads=4,
@@ -139,9 +156,6 @@ def train_model(
     args,
     pos_weight: torch.Tensor,
 ) -> dict:
-    """
-    Train one model. Returns test metrics dict.
-    """
     device   = torch.device(args.device)
     model    = model.to(device)
     criterion = build_loss(args.loss, pos_weight.to(device))
@@ -157,7 +171,8 @@ def train_model(
     ckpt_path = os.path.join(args.save_dir, f"best_{name}.pt")
 
     log.info("=" * 60)
-    log.info("Training %s | device=%s | loss=%s", name.upper(), args.device, args.loss)
+    log.info("Training %s | device=%s | loss=%s | split=%s | seed=%d",
+              name.upper(), args.device, args.loss, args.split, args.seed)
     log.info("=" * 60)
 
     for epoch in range(1, args.epochs + 1):
@@ -165,11 +180,9 @@ def train_model(
         model.train()
         optimizer.zero_grad()
 
-        # Forward pass (full-graph; see mini-batch note at bottom for 100K+)
         logits = model(data)
 
-        # Compute loss on training edges only
-        y_train = data["principal", "invoked", "awsservice"].y[train_mask].float()
+        y_train = data["principal", "invoked", "target"].y[train_mask].float()
         loss = criterion(logits[train_mask], y_train)
 
         loss.backward()
@@ -177,7 +190,6 @@ def train_model(
         optimizer.step()
         scheduler.step()
 
-        # ── Validation ────────────────────────────────────────────────────────
         if epoch % 5 == 0 or epoch == args.epochs:
             val_metrics = evaluate(model, data, val_mask, threshold=args.threshold)
             val_f1 = val_metrics["f1"]
@@ -200,7 +212,6 @@ def train_model(
                     log.info("Early stopping at epoch %d (patience=%d).", epoch, args.patience)
                     break
 
-    # ── Load best checkpoint & evaluate on test ───────────────────────────────
     if best_state is not None:
         model.load_state_dict(best_state)
         log.info("Loaded best checkpoint (val F1=%.4f)", best_val_f1)
@@ -239,73 +250,6 @@ def run_explainability(model, data, test_mask, args):
             print(f"  {feat:<30} {sign}{drop:.4f}  {bar}")
 
 
-# ── Hybrid SAGE + LSTM runner ─────────────────────────────────────────────────
-
-def run_hybrid(sage_model, data, train_mask, test_mask, args, pos_weight):
-    log.info("\n── Hybrid GraphSAGE + LSTM (session-level) ─────────────────")
-    device = torch.device(args.device)
-
-    hidden_dim   = args.hidden
-    edge_emb_dim = hidden_dim * 3    # from get_edge_embeddings
-
-    hybrid = HybridSAGELSTM(
-        sage_model=sage_model,
-        edge_embed_dim=edge_emb_dim,
-        lstm_hidden=64,
-        num_lstm_layers=2,
-        dropout=args.dropout,
-    ).to(device)
-
-    # Group edges into per-principal sessions
-    sessions = HybridSAGELSTM.group_edges_by_principal(data)
-    # Filter to training sessions (sessions that have at least one training edge)
-    train_idx_set = set(train_mask.nonzero(as_tuple=True)[0].tolist())
-
-    session_edge_seqs = []
-    session_labels    = []
-
-    edge_attr = data["principal", "invoked", "awsservice"]
-    y_session = edge_attr.y_session
-
-    for principal_idx, edge_indices in sessions.items():
-        # Keep only edges in train_mask for training sessions
-        train_edges = [e for e in edge_indices if e in train_idx_set]
-        if not train_edges:
-            continue
-        session_edge_seqs.append(torch.tensor(train_edges, device=device))
-        # Session label = 1 if ANY edge is session_label=1
-        sess_lbl = int(y_session[train_edges].max().item())
-        session_labels.append(sess_lbl)
-
-    if not session_edge_seqs:
-        log.warning("No training sessions found — skipping hybrid training.")
-        return
-
-    sess_label_tensor = torch.tensor(session_labels, dtype=torch.float, device=device)
-    pos_w_sess = (sess_label_tensor == 0).sum() / (sess_label_tensor == 1).sum().clamp(min=1)
-    criterion  = nn.BCEWithLogitsLoss(pos_weight=pos_w_sess)
-    opt        = optim.AdamW(hybrid.parameters(), lr=args.lr, weight_decay=1e-4)
-
-    log.info(
-        "Hybrid training | sessions=%d | attack_sessions=%d",
-        len(session_labels), sum(session_labels)
-    )
-
-    for epoch in range(1, min(args.epochs, 50) + 1):
-        hybrid.train()
-        opt.zero_grad()
-        logits = hybrid(data, session_edge_seqs)
-        loss   = criterion(logits, sess_label_tensor)
-        loss.backward()
-        opt.step()
-        if epoch % 10 == 0:
-            preds = (torch.sigmoid(logits) >= 0.5).long()
-            acc   = (preds == sess_label_tensor.long()).float().mean()
-            log.info("Hybrid epoch %3d | loss=%.4f | session_acc=%.4f", epoch, loss.item(), acc.item())
-
-    log.info("Hybrid training complete.")
-
-
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 def main():
@@ -320,22 +264,29 @@ def main():
     )
     data, meta = loader.load()
 
-    # Store feature dims in meta for model construction
     meta["n_principal_feat"] = data["principal"].x.shape[1]
-    meta["n_service_feat"]   = data["awsservice"].x.shape[1]
+    meta["n_target_feat"]    = data["target"].x.shape[1]
 
     log.info("Edge feature dim: %d", meta["edge_feat_dim"])
-    log.info("Principal feat dim: %d | Service feat dim: %d",
-             meta["n_principal_feat"], meta["n_service_feat"])
+    log.info("Principal feat dim: %d | Target feat dim: %d",
+             meta["n_principal_feat"], meta["n_target_feat"])
+    log.info("%d principals flagged as known-attacker identities (metadata only, "
+             "NOT a model feature — see data_loader.py docstring): %s",
+             sum(meta["attacker_identity_by_arn"].values()),
+             [k for k, v in meta["attacker_identity_by_arn"].items() if v])
 
     # ── 2. Train/val/test split ───────────────────────────────────────────────
-    train_mask, val_mask, test_mask = time_aware_split(data)
+    if args.split == "stratified":
+        train_mask, val_mask, test_mask = stratified_edge_split(data, seed=args.seed)
+    else:
+        train_mask, val_mask, test_mask = principal_disjoint_split(data, meta, seed=args.seed)
+
     train_mask = train_mask.to(device)
     val_mask   = val_mask.to(device)
     test_mask  = test_mask.to(device)
 
     # ── 3. Class imbalance weight ─────────────────────────────────────────────
-    y_train    = data["principal", "invoked", "awsservice"].y[train_mask]
+    y_train    = data["principal", "invoked", "target"].y[train_mask]
     pos_weight = compute_class_weights(y_train).to(device)
 
     # ── 4. Train models ───────────────────────────────────────────────────────
@@ -354,9 +305,6 @@ def main():
 
         if args.explain:
             run_explainability(sage_model, data, test_mask, args)
-
-        if args.hybrid:
-            run_hybrid(sage_model, data, train_mask, test_mask, args, pos_weight)
 
     if args.model in ("gat", "both"):
         gat_model  = build_model("gat", meta, args)
@@ -392,18 +340,13 @@ def _print_recommendation(sage: dict, gat: dict):
 
 # ── Mini-batch scaling note ───────────────────────────────────────────────────
 """
-SCALING TO 100K+ EDGES
-────────────────────────
-The full-graph forward pass above works well up to ~50K edges.
-For larger graphs, switch to NeighborLoader:
-
+SCALING BEYOND THIS DATASET'S ~2,900 EDGES
+─────────────────────────────────────────────
     from torch_geometric.loader import NeighborLoader
 
     loader = NeighborLoader(
         data,
-        num_neighbors={
-            ("principal", "invoked", "awsservice"): [15, 10],
-        },
+        num_neighbors={("principal", "invoked", "target"): [15, 10]},
         batch_size=512,
         input_nodes=("principal", train_principal_mask),
     )
@@ -411,18 +354,10 @@ For larger graphs, switch to NeighborLoader:
     for batch in loader:
         batch   = batch.to(device)
         logits  = model(batch)
-        # batch contains the sampled subgraph; labels/masks are preserved
-        mask    = batch["principal","invoked","awsservice"].input_id
-        y_batch = batch["principal","invoked","awsservice"].y
+        mask    = batch["principal", "invoked", "target"].input_id
+        y_batch = batch["principal", "invoked", "target"].y
         loss    = criterion(logits, y_batch.float())
         ...
-
-Neighbourhood sampling:
-  num_neighbors=[15, 10] means:
-    Layer 1: sample up to 15 neighbours for each node
-    Layer 2: sample up to 10 neighbours for each of THOSE nodes
-  Memory: O(batch_size × 15 × 10) instead of O(N²)
-  This is the core scalability advantage of GraphSAGE.
 """
 
 
