@@ -3,37 +3,41 @@ model_graphsage.py
 ==================
 PRIMARY MODEL — GraphSAGE for edge-level attack detection.
 
+Node types renamed to match the redesigned schema (see neo4j_graph_builder.py
+and data_loader.py): "principal" and "target" (was "awsservice" — renamed
+because target_node in the real dataset is not always a clean AWS service
+identifier; see neo4j_graph_builder.py module docstring, point 5).
+
 Why GraphSAGE for AWS CloudTrail?
 ──────────────────────────────────
 1. INDUCTIVE LEARNING
    GraphSAGE learns an *aggregation function* over neighbours rather than
-   memorising node-specific embeddings.  New IAM principals or AWS services
-   that appear after training (common in growing cloud environments) get
-   meaningful embeddings by aggregating over their 1-hop neighbourhood —
-   no retraining required.
+   memorising node-specific embeddings.  New IAM principals or targets
+   that appear after training get meaningful embeddings by aggregating
+   over their 1-hop neighbourhood — no retraining required.
 
-2. UNSEEN PRINCIPALS / SERVICES
-   Cloud accounts constantly spin up new roles and services (Lambda, ECS
-   tasks, etc.).  Transductive models (GCN, basic GNN) fail on these.
-   GraphSAGE handles them out-of-the-box.
+2. UNSEEN PRINCIPALS / TARGETS
+   Cloud accounts constantly spin up new roles and resources. Transductive
+   models (GCN, basic GNN) fail on these. GraphSAGE handles them
+   out-of-the-box. NOTE: this dataset has only 14 distinct principals, so
+   an entity-disjoint evaluation of this property is high-variance here —
+   see `principal_disjoint_split` in data_loader.py for the documented
+   caveat.
 
 3. LARGE-SCALE AWS GRAPHS
    GraphSAGE uses neighbourhood sampling: instead of full-graph message
    passing (O(N²)), it samples a fixed number of neighbours per layer,
-   making it linear in the number of sampled edges.  This scales to
-   100 K+ CloudTrail events without memory issues.
+   making it linear in the number of sampled edges.
 
 Edge Feature Integration Strategy
 ───────────────────────────────────
-GraphSAGE is node-centric; edges carry the richest signals here
-(privilege_score, action_encoded, is_error …).
+GraphSAGE is node-centric; edges carry `is_read_only`,
+`is_privilege_sensitive`, `action_global_frequency_log`, and the
+label-encoded `edge_type` (see data_loader.py EDGE_NUM_COLS/EDGE_CAT_COLS).
 
 We use a TWO-STAGE approach:
-  Stage 1 — EdgeConditionalAggregation
-    An MLP transforms each edge's feature vector and ADDS it to the
-    source node's representation before neighbourhood aggregation.
-    This is equivalent to edge-conditioned message passing.
-
+  Stage 1 — EdgeConditionalAggregation (not used by default here; SAGEConv
+    aggregates node features only, edge features are reserved for Stage 2)
   Stage 2 — EdgeClassifier head
     After two SAGEConv layers produce node embeddings h_u and h_v,
     the INVOKED edge representation is:
@@ -88,14 +92,14 @@ class GraphSAGEEncoder(nn.Module):
         AGG = MEAN({ h_v : v ∈ N(p) })    (SAGEConv default = mean)
         h_p_new = MLP( concat(h_p, AGG) )
 
-      This means an attacker role's embedding will be influenced by
-      the AWS services it called — providing structural context for
-      anomaly detection beyond individual API calls.
+      This means an attacker-linked identity's embedding will be
+      influenced by the resources it targeted — providing structural
+      context for anomaly detection beyond individual API calls.
     """
 
     def __init__(
         self,
-        in_channels_dict: dict,   # {"principal": F_p, "awsservice": F_s}
+        in_channels_dict: dict,   # {"principal": F_p, "target": F_t}
         hidden_dim: int = 128,
         num_layers: int = 2,
         dropout: float  = 0.3,
@@ -103,13 +107,11 @@ class GraphSAGEEncoder(nn.Module):
         super().__init__()
         self.hidden_dim = hidden_dim
 
-        # Per-node-type input projections (handles different feature dims)
         self.input_proj = nn.ModuleDict({
             ntype: nn.Linear(fdim, hidden_dim)
             for ntype, fdim in in_channels_dict.items()
         })
 
-        # SAGEConv layers (applied to each node type via to_hetero)
         self.convs = nn.ModuleList([
             SAGEConv(hidden_dim, hidden_dim, aggr="mean", normalize=True)
             for _ in range(num_layers)
@@ -125,38 +127,22 @@ class GraphSAGEEncoder(nn.Module):
         edge_index_dict: dict,
         edge_offset_dict: dict | None = None,
     ) -> dict:
-        """
-        Parameters
-        ----------
-        x_dict          : {ntype: [N, F]} node features
-        edge_index_dict : {(src,rel,dst): [2, E]}
-        edge_offset_dict: pre-computed edge→node offsets (optional)
-
-        Returns
-        -------
-        h_dict : {ntype: [N, hidden_dim]} node embeddings
-        """
-        # Input projection
         h_dict = {
             ntype: F.gelu(self.input_proj[ntype](x))
             for ntype, x in x_dict.items()
         }
 
-        # Message passing layers
         for conv, norm in zip(self.convs, self.norms):
             new_h = {}
             for (src_type, rel, dst_type), edge_index in edge_index_dict.items():
                 src_h = h_dict[src_type]
                 dst_h = h_dict[dst_type]
-                # SAGEConv expects (x_src, x_dst) for bipartite graphs
                 out = conv((src_h, dst_h), edge_index)
-                # Accumulate (a dst node may receive messages from multiple rels)
                 if dst_type in new_h:
                     new_h[dst_type] = new_h[dst_type] + out
                 else:
                     new_h[dst_type] = out
 
-            # Residual + norm + dropout
             h_dict = {
                 ntype: self.dropout(
                     norm(h_dict[ntype] + new_h.get(ntype, torch.zeros_like(h_dict[ntype])))
@@ -172,11 +158,6 @@ class GraphSAGEEncoder(nn.Module):
 class EdgeClassifierHead(nn.Module):
     """
     Combines (h_src, h_dst, edge_attr_projected) → attack logit.
-
-    The edge feature projection is the key design choice:
-      raw edge features (privilege_score, action_encoded, …) are projected
-      to hidden_dim and CONCATENATED with node embeddings before classification.
-      This ensures no edge signal is discarded.
     """
 
     def __init__(
@@ -189,7 +170,6 @@ class EdgeClassifierHead(nn.Module):
         super().__init__()
         self.edge_proj = EdgeMLP(edge_feat_dim, hidden_dim, dropout=dropout)
 
-        # Concatenate: h_src(128) + h_dst(128) + edge_proj(128) = 384
         concat_dim = hidden_dim * 3
 
         self.classifier = nn.Sequential(
@@ -200,40 +180,29 @@ class EdgeClassifierHead(nn.Module):
             nn.Linear(hidden_dim, hidden_dim // 2),
             nn.GELU(),
             nn.Dropout(dropout),
-            nn.Linear(hidden_dim // 2, 1),   # binary output
+            nn.Linear(hidden_dim // 2, 1),
         )
 
     def forward(
         self,
-        h_src: torch.Tensor,    # [E, hidden_dim]
-        h_dst: torch.Tensor,    # [E, hidden_dim]
-        edge_attr: torch.Tensor # [E, edge_feat_dim]
+        h_src: torch.Tensor,
+        h_dst: torch.Tensor,
+        edge_attr: torch.Tensor,
     ) -> torch.Tensor:
         edge_emb = self.edge_proj(edge_attr)
-        combined = torch.cat([h_src, h_dst, edge_emb], dim=-1)  # [E, 3*hidden]
-        return self.classifier(combined).squeeze(-1)             # [E]
+        combined = torch.cat([h_src, h_dst, edge_emb], dim=-1)
+        return self.classifier(combined).squeeze(-1)
 
 
 # ── Full GraphSAGE model ──────────────────────────────────────────────────────
 
 class GraphSAGEAnomalyDetector(nn.Module):
-    """
-    Full edge-level anomaly detector using GraphSAGE.
-
-    Forward pass:
-      1. Encode nodes via GraphSAGEEncoder (message-passing)
-      2. For each INVOKED edge (src, dst):
-            gather h_src, h_dst
-      3. Concatenate with projected edge_attr
-      4. MLP classifier → logit
-
-    Training objective: BCEWithLogitsLoss (pos_weight handles imbalance)
-    """
+    """Full edge-level anomaly detector using GraphSAGE over (Principal, Target)."""
 
     def __init__(
         self,
         principal_feat_dim: int,
-        service_feat_dim:   int,
+        target_feat_dim:    int,
         edge_feat_dim:      int,
         hidden_dim:         int = 128,
         num_sage_layers:    int = 2,
@@ -243,8 +212,8 @@ class GraphSAGEAnomalyDetector(nn.Module):
 
         self.encoder = GraphSAGEEncoder(
             in_channels_dict={
-                "principal":  principal_feat_dim,
-                "awsservice": service_feat_dim,
+                "principal": principal_feat_dim,
+                "target":    target_feat_dim,
             },
             hidden_dim=hidden_dim,
             num_layers=num_sage_layers,
@@ -258,75 +227,62 @@ class GraphSAGEAnomalyDetector(nn.Module):
         )
 
     def forward(self, data: HeteroData) -> torch.Tensor:
-        """
-        Returns raw logits [E] for the INVOKED edges.
-        Apply sigmoid for probabilities; use BCEWithLogitsLoss during training.
-        """
-        # ── 1. Node embeddings ────────────────────────────────────────────────
         x_dict = {
-            "principal":  data["principal"].x,
-            "awsservice": data["awsservice"].x,
+            "principal": data["principal"].x,
+            "target":    data["target"].x,
         }
         edge_index_dict = {
-            ("principal", "invoked", "awsservice"):
-                data["principal", "invoked", "awsservice"].edge_index
+            ("principal", "invoked", "target"):
+                data["principal", "invoked", "target"].edge_index
         }
         h_dict = self.encoder(x_dict, edge_index_dict)
 
-        # ── 2. Gather per-edge node embeddings ────────────────────────────────
-        edge_index = data["principal", "invoked", "awsservice"].edge_index  # [2, E]
-        edge_attr  = data["principal", "invoked", "awsservice"].edge_attr   # [E, F]
+        edge_index = data["principal", "invoked", "target"].edge_index
+        edge_attr  = data["principal", "invoked", "target"].edge_attr
 
-        h_src = h_dict["principal"][edge_index[0]]    # [E, hidden_dim]
-        h_dst = h_dict["awsservice"][edge_index[1]]   # [E, hidden_dim]
+        h_src = h_dict["principal"][edge_index[0]]
+        h_dst = h_dict["target"][edge_index[1]]
 
-        # ── 3. Classify ───────────────────────────────────────────────────────
-        logits = self.head(h_src, h_dst, edge_attr)   # [E]
+        logits = self.head(h_src, h_dst, edge_attr)
         return logits
-
-    # ── Embedding extraction (for explainability / LSTM hybrid) ──────────────
 
     @torch.no_grad()
     def get_edge_embeddings(self, data: HeteroData) -> torch.Tensor:
         """Returns the pre-classification edge embeddings [E, 3*hidden_dim]."""
         x_dict = {
-            "principal":  data["principal"].x,
-            "awsservice": data["awsservice"].x,
+            "principal": data["principal"].x,
+            "target":    data["target"].x,
         }
         edge_index_dict = {
-            ("principal", "invoked", "awsservice"):
-                data["principal", "invoked", "awsservice"].edge_index
+            ("principal", "invoked", "target"):
+                data["principal", "invoked", "target"].edge_index
         }
         h_dict     = self.encoder(x_dict, edge_index_dict)
-        edge_index = data["principal", "invoked", "awsservice"].edge_index
-        edge_attr  = data["principal", "invoked", "awsservice"].edge_attr
+        edge_index = data["principal", "invoked", "target"].edge_index
+        edge_attr  = data["principal", "invoked", "target"].edge_attr
 
         h_src    = h_dict["principal"][edge_index[0]]
-        h_dst    = h_dict["awsservice"][edge_index[1]]
+        h_dst    = h_dict["target"][edge_index[1]]
         edge_emb = self.head.edge_proj(edge_attr)
-        return torch.cat([h_src, h_dst, edge_emb], dim=-1)  # [E, 3*hidden]
+        return torch.cat([h_src, h_dst, edge_emb], dim=-1)
 
-
-# ── Mini-batch compatible wrapper ─────────────────────────────────────────────
 
 class GraphSAGEWithSampling(GraphSAGEAnomalyDetector):
     """
-    Thin wrapper that works with NeighborLoader mini-batches.
-    The underlying model is unchanged; this class documents the recommended
-    mini-batch usage for graphs with 100K+ edges.
+    Thin wrapper documenting the recommended mini-batch usage for graphs
+    with 100K+ edges (not needed at this dataset's current 2,900-edge scale,
+    kept for scale-up).
 
-    Usage (in train.py):
         from torch_geometric.loader import NeighborLoader
         loader = NeighborLoader(
             data,
-            num_neighbors=[15, 10],   # sample 15 neighbours per layer
+            num_neighbors=[15, 10],
             batch_size=512,
             edge_label_index=(
-                ("principal","invoked","awsservice"),
-                data["principal","invoked","awsservice"].edge_index,
+                ("principal", "invoked", "target"),
+                data["principal", "invoked", "target"].edge_index,
             ),
             input_nodes=("principal", train_principal_mask),
         )
-    The sampled subgraph is a valid HeteroData — pass it directly to forward().
     """
     pass
