@@ -672,9 +672,9 @@ STRUCT_FIELDS = ["log_id", "source_node", "target_node", "edge_type", "label"]
 TEMP_FIELDS = ["log_id", "username", "timestamp"] + TEMPORAL_COLS + ["label"]
 
 DATA_DIR = "datasets/privilege-escalation"
-DEFAULT_INPUT = os.path.join(DATA_DIR, "invictus_enriched.csv")
-STRUCT_OUT = os.path.join(DATA_DIR, "invictus_structural.csv")
-TEMPORAL_OUT = os.path.join(DATA_DIR, "invictus_temporal.csv")
+DEFAULT_INPUT = os.path.join(DATA_DIR, "synthetic_cloudtrail.csv")
+STRUCT_OUT = os.path.join(DATA_DIR, "cloudtrail_structural.csv")
+TEMPORAL_OUT = os.path.join(DATA_DIR, "cloudtrail_temporal.csv")
 STATE_FILE = os.path.join(DATA_DIR, ".feature_engine8_state.json")
 EVENT_NAME_VOCAB_FILE = os.path.join(DATA_DIR, ".event_name_vocab.json")
 STATE_TRACKER_FILE = os.path.join(DATA_DIR, ".state_tracker.json")
