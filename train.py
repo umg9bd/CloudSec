@@ -1,30 +1,33 @@
 """
-train.py
-========
+train.py  (v3 — Privilege Propagation Graph)
+===============================================
 Full training pipeline for:
   - GraphSAGE anomaly detector (PRIMARY)
   - GAT anomaly detector        (COMPARISON)
+over the heterogeneous Privilege Propagation Graph (6 node types, up to
+20 populated (src_type, relation, dst_type) edge triples).
 
-Includes:
-  - Reproducible edge split (stratified-random by default; principal-disjoint
-    available as a documented, high-variance alternative — see
-    data_loader.py). NO temporal-order split is offered, because this
-    dataset has no verified event ordering (see neo4j_graph_builder.py and
-    data_loader.py module docstrings).
-  - Focal loss + weighted BCE (configurable)
-  - Early stopping
-  - Evaluation at each epoch (F1, AUC, confusion)
-  - Model comparison table
-  - Explainability via GNNExplainerWrapper + FeatureAblation
-  - Mini-batch path (NeighborLoader) for scale-up beyond this dataset's
-    current ~2,900 edges
-
-NOTE: the session-level Hybrid SAGE+LSTM path from the previous version has
-been REMOVED from this training script. It required a `session_label` and
-a verified temporal ordering, neither of which exist in
-invictus_structural.csv (see utils.py `HybridSAGELSTM` docstring). The
-architecture is still defined in utils.py for use with a genuinely
-time-stamped dataset.
+WHAT CHANGED FROM v2 AND WHY
+─────────────────────────────────────────────────────────────────────────
+- Loader: CloudTrailGraphLoader -> PrivilegePropagationGraphLoader (the
+  class was renamed when the graph became heterogeneous; this import was
+  actually broken in the codebase until this file was updated — verified
+  via grep before starting this rewrite).
+- Masks are now dicts ({triple: BoolTensor}), not single tensors, because
+  a heterogeneous graph has no single edge_index to mask. All mask
+  handling here goes through data_loader.py's global_labels /
+  flatten_mask_dict so training/evaluation still operate on one flat
+  vector under the hood.
+- build_model() now passes `node_feat_dims` (a dict, one entry per node
+  type) and `edge_types` (the list of populated triples) instead of two
+  fixed feature-dimension integers — required because HeteroConv needs
+  every relation declared at construction time (see
+  model_graphsage.py's docstring).
+- Explainability now uses explainability.py's EdgeExplainer (real PyG
+  GNNExplainer path + a verified gradient fallback) instead of utils.py's
+  old GNNExplainerWrapper placeholder.
+- The session-level --hybrid path is gone (see utils.py's docstring for
+  why — no verified session/temporal signal exists in this dataset).
 
 Run:
     python3 train.py --model sage --epochs 100 --hidden 128 --loss focal
@@ -47,17 +50,18 @@ import torch.optim as optim
 from torch.optim.lr_scheduler import CosineAnnealingLR
 
 from data_loader import (
-    CloudTrailGraphLoader,
+    PrivilegePropagationGraphLoader,
     compute_class_weights,
+    flatten_mask_dict,
+    global_labels,
     principal_disjoint_split,
     stratified_edge_split,
 )
 from model_gat import GATAnomalyDetector
 from model_graphsage import GraphSAGEAnomalyDetector
+from explainability import EdgeExplainer, FeatureAblation, TargetEdge
 from utils import (
-    FeatureAblation,
     FocalLoss,
-    GNNExplainerWrapper,
     evaluate,
     print_comparison_table,
     print_confusion_matrix,
@@ -74,7 +78,7 @@ log = logging.getLogger(__name__)
 # ── Argument parsing ──────────────────────────────────────────────────────────
 
 def parse_args():
-    p = argparse.ArgumentParser(description="Invictus-AWS Structural GNN Trainer")
+    p = argparse.ArgumentParser(description="Privilege Propagation Graph GNN Trainer")
     p.add_argument("--model",    choices=["sage", "gat", "both"], default="both")
     p.add_argument("--epochs",   type=int,   default=100)
     p.add_argument("--hidden",   type=int,   default=128)
@@ -84,6 +88,10 @@ def parse_args():
     p.add_argument("--loss",     choices=["focal", "bce"], default="focal")
     p.add_argument("--compare",  action="store_true", help="Print comparison table")
     p.add_argument("--explain",  action="store_true", help="Run explainability")
+    p.add_argument("--explain_method", choices=["gradient", "gnnexplainer"], default="gradient",
+                   help="gradient = verified autograd method (default). gnnexplainer = real PyG "
+                        "Explainer/GNNExplainer path — verify against your installed PyG version "
+                        "first, see explainability.py module docstring.")
     p.add_argument("--ablation", action="store_true", help="Run feature ablation")
     p.add_argument("--threshold", type=float, default=0.5)
     p.add_argument("--patience", type=int,   default=15,
@@ -93,7 +101,8 @@ def parse_args():
                    help="stratified = random edge split preserving label ratio (default, "
                         "no ordering assumption). principal_disjoint = entity-disjoint split "
                         "for testing inductive generalisation; HIGH VARIANCE on this dataset "
-                        "(only 14 principals, 2 with attack edges) — see data_loader.py.")
+                        "(only 13 principal-side identities, 2 with attack edges) — see "
+                        "data_loader.py's principal_disjoint_split docstring.")
     p.add_argument("--seed",     type=int,   default=42, help="Split random seed")
     p.add_argument("--neo4j_uri",  default="bolt://localhost:7687")
     p.add_argument("--neo4j_user", default="neo4j")
@@ -106,14 +115,14 @@ def parse_args():
 # ── Model factory ─────────────────────────────────────────────────────────────
 
 def build_model(name: str, meta: dict, args) -> nn.Module:
-    p_feat = meta["n_principal_feat"]
-    t_feat = meta["n_target_feat"]
-    e_feat = meta["edge_feat_dim"]
+    node_feat_dims = meta["node_feat_dim"]        # {ntype: dim}
+    edge_types     = meta["populated_triples"]    # [(src,rel,dst), ...]
+    e_feat         = meta["edge_feat_dim"]
 
     if name == "sage":
         return GraphSAGEAnomalyDetector(
-            principal_feat_dim=p_feat,
-            target_feat_dim=t_feat,
+            node_feat_dims=node_feat_dims,
+            edge_types=edge_types,
             edge_feat_dim=e_feat,
             hidden_dim=args.hidden,
             num_sage_layers=args.layers,
@@ -121,8 +130,8 @@ def build_model(name: str, meta: dict, args) -> nn.Module:
         )
     elif name == "gat":
         return GATAnomalyDetector(
-            principal_feat_dim=p_feat,
-            target_feat_dim=t_feat,
+            node_feat_dims=node_feat_dims,
+            edge_types=edge_types,
             edge_feat_dim=e_feat,
             hidden_dim=args.hidden,
             heads=4,
@@ -147,25 +156,30 @@ def build_loss(loss_name: str, pos_weight: torch.Tensor) -> nn.Module:
 # ── Single model training loop ────────────────────────────────────────────────
 
 def train_model(
-    name:       str,
-    model:      nn.Module,
+    name:        str,
+    model:       nn.Module,
     data,
-    train_mask: torch.Tensor,
-    val_mask:   torch.Tensor,
-    test_mask:  torch.Tensor,
+    train_masks: dict,
+    val_masks:   dict,
+    test_masks:  dict,
     args,
-    pos_weight: torch.Tensor,
+    pos_weight:  torch.Tensor,
 ) -> dict:
-    device   = torch.device(args.device)
-    model    = model.to(device)
+    device    = torch.device(args.device)
+    model     = model.to(device)
     criterion = build_loss(args.loss, pos_weight.to(device))
 
     optimizer = optim.AdamW(model.parameters(), lr=args.lr, weight_decay=1e-4)
     scheduler = CosineAnnealingLR(optimizer, T_max=args.epochs, eta_min=1e-5)
 
-    best_val_f1   = -1.0
-    best_state    = None
-    patience_ctr  = 0
+    # Precompute the flat label vector and the flat train mask ONCE — both
+    # are pure functions of `data`/`train_masks` and don't change per epoch.
+    y_full          = torch.tensor(global_labels(data), dtype=torch.long, device=device)
+    train_flat_mask = flatten_mask_dict(data, train_masks).to(device)
+
+    best_val_f1  = -1.0
+    best_state   = None
+    patience_ctr = 0
 
     os.makedirs(args.save_dir, exist_ok=True)
     ckpt_path = os.path.join(args.save_dir, f"best_{name}.pt")
@@ -180,10 +194,10 @@ def train_model(
         model.train()
         optimizer.zero_grad()
 
-        logits = model(data)
+        logits = model(data)  # flat, ordered by sorted(data.edge_types)
 
-        y_train = data["principal", "invoked", "target"].y[train_mask].float()
-        loss = criterion(logits[train_mask], y_train)
+        y_train = y_full[train_flat_mask].float()
+        loss = criterion(logits[train_flat_mask], y_train)
 
         loss.backward()
         nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
@@ -191,7 +205,7 @@ def train_model(
         scheduler.step()
 
         if epoch % 5 == 0 or epoch == args.epochs:
-            val_metrics = evaluate(model, data, val_mask, threshold=args.threshold)
+            val_metrics = evaluate(model, data, val_masks, threshold=args.threshold)
             val_f1 = val_metrics["f1"]
 
             log.info(
@@ -217,7 +231,7 @@ def train_model(
         log.info("Loaded best checkpoint (val F1=%.4f)", best_val_f1)
 
     log.info("\nFinal TEST evaluation — %s", name.upper())
-    test_metrics = evaluate(model, data, test_mask, threshold=args.threshold)
+    test_metrics = evaluate(model, data, test_masks, threshold=args.threshold)
     print_confusion_matrix(test_metrics["confusion"])
 
     return test_metrics
@@ -225,29 +239,33 @@ def train_model(
 
 # ── Explainability runner ─────────────────────────────────────────────────────
 
-def run_explainability(model, data, test_mask, args):
-    log.info("\n── Explainability ──────────────────────────────────────────")
+def run_explainability(model, data, test_masks, args):
+    log.info("\n── Explainability (%s) ─────────────────────────────────────", args.explain_method)
 
-    explainer = GNNExplainerWrapper(model)
+    explainer = EdgeExplainer(model, method=args.explain_method)
     log.info("Top-5 highest-confidence attack predictions on test set:")
-    top_k = explainer.explain_top_k(data, test_mask, k=5)
+    top_k = explainer.explain_top_k(data, test_masks, k=5)
 
-    for edge_idx, feat_map in top_k.items():
-        prob = torch.sigmoid(model(data)[edge_idx]).item()
-        print(f"\n  Edge {edge_idx}  |  pred_prob={prob:.4f}")
+    for target, feat_map in top_k.items():
+        # data[triple].log_id is a plain list of opaque strings (see
+        # data_loader.py) — indexing it already gives a str, so no
+        # .item() (that's a torch.Tensor/numpy-scalar method, and would
+        # raise AttributeError on a str).
+        log_id = data[target.triple].log_id[target.local_index]
+        print(f"\n  {target.triple} #{target.local_index}  (log_id={log_id})")
         for feat_name, importance in list(feat_map.items())[:5]:
             bar = "█" * int(importance * 40)
-            print(f"    {feat_name:<30} {importance:.3f}  {bar}")
+            print(f"    {feat_name:<35} {importance:.3f}  {bar}")
 
     if args.ablation:
         log.info("\n── Feature Ablation ────────────────────────────────────────")
         ablation = FeatureAblation(model)
-        results  = ablation.run(data, test_mask)
-        print("\nFeature Ablation (F1 drop when zeroed):")
+        results  = ablation.run(data, test_masks, evaluate)
+        print("\nFeature Ablation (F1 drop when zeroed, across all relations at once):")
         for feat, drop in list(results.items())[:10]:
             bar = "█" * max(0, int(drop * 200))
             sign = "+" if drop > 0 else ""
-            print(f"  {feat:<30} {sign}{drop:.4f}  {bar}")
+            print(f"  {feat:<35} {sign}{drop:.4f}  {bar}")
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────
@@ -258,36 +276,32 @@ def main():
     log.info("Device: %s", device)
 
     # ── 1. Load data ──────────────────────────────────────────────────────────
-    loader = CloudTrailGraphLoader(
+    loader = PrivilegePropagationGraphLoader(
         uri=args.neo4j_uri, user=args.neo4j_user, password=args.neo4j_pass,
         device=args.device,
     )
     data, meta = loader.load()
 
-    meta["n_principal_feat"] = data["principal"].x.shape[1]
-    meta["n_target_feat"]    = data["target"].x.shape[1]
-
-    log.info("Edge feature dim: %d", meta["edge_feat_dim"])
-    log.info("Principal feat dim: %d | Target feat dim: %d",
-             meta["n_principal_feat"], meta["n_target_feat"])
+    log.info("Node counts: %s", meta["node_counts"])
+    log.info("Populated (src,rel,dst) triples: %d | edge_feat_dim: %d",
+             len(meta["populated_triples"]), meta["edge_feat_dim"])
     log.info("%d principals flagged as known-attacker identities (metadata only, "
              "NOT a model feature — see data_loader.py docstring): %s",
-             sum(meta["attacker_identity_by_arn"].values()),
-             [k for k, v in meta["attacker_identity_by_arn"].items() if v])
+             sum(meta["attacker_identity_by_key"].values()),
+             [k for k, v in meta["attacker_identity_by_key"].items() if v])
 
     # ── 2. Train/val/test split ───────────────────────────────────────────────
     if args.split == "stratified":
-        train_mask, val_mask, test_mask = stratified_edge_split(data, seed=args.seed)
+        train_masks, val_masks, test_masks = stratified_edge_split(data, seed=args.seed)
     else:
-        train_mask, val_mask, test_mask = principal_disjoint_split(data, meta, seed=args.seed)
+        train_masks, val_masks, test_masks = principal_disjoint_split(data, seed=args.seed)
 
-    train_mask = train_mask.to(device)
-    val_mask   = val_mask.to(device)
-    test_mask  = test_mask.to(device)
+    train_masks = {t: m.to(device) for t, m in train_masks.items()}
+    val_masks   = {t: m.to(device) for t, m in val_masks.items()}
+    test_masks  = {t: m.to(device) for t, m in test_masks.items()}
 
     # ── 3. Class imbalance weight ─────────────────────────────────────────────
-    y_train    = data["principal", "invoked", "target"].y[train_mask]
-    pos_weight = compute_class_weights(y_train).to(device)
+    pos_weight = compute_class_weights(data, train_masks).to(device)
 
     # ── 4. Train models ───────────────────────────────────────────────────────
     results = {}
@@ -299,12 +313,12 @@ def main():
 
         sage_metrics = train_model(
             "GraphSAGE", sage_model, data,
-            train_mask, val_mask, test_mask, args, pos_weight
+            train_masks, val_masks, test_masks, args, pos_weight
         )
         results["GraphSAGE"] = sage_metrics
 
         if args.explain:
-            run_explainability(sage_model, data, test_mask, args)
+            run_explainability(sage_model, data, test_masks, args)
 
     if args.model in ("gat", "both"):
         gat_model  = build_model("gat", meta, args)
@@ -313,7 +327,7 @@ def main():
 
         gat_metrics = train_model(
             "GAT", gat_model, data,
-            train_mask, val_mask, test_mask, args, pos_weight
+            train_masks, val_masks, test_masks, args, pos_weight
         )
         results["GAT"] = gat_metrics
 
@@ -336,29 +350,6 @@ def _print_recommendation(sage: dict, gat: dict):
         print("     Consider GAT if the graph is bounded and latency allows.")
         print("     GraphSAGE still preferred for new-principal robustness.")
     print()
-
-
-# ── Mini-batch scaling note ───────────────────────────────────────────────────
-"""
-SCALING BEYOND THIS DATASET'S ~2,900 EDGES
-─────────────────────────────────────────────
-    from torch_geometric.loader import NeighborLoader
-
-    loader = NeighborLoader(
-        data,
-        num_neighbors={("principal", "invoked", "target"): [15, 10]},
-        batch_size=512,
-        input_nodes=("principal", train_principal_mask),
-    )
-
-    for batch in loader:
-        batch   = batch.to(device)
-        logits  = model(batch)
-        mask    = batch["principal", "invoked", "target"].input_id
-        y_batch = batch["principal", "invoked", "target"].y
-        loss    = criterion(logits, y_batch.float())
-        ...
-"""
 
 
 if __name__ == "__main__":
