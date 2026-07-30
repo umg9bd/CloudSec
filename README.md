@@ -113,9 +113,3 @@ Alerts are written into the alerts directory as JSON.
 -   Explainable blast radius
 -   Consistent preprocessing between training and inference
 
-## Future Work
-
--   Temporal GNNs
--   GAT comparison
--   Continual learning
--   Dashboard visualization
