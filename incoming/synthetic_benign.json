@@ -1,0 +1,34 @@
+{
+  "eventVersion": "1.09",
+  "userIdentity": {
+    "type": "IAMUser",
+    "principalId": "AIDA7EXAMPLE123456789",
+    "arn": "arn:aws:iam::325967135271:user/john.doe",
+    "accountId": "325967135271",
+    "accessKeyId": "AKIAIOSFODNN7EXAMPLE",
+    "userName": "john.doe"
+  },
+  "eventTime": "2026-07-30T15:42:18Z",
+  "eventSource": "iam.amazonaws.com",
+  "eventName": "ListAttachedRolePolicies",
+  "awsRegion": "us-east-1",
+  "sourceIPAddress": "192.168.10.25",
+  "userAgent": "aws-cli/2.17.0 Python/3.12",
+  "requestParameters": {
+    "roleName": "ReadOnlyApplicationRole"
+  },
+  "responseElements": {
+    "attachedPolicies": [
+      {
+        "policyName": "ReadOnlyAccess",
+        "policyArn": "arn:aws:iam::aws:policy/ReadOnlyAccess"
+      }
+    ]
+  },
+  "requestID": "4c0db3b1-2c5e-47d8-a5d7-ec8a7b7f0d11",
+  "eventID": "7f24d3c8-9e8d-4c5d-b63f-1c9e8f45dabc",
+  "readOnly": true,
+  "managementEvent": true,
+  "recipientAccountId": "325967135271",
+  "eventCategory": "Management"
+}
