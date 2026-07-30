@@ -40,20 +40,17 @@ GraphSAGE
 ## Why GraphSAGE?
 
 -   Inductive learning for unseen AWS entities
--   Efficient neighborhood sampling
+-   Efficient neighborhood sampling by prioritising edges with higher probability as attack in the sample
 -   Streaming inference without retraining
 -   Scales to continuously growing graphs
 -   Works naturally with heterogeneous IAM graphs
 
 ## Training Pipeline
-
-1.  Parse CloudTrail logs.
-2.  Engineer temporal, structural and privilege features.
-3.  Build Neo4j graph.
-4.  Convert to PyTorch Geometric HeteroData.
-5.  Fit scalers and label encoders.
-6.  Train GraphSAGE.
-7.  Save checkpoint.
+ Build Neo4j graph.
+ Convert to PyTorch Geometric HeteroData.
+ Fit scalers and label encoders.
+ Train GraphSAGE.
+ Save checkpoint.
 
 ## Streaming Inference
 
@@ -100,6 +97,7 @@ python infer.py   --checkpoint checkpoints/best_sage_wrapped.pt   --watch incomi
 
 
 ```
+Insert json logs into incoming directory to get real time prediction of the action performed 
 
 ## Outputs
 
