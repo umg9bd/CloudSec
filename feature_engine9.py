@@ -1,71 +1,10 @@
 """
-feature_engine9.py
-===================
-Adds per-node graph attributes to the structural (GNN triples) output,
-computed incrementally as each event streams through -- no change to the
-temporal branch, no new dataset needed.
-
-New columns on cloudtrail_structural.csv (one row per event/edge, same as
-fe8), all derived from the acting principal's (source_node's) event
-history so far:
-
-  - source_node_degree          running count of edges touching this
-                                 principal (both as source and target)
-  - edge_interaction_count      running count of this exact
-                                 (source_node, target_node) pair
-  - source_node_age_normalized  time since this principal's first-ever
-                                 event, capped at 1 day -> [0, 1]
-  - source_privilege_level      0-4 tier (ReadOnly..Root), a running MAX
-                                 per principal -- inferred from principal_type
-                                 plus the same policy signals fe7/fe8 already
-                                 parse (wildcard actions, AdministratorAccess-
-                                 style policyArn, AssumeRole/PassRole). Not a
-                                 raw log field: CloudTrail (and AWS itself)
-                                 has no "current privilege level" field, so
-                                 this is a heuristic, same spirit as
-                                 action_risk_prior/principal_type_prior_risk.
-  - source_historical_risk      EWMA of action_risk_prior per principal
-  - target_resource_criticality static hand-scored lookup on
-                                 event_source/target_resource (same style as
-                                 the existing action_map/principal_risk_prior
-                                 hand-tuned priors)
-  - is_cross_account            1 if the principal's AWS account (parsed out
-                                 of principal_arn) differs from the trail's
-                                 recipientAccountId (real CloudTrail JSON) --
-                                 or, when that field isn't present (this
-                                 project's synthetic CSV), from whichever
-                                 account has been seen most often so far
-
-See GraphNodeTracker below for the implementation and persistence.
-
-Deliberately NOT added here: reachable-asset counts, privilege escalation
-depth, cross-service reachability, lateral movement score, shortest attack
-path, blast-radius/propagation score. Those all require traversing the
-*whole* graph (BFS/shortest-path/reachability), not just the current event,
-so they can't be computed correctly -- or cheaply -- inside a one-event-at-
-a-time streaming engine. They belong in a separate downstream "Blast Radius
-Engine" that reads the structural CSV (or graph_node_state.json) after
-enough of the graph has accumulated, not here.
-
-fe8's design (unchanged, still in effect): the JSON/CSV ingestion, the
-event_name/event_source/principal_type vocab indices, StateTracker's
-velocity/session tracking, the policy/permission parsing, the read_only/
-mfa_authenticated absence-vs-false distinction, and the temporal branch's
-feature set (TEMPORAL_COLS) are all carried over as-is. See feature_engine8.py
-for that history.
-
 Run:
     python feature_engine9.py
         One-shot batch over synthetic_cloudtrail.csv.
 
     python feature_engine9.py --watch incoming/ [--simulate]
         Same watch-folder mode as fe6-fe8.
-
-NOTE: cloudtrail_structural.csv's column layout changed (7 new columns).
-Delete any existing cloudtrail_structural.csv before the first fe9 run --
-_check_output_schema will refuse to append mismatched rows otherwise.
-cloudtrail_temporal.csv's schema is unchanged, so it does NOT need to be
-deleted.
 """
 
 import argparse
@@ -127,20 +66,11 @@ def normalize_cloudtrail_row(row):
     session_context = user_identity.get('sessionContext') or {}
     session_attributes = session_context.get('attributes') or {}
 
-    # For AssumedRole/FederatedUser events, userIdentity.arn is suffixed with
-    # a unique session name (e.g. .../EC2_Service_Role/i-0abc123), so it's
-    # different on every session. sessionIssuer.arn is the stable underlying
-    # role ARN and is what should identify the principal across sessions --
-    # falling back to userIdentity.arn only for principal types (IAMUser,
-    # Root) that don't have a sessionIssuer at all.
     session_issuer = session_context.get('sessionIssuer') or {}
     principal_arn = row.get('principal_arn') or session_issuer.get('arn') or user_identity.get('arn')
     principal_type = row.get('principal_type') or user_identity.get('type') or 'Unknown'
 
-    # Same stability concern as principal_arn: for AssumedRole/FederatedUser
-    # events userIdentity.userName is usually absent, so fall back to the
-    # role name off sessionIssuer.arn (the human/service identity that
-    # actually owns the role), then to the tail of principal_arn itself.
+   
     username = row.get('username') or user_identity.get('userName') or session_issuer.get('userName')
     if not username and principal_arn:
         username = principal_arn.rsplit('/', 1)[-1]
@@ -161,8 +91,7 @@ def normalize_cloudtrail_row(row):
             if isinstance(first_resource, dict):
                 target_resource = first_resource.get('ARN') or first_resource.get('arn') or first_resource.get('name')
 
-    # read_only / mfa_authenticated: kept as None when genuinely absent from
-    # the source log, instead of defaulting to a guessed value -- see fe8.
+    
     read_only = _absent_or_present(row.get('read_only'))
     if read_only is None:
         read_only = _absent_or_present(row.get('readOnly'))
@@ -171,10 +100,6 @@ def normalize_cloudtrail_row(row):
     if mfa_authenticated is None:
         mfa_authenticated = _absent_or_present(session_attributes.get('mfaAuthenticated'))
 
-    # recipientAccountId is the account a real CloudTrail trail belongs to --
-    # present at the top level of real CloudTrail JSON, absent from this
-    # project's synthetic CSV. Used as the authoritative "home account" for
-    # is_cross_account when available (see GraphNodeTracker.cross_account_flag).
     recipient_account_id = row.get('recipient_account_id') or row.get('recipientAccountId')
 
     normalized = {
@@ -214,12 +139,6 @@ def iter_input_rows(input_path):
                     break
             infile.seek(pos)
 
-            # A real CloudTrail file delivered to S3 is ONE JSON object shaped
-            # like {"Records": [...]}, not a top-level array -- so both '{'
-            # and '[' need to attempt the whole-document parse. If the file is
-            # actually NDJSON (one object per line), json.load() will fail
-            # with "Extra data" once it hits the second line's worth of
-            # content, and we fall back to line-by-line parsing below.
             if first_non_ws in ('{', '['):
                 try:
                     payload = json.load(infile)
@@ -233,7 +152,7 @@ def iter_input_rows(input_path):
                     elif isinstance(payload, list):
                         rows = payload
                     else:
-                        rows = [payload]  # single raw event object, no wrapper
+                        rows = [payload]  # single raw event object
 
                     if isinstance(rows, list):
                         for row in rows:
@@ -257,40 +176,20 @@ def iter_input_rows(input_path):
         for row in reader:
             yield normalize_cloudtrail_row(row)
 
-
-# ── Vocabularies for categorical -> index encoding (for a future embedding
-#    layer) ─────────────────────────────────────────────────────────────────
-
 UNK_TOKEN = "<UNK>"
 
-# AWS's actual documented userIdentity.type values. Fixed/closed: anything
-# not on this list (there shouldn't be anything) maps to <UNK> rather than
-# growing the vocab, since this is a small, AWS-defined enum.
 FIXED_PRINCIPAL_TYPES = [
     UNK_TOKEN, "Root", "IAMUser", "AssumedRole", "FederatedUser",
     "AWSAccount", "AWSService", "SAMLUser", "WebIdentityUser", "Unknown",
 ]
 
-# Scoped to the services this project's Stratus Red Team techniques and
-# background traffic actually touch (see stratus_collection/stratus_techniques.py),
-# not all ~300 AWS service endpoints. Fixed/closed with <UNK> fallback.
 FIXED_EVENT_SOURCES = [
     UNK_TOKEN, "iam.amazonaws.com", "sts.amazonaws.com", "ec2.amazonaws.com",
     "s3.amazonaws.com", "secretsmanager.amazonaws.com", "ssm.amazonaws.com",
     "cloudtrail.amazonaws.com", "lambda.amazonaws.com", "kms.amazonaws.com",
 ]
 
-
 class VocabIndex:
-    """Maps categorical string values to stable integer indices.
-
-    Fixed vocabs (growable=False) never add new entries -- unseen values
-    map to <UNK>. Growable vocabs (event_name) start from a persisted JSON
-    file and append newly-seen values, so indices stay stable across runs.
-    Once a model is trained against a growable vocab file, stop growing it
-    (or the embedding table size drifts out from under the trained model).
-    """
-
     def __init__(self, fixed_tokens=None, path=None):
         self.path = path
         self.growable = fixed_tokens is None
@@ -340,14 +239,6 @@ def _extract_statements(policy_doc):
 
 
 def parse_policy_features(request_params_raw):
-    """Returns (statement_count, has_wildcard_action, has_wildcard_resource,
-    privileged_action_reach) parsed from a request's policy-bearing params.
-
-    Handles both real CloudTrail's nested policyDocument/
-    assumeRolePolicyDocument JSON (with real Statement/Action/Resource) and
-    this project's synthetic data, which instead just attaches a
-    policyArn (often literally .../AdministratorAccess) with no nested doc.
-    """
     params = _parse_json_text(request_params_raw)
     if not isinstance(params, dict):
         return 0, 0, 0, 0.0
@@ -394,10 +285,6 @@ DEFAULT_RESOURCE_CRITICALITY = 2
 
 
 def get_resource_criticality(event_source, target_resource):
-    """Static, hand-scored criticality per resource -- same style as the
-    existing action_map/principal_risk_prior hand-tuned priors. Computed
-    once per event; a downstream Blast Radius Engine reads this instead of
-    re-deriving criticality from event_source/target_resource itself."""
     source = (event_source or '').lower()
     target = str(target_resource or '').lower()
 
@@ -413,15 +300,9 @@ def get_resource_criticality(event_source, target_resource):
         return 1
     return DEFAULT_RESOURCE_CRITICALITY
 
-
 PRIVILEGE_TIERS = {"ReadOnly": 0, "Developer": 1, "PowerUser": 2, "Admin": 3, "Root": 4}
 
-
 def derive_privilege_signal(principal_type, is_write_action, wildcard_action, privileged_reach):
-    """One event's evidence about its principal's privilege tier -- fed into
-    GraphNodeTracker's running MAX per principal. CloudTrail only shows
-    permission grants as they happen, so a principal's inferred tier can
-    only climb as escalating events are observed, never silently regress."""
     if principal_type == 'Root':
         return PRIVILEGE_TIERS['Root']
     if wildcard_action or privileged_reach >= 1.0:
@@ -444,27 +325,6 @@ def _extract_account_id(arn):
 
 
 class GraphNodeTracker:
-    """Tracks per-node graph attributes (degree, age, privilege level,
-    historical risk) and per-edge interaction counts, incrementally -- one
-    CloudTrail event at a time, the same streaming pattern StateTracker
-    already uses for velocity/session state.
-
-    These are exactly the attributes flagged as cheap/streamable (Node
-    Degree, Edge Interaction Count, Node Age, Privilege Level, Historical
-    Risk, Cross-Account Flag) -- as opposed to graph-traversal features
-    (reachability, shortest attack path, blast radius), which need the
-    whole graph and belong in a separate downstream Blast Radius Engine.
-
-    Note: degree is tracked for every node this project's graph touches
-    (principals AND resources), even though the structural CSV only
-    surfaces source_node_degree per row -- a resource's degree is still
-    available in the persisted state file for that future Blast Radius
-    Engine to read directly, without re-deriving it.
-
-    Persisted to `path` so a --watch restart doesn't reset every node back
-    to "brand new" (same reasoning as StateTracker/VocabIndex).
-    """
-
     EWMA_ALPHA = 0.3  # weight on the newest risk sample
     NODE_AGE_CAP_SECONDS = 86400.0  # normalize node age against 1 day
 
@@ -521,9 +381,6 @@ class GraphNodeTracker:
         return node
 
     def record_edge(self, source_node, target_node, current_ts, event_risk, privilege_signal):
-        """Updates degree/age/interaction-count/risk/privilege for one
-        CloudTrail event, and returns the snapshot values to attach to
-        that event's structural row."""
         source = self._touch_node(source_node, current_ts)
         self._touch_node(target_node, current_ts)  # target's degree also grows
 
@@ -554,9 +411,6 @@ class GraphNodeTracker:
         if recipient_account_id:
             return 1 if account_id != recipient_account_id else 0
 
-        # Fallback for sources without a trail-level account id (e.g. this
-        # project's synthetic CSV): treat whichever account has been seen
-        # most often so far as "home", flag anything else as cross-account.
         home_account = max(self.account_id_counts, key=self.account_id_counts.get)
         return 1 if account_id != home_account else 0
 
@@ -568,21 +422,9 @@ def _parse_timestamp(timestamp_str):
         return datetime.fromisoformat(timestamp_str.replace('Z', '+00:00'))
     return datetime.strptime(timestamp_str, "%Y-%m-%d %H:%M:%S%z")  # 2026-03-31 10:00:00+0000
 
-
 SESSION_GAP_SECONDS = 1800  # inactivity gap that starts a new session
 
-
 class StateTracker:
-    """Tracks historical + session behavior to detect Privilege Escalation
-    and Velocity (both single-hop and session-level).
-
-    Persisted to `path` (like VocabIndex) so a watch-mode restart doesn't
-    reset every principal's velocity/session state back to "brand new" --
-    without this, action_velocity/is_new_action/session_duration_normalized
-    would all silently reset to their first-ever-seen values on restart,
-    even mid-session for a principal that had been active for hours.
-    """
-
     def __init__(self, path=None):
         self.path = path
         self.user_registry = {}
@@ -848,21 +690,12 @@ TEMPORAL_COLS = [
     "policy_statement_count_normalized", "has_wildcard_action",
     "has_wildcard_resource", "privileged_action_reach",
 ]
-
-# fe9: 7 new per-node/per-edge graph attribute columns, appended after the
-# fe8 struct fields -- see the module docstring for what each one means and
-# why the graph-traversal ("blast radius") features are NOT here.
 GRAPH_ATTR_FIELDS = [
     "source_node_degree", "edge_interaction_count", "source_node_age_normalized",
     "source_privilege_level", "source_historical_risk",
     "target_resource_criticality", "is_cross_account",
 ]
 STRUCT_FIELDS = ["log_id", "source_node", "target_node", "edge_type", "label"] + GRAPH_ATTR_FIELDS
-
-# username/timestamp are raw (not normalized-to-[0,1]) metadata, not model
-# input features -- they're here so a downstream script can group by
-# username and build sliding windows over timestamp without having to
-# re-join against the structural CSV or the original input file.
 TEMP_FIELDS = ["log_id", "username", "timestamp"] + TEMPORAL_COLS + ["label"]
 
 DATA_DIR = "datasets/privilege-escalation"
@@ -875,14 +708,12 @@ STATE_TRACKER_FILE = os.path.join(DATA_DIR, ".state_tracker.json")
 GRAPH_NODE_STATE_FILE = os.path.join(DATA_DIR, ".graph_node_state.json")
 
 # ── Fast-lane: defense-evasion actions that get an immediate alert ───────────
-# (subset of action_map's DEFENSE EVASION tier -- MITRE ATT&CK for Cloud)
 CRITICAL_ACTIONS = {
     "StopLogging":     "CloudTrail logging disabled",
     "DeleteTrail":     "CloudTrail trail deleted",
     "UpdateDetector":  "GuardDuty detector reconfigured/disabled",
     "DeleteFlowLogs":  "VPC flow logs deleted",
 }
-
 
 def fast_lane_alert(row) -> None:
     """Fires the instant a defense-evasion action is seen, ahead of the
@@ -927,27 +758,6 @@ def _check_output_schema(path, expected_fields):
 
 
 def _rewrite_temporal_sorted(new_rows) -> None:
-    """Keeps cloudtrail_temporal.csv globally sorted by (username,
-    timestamp), not just in file-arrival order.
-
-    CloudTrail doesn't guarantee event order within a single delivered log
-    file, let alone across files -- and in --watch mode, files can land out
-    of chronological order. A downstream sliding-window/LSTM script needs to
-    group by username and walk events in order, so that invariant is
-    maintained here rather than left for every consumer to re-sort.
-
-    Re-sorts the whole file on every batch (existing rows + new rows). Fine
-    at this project's data scale (thousands of rows); a high-volume
-    production stream would want a merge step or an external sort instead.
-
-    Written to a .tmp file in the same directory and then os.replace()'d
-    into place, rather than truncating cloudtrail_temporal.csv directly --
-    os.replace is atomic on both POSIX and Windows, so a crash mid-rewrite
-    leaves either the old complete file or the new complete file, never a
-    half-written one. (The append-only STRUCT_OUT doesn't need this: losing
-    the tail of an in-progress append only risks the single row being
-    written, not the whole file's history.)
-    """
     existing_rows = []
     if os.path.exists(TEMPORAL_OUT):
         with open(TEMPORAL_OUT, encoding='utf-8') as f:
