@@ -110,4 +110,3 @@ Alerts are written into the alerts directory as JSON.
 -   Inductive GNN
 -   Explainable blast radius
 -   Consistent preprocessing between training and inference
-
