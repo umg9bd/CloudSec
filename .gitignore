@@ -1,0 +1,15 @@
+.venv
+
+# Stratus Red Team collection - never commit credentials, and raw
+# compressed CloudTrail exports are redundant with the organized JSON
+# under stratus_own_runs/CloudTrail (which IS meant to be committed).
+.aws/
+**/stratus_collection/raw_s3/
+*.pem
+*_rsa
+credentials.json
+__pycache__/
+*.pyc
+
+# OS junk
+.DS_Store

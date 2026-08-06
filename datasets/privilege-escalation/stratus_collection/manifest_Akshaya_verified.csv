@@ -1,0 +1,47 @@
+run_id,collector,aws_account,technique_id,tactic,rep_index,start_ts_utc,end_ts_utc,warmup_status,detonate_status,revert_status,cleanup_status,expected_events,notes,logs_confirmed,matched_event_count
+dda18147-1ed2-43e9-b5ab-f15428da13c3,akshaya,261390480702,aws.persistence.iam-create-user-login-profile,persistence,2,2026-07-10T11:19:57.721148+00:00,2026-07-10T11:21:43.069785+00:00,ok,ok,ok,ok,CreateLoginProfile,,yes,2
+33372aa6-9b08-4ee3-bc0a-e1974986c24f,akshaya,261390480702,aws.privilege-escalation.iam-update-user-login-profile,privilege-escalation,1,2026-07-10T11:21:43.071681+00:00,2026-07-10T11:28:33.346969+00:00,ok,ok,ok,ok,UpdateLoginProfile,,yes,1
+7016eaaa-e7a7-4e06-aa98-848626b62a1a,akshaya,261390480702,aws.credential-access.ssm-retrieve-securestring-parameters,credential-access,1,2026-07-10T11:28:33.351500+00:00,2026-07-10T11:38:15.714194+00:00,ok,ok,ok,ok,DescribeParameters;GetParameters,,yes,222
+133467c6-c849-4b6b-8876-fc0309cfdec8,akshaya,261390480702,aws.persistence.iam-backdoor-user,persistence,2,2026-07-10T11:38:15.716188+00:00,2026-07-10T11:39:13.789721+00:00,ok,ok,ok,ok,CreateAccessKey,,yes,1
+b724e6bc-1bd3-44d6-bd72-d412d93e8b23,akshaya,261390480702,aws.persistence.iam-create-backdoor-role,persistence,3,2026-07-10T11:39:13.793440+00:00,2026-07-10T11:45:35.301773+00:00,ok,ok,ok,ok,CreateRole;AttachRolePolicy,,yes,3
+37fd1920-7610-41d3-91dc-ae32d3d79803,akshaya,261390480702,aws.credential-access.secretsmanager-retrieve-secrets,credential-access,3,2026-07-10T11:45:35.302923+00:00,2026-07-10T11:46:57.091532+00:00,ok,ok,ok,ok,ListSecrets;GetSecretValue,,yes,122
+e8eb1964-52eb-4dd5-a592-f365b3eb1426,akshaya,261390480702,aws.persistence.iam-create-user-login-profile,persistence,3,2026-07-10T11:46:57.093385+00:00,2026-07-10T11:47:58.736487+00:00,ok,ok,ok,ok,CreateLoginProfile,,yes,1
+a8c19d42-b76c-44b6-af83-bde28638bd60,akshaya,261390480702,aws.credential-access.secretsmanager-retrieve-secrets,credential-access,2,2026-07-10T11:47:58.738367+00:00,2026-07-10T11:49:31.751166+00:00,ok,ok,ok,ok,ListSecrets;GetSecretValue,,yes,122
+e5d45bcd-dea1-42d1-9a1c-8e20afe91ef5,akshaya,261390480702,aws.defense-evasion.cloudtrail-event-selectors,defense-evasion,3,2026-07-10T11:49:31.753289+00:00,2026-07-10T11:50:39.621093+00:00,ok,ok,ok,ok,PutEventSelectors,,yes,2
+8f274a95-aca6-447e-b086-a25bad5cdc14,akshaya,261390480702,aws.persistence.lambda-backdoor-function,persistence,2,2026-07-10T11:50:39.624298+00:00,2026-07-10T12:06:17.517762+00:00,FAILED,,,FAILED - MANUAL CHECK NEEDED,AddPermission20150331v2,"warmup: mbda"":
+  24: resource ""aws_iam_role"" ""lambda"" {
+
+
+Error: Error uploading object to S3 bucket (stratus-red-team-backdoor-f-bucket-ahuyctlngp): RequestError: send request failed
+caused by: Put ""https://stratus-red-team-backdoor-f-bucket-ahuyctlngp.s3.amazonaws.com/index.zip"": read tcp 192.168.1.11:58946->16.15.191.115:443: read: connection reset by peer
+
+  with aws_s3_bucket_object.code,
+  on main.tf line 54, in resource ""aws_s3_bucket_object"" ""code"":
+  54: resource ""aws_s3_bucket_object"" ""code"" { | cleanup: ----------------------------------------------+--------+
+| ID                                       | NAME                                                   | STATUS |
++------------------------------------------+--------------------------------------------------------+--------+
+| aws.persistence.lambda-backdoor-function | Backdoor Lambda Function Through Resource-Based Policy | COLD   |
++------------------------------------------+--------------------------------------------------------+--------+",yes,1
+bdf148bc-b721-4626-b454-a13ed8f95960,akshaya,261390480702,aws.credential-access.ssm-retrieve-securestring-parameters,credential-access,2,2026-07-10T12:06:17.518950+00:00,2026-07-10T12:09:58.075947+00:00,ok,ok,ok,ok,DescribeParameters;GetParameters,,yes,185
+1db14c8e-c5f1-49f5-b7d1-86490b28dd96,akshaya,261390480702,aws.defense-evasion.cloudtrail-stop,defense-evasion,2,2026-07-10T12:09:58.080970+00:00,2026-07-10T12:11:23.347432+00:00,ok,ok,ok,ok,StopLogging,,yes,2
+d746600f-5a89-4c3a-9cce-1c5e82bdf549,akshaya,261390480702,aws.defense-evasion.cloudtrail-event-selectors,defense-evasion,1,2026-07-10T12:11:23.349654+00:00,2026-07-10T12:12:50.471078+00:00,ok,ok,ok,ok,PutEventSelectors,,yes,2
+0fb46289-1494-4761-a26d-2e78cdc40a6b,akshaya,261390480702,aws.credential-access.ec2-get-password-data,credential-access,3,2026-07-10T12:12:50.473066+00:00,2026-07-10T12:14:17.023437+00:00,ok,ok,ok,ok,AssumeRole;GetPasswordData,,yes,33
+a06af423-0472-4769-8291-ccbb899c2334,akshaya,261390480702,aws.persistence.iam-create-admin-user,persistence,3,2026-07-10T12:14:17.025711+00:00,2026-07-10T12:15:15.006509+00:00,ok,ok,ok,ok,CreateUser;AttachUserPolicy,,yes,3
+03cbf9df-f16d-4a70-9e71-5a75db09433b,akshaya,261390480702,aws.persistence.lambda-backdoor-function,persistence,1,2026-07-10T12:15:15.007256+00:00,2026-07-10T12:16:46.174992+00:00,ok,ok,ok,ok,AddPermission20150331v2,,yes,1
+6467cfac-fca2-49ec-b260-4b942fccd61e,akshaya,261390480702,aws.defense-evasion.cloudtrail-stop,defense-evasion,3,2026-07-10T12:16:46.176665+00:00,2026-07-10T12:18:07.143362+00:00,ok,ok,ok,ok,StopLogging,,yes,2
+c8998335-f5c1-4700-ab41-0020eb0b4b0f,akshaya,261390480702,aws.privilege-escalation.iam-update-user-login-profile,privilege-escalation,3,2026-07-10T12:18:07.146086+00:00,2026-07-10T12:34:05.776777+00:00,ok,ok,ok,ok,UpdateLoginProfile,,yes,1
+7bf688b8-0791-4343-94e3-2739fbd9c48e,akshaya,261390480702,aws.credential-access.secretsmanager-retrieve-secrets,credential-access,1,2026-07-10T12:34:05.778628+00:00,2026-07-10T12:49:21.253462+00:00,ok,ok,ok,ok,ListSecrets;GetSecretValue,,yes,61
+34b66b33-06bb-4df2-8429-6e8a8ae202df,akshaya,261390480702,aws.credential-access.ec2-get-password-data,credential-access,2,2026-07-10T12:49:21.257026+00:00,2026-07-10T12:50:34.034654+00:00,ok,ok,ok,ok,AssumeRole;GetPasswordData,,yes,33
+b4edc82f-f076-4d31-9145-78bd1eca4ee0,akshaya,261390480702,aws.persistence.iam-create-admin-user,persistence,2,2026-07-10T12:50:34.036720+00:00,2026-07-10T12:51:06.978668+00:00,ok,ok,ok,ok,CreateUser;AttachUserPolicy,,yes,2
+45549545-2e73-498d-8d6e-00969d1d09d5,akshaya,261390480702,aws.persistence.lambda-backdoor-function,persistence,3,2026-07-10T12:51:06.980203+00:00,2026-07-10T13:04:39.229474+00:00,ok,ok,ok,ok,AddPermission20150331v2,,yes,1
+8f3c2e75-b4f4-44f0-874a-37f6574bb32b,akshaya,261390480702,aws.persistence.iam-backdoor-user,persistence,1,2026-07-10T13:04:39.231923+00:00,2026-07-10T13:05:50.939061+00:00,ok,ok,ok,ok,CreateAccessKey,,yes,3
+32235d30-5754-4ee7-8149-50e7c5e12b74,akshaya,261390480702,aws.persistence.iam-create-backdoor-role,persistence,1,2026-07-10T13:05:50.941582+00:00,2026-07-10T13:06:31.422047+00:00,ok,ok,ok,ok,CreateRole;AttachRolePolicy,,yes,5
+51802367-8cd9-4137-a03a-bc9361ccfb08,akshaya,261390480702,aws.persistence.iam-backdoor-user,persistence,3,2026-07-10T13:06:31.422411+00:00,2026-07-10T13:07:30.869299+00:00,ok,ok,ok,ok,CreateAccessKey,,yes,3
+52a3447a-6f69-49a2-ac1b-8f707160ddef,akshaya,261390480702,aws.defense-evasion.cloudtrail-stop,defense-evasion,1,2026-07-10T13:07:30.871458+00:00,2026-07-10T13:08:56.633620+00:00,ok,ok,ok,ok,StopLogging,,yes,1
+d7dce615-66be-4cc6-a9f2-f083de6e68f9,akshaya,261390480702,aws.credential-access.ssm-retrieve-securestring-parameters,credential-access,3,2026-07-10T13:08:56.635469+00:00,2026-07-10T13:10:54.049535+00:00,ok,ok,ok,ok,DescribeParameters;GetParameters,,yes,184
+141a862a-b6b8-47f9-a983-5de32b6bd240,akshaya,261390480702,aws.persistence.iam-create-admin-user,persistence,1,2026-07-10T13:10:54.053924+00:00,2026-07-10T13:11:35.603244+00:00,ok,ok,ok,ok,CreateUser;AttachUserPolicy,,yes,6
+b9c5a1ce-0599-46ce-aeef-74e953c893f4,akshaya,261390480702,aws.privilege-escalation.iam-update-user-login-profile,privilege-escalation,2,2026-07-10T13:11:35.603702+00:00,2026-07-10T13:12:54.193914+00:00,ok,ok,ok,ok,UpdateLoginProfile,,yes,1
+de9bee6d-f636-450a-a9f2-848537c7395e,akshaya,261390480702,aws.defense-evasion.cloudtrail-event-selectors,defense-evasion,2,2026-07-10T13:12:54.195472+00:00,2026-07-10T13:14:22.438767+00:00,ok,ok,ok,ok,PutEventSelectors,,yes,2
+8ca05f02-958a-4e06-bb3f-0f422951d774,akshaya,261390480702,aws.persistence.iam-create-backdoor-role,persistence,2,2026-07-10T13:14:22.440893+00:00,2026-07-10T13:15:02.100426+00:00,ok,ok,ok,ok,CreateRole;AttachRolePolicy,,yes,5
+809ba1b1-c055-4430-b3fe-3ff9e8d7d623,akshaya,261390480702,aws.credential-access.ec2-get-password-data,credential-access,1,2026-07-10T13:15:02.102020+00:00,2026-07-10T13:16:12.973834+00:00,ok,ok,ok,ok,AssumeRole;GetPasswordData,,yes,32
+55eb558c-5f57-434a-b9f0-650561991687,akshaya,261390480702,aws.persistence.iam-create-user-login-profile,persistence,1,2026-07-10T13:16:12.975877+00:00,2026-07-10T13:17:33.947735+00:00,ok,ok,ok,ok,CreateLoginProfile,,yes,2
