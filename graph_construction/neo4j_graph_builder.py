@@ -1,323 +1,432 @@
 """
-Neo4j Graph Builder — invictus_labeled_final.csv
-=================================================
+neo4j_graph_builder.py  (v3 — Privilege Propagation Graph)
+============================================================
+Builds a heterogeneous Privilege Propagation Graph from CloudTrail-derived
+structural CSVs (log_id, source_node, target_node, edge_type, label) —
+originally the static Invictus AWS dataset, now the Feature Engine's
+cloudtrail_structural.csv (feature_engine9.py) — superseding the earlier
+bipartite Principal->Target design (v2).
 
-Graph Schema (per project spec Section 8):
-───────────────────────────────────────────
-NODES
-  (:Principal  {name, principal_type, is_attacker, is_service})
-      IAM principals — IAMUser / AssumedRole / AWSService
-  (:AWSService {name})
-      AWS service endpoints that are acted upon (event_source)
-  (:IPAddress  {address})
-      Source IPs — useful for lateral movement / exfil detection
+log_id TYPE CONTRACT
+─────────────────────────────────────────────────────────────────────────
+log_id is a unique, opaque, STRING event identifier — e.g. the Feature
+Engine's own "<source_file>:<row_index>" scheme (feature_engine9.py's
+process_batch_file, "synthetic_cloudtrail.csv:0", ...). It is never
+parsed, never assumed numeric, and never coerced with int() anywhere in
+this file (or in privilege_features.py, which stores whatever value it is
+given without inspecting it — see that module's docstring). It is used
+purely as a lookup/join key and as a Neo4j edge property (Neo4j natively
+supports string property values, so no schema change was needed there).
+Code that previously needed a NOTION of "which row came first" (there is
+exactly one such place — see blast_radius.py's edges_on_shortest_path)
+now derives that from actual insertion/stream order instead of from
+log_id's value, since log_id itself carries no ordering guarantee (true
+even under the old integer Invictus IDs — AWS CloudTrail log files are
+not delivered in a guaranteed order either).
 
-EDGES
-  (Principal)-[:INVOKED {props}]->(AWSService)
-      Actor called this AWS service's API
-      Props carry ALL security-relevant features needed by the GNN & sequence model
+SCHEMA
+──────
+NODE TYPES (all also carry a secondary supertype label for convenient
+generic queries: User/Role/UnresolvedPrincipal -> also :Principal;
+Service/Resource/Policy -> also :Target):
 
-FEATURE ENGINEERING (aligned with FeatureEngineer class)
-  Structural (get_structural_data equivalent):
-    source_node   → principal ARN / username
-    target_node   → AWS service (event_source)
-    edge_type     → event_name (API call)
+  (:User          :Principal {key, out_degree, unique_targets, unique_actions,
+                               role_transition_count, is_known_attacker_identity})
+      IAM users (source_node ARNs containing ":user/").
 
-  Temporal / numerical features stored on each edge:
-    mfa_authenticated     → binary (0/1)
-    action_encoded        → integer encoding of event_name
-    hour_normalized       → hour-of-day / 23.0  (0.0–1.0)
-    is_error              → 0 = success, 1 = error
-    is_read_only          → 0 = mutating, 1 = read-only
-    label                 → event-level ground truth (0/1)
-    session_label         → session-level ground truth (0/1)
-    attack_technique      → MITRE technique string (empty = benign)
-    privilege_score       → 1.0 for privilege-escalation events, else 0.0
-    is_attack_user        → 1 if username is a known attacker identity
-    event_source_category → short service name (iam, s3, sts, kms …)
+  (:Role          :Principal {key, out_degree, unique_targets, unique_actions,
+                               role_transition_count, is_known_attacker_identity})
+      CANONICAL role identity, keyed by ROLE NAME rather than ARN. This is
+      the key structural contribution of this redesign: AWS records the
+      same role under two different ARN namespaces (see privilege_features.py
+      module docstring), and unifying them by name is what makes multi-hop
+      privilege chains visible at all in this dataset.
+
+  (:Service       :Target {key, in_degree, unique_principals, resource_sensitivity})
+      *.amazonaws.com control-plane endpoints (deterministically parsed).
+
+  (:Resource      :Target {key, resource_type, in_degree, unique_principals,
+                            resource_sensitivity, distance_to_sensitive_resource})
+      Everything else the graph acts on: EC2 instances, instance types,
+      regions, opaque bucket names, etc.
+
+  (:Policy        :Target {key, resource_sensitivity})
+      IAM policy ARNs (":policy/" in target_node). Verified sparse in this
+      dataset (only 2 such targets) but modeled as its own type since it
+      is unambiguously identifiable.
+
+  (:UnresolvedPrincipal :Principal {key})
+      Sentinel for the 77 rows with null source_node (all label=0) —
+      unchanged rationale from v2.
+
+EDGES — one CREATE per CSV row (still a multigraph; the v2 fix against
+MERGE-based edge deduplication — which silently collapsed 2,900 rows into
+1,017 edges — still applies and is preserved here).
+
+  Relation TYPE is resolved deterministically from edge_type via
+  privilege_features.resolve_relation_type: ASSUMES (STS role-assumption
+  actions — the edge that drives Role-canonicalization) or one of AWS's
+  own access-level categories (LIST / READ / WRITE / TAGGING /
+  PERMISSIONS_MANAGEMENT), or UNKNOWN_ACTION when unresolvable. See
+  privilege_features.py's module docstring for full sourcing and the
+  verified 92% coverage / 86% unambiguous numbers.
+
+  Edge properties carry: log_id, edge_type (verbatim action name),
+  relation, access_level, is_privilege_escalation_technique (the narrower,
+  Rhino-cited technique list — kept distinct from the broader access_level
+  category; see privilege_features.py), hop_count, privilege_gain (only
+  meaningful for hop_count==2 edges), abnormal_path_frequency (structural
+  rarity only — never label-derived, see privilege_features.py),
+  action_global_frequency, is_attack (ground truth, renamed from the
+  CSV's `label` for the same reason as v2).
+
+A CYPHER IMPLEMENTATION NOTE
+─────────────────────────────────────────────────────────────────────────
+Vanilla Cypher does not allow a parameterized node label or relationship
+type (`MERGE (n:$label ...)` is not valid Cypher) — only the APOC plugin's
+`apoc.create.relationship`/`apoc.merge.node` procedures support that. To
+keep this pipeline runnable on a stock Neo4j instance (no assumption that
+APOC is installed), node-label and relationship-type dispatch is done in
+Python: a small dict of near-identical static Cypher templates, selected
+by the row's resolved type before `session.run(...)`. This is more
+verbose than a single parameterized query but has zero extra Neo4j
+plugin dependencies.
+
+WHAT THIS VERSION DOES NOT DO (see privilege_features.py for full detail)
+─────────────────────────────────────────────────────────────────────────
+- No :Session nodes are populated (schema documented, not fabricated —
+  see privilege_features.SessionNodeBuilder).
+- No session_duration / temporal_gap_between_hops properties exist
+  anywhere (no timestamp column in this dataset).
+- Multi-hop chains top out at 2 hops empirically on this data (verified);
+  the extraction code is general and not artificially capped.
 
 Run:
-    pip install neo4j pandas
-    python invictus_neo4j_builder.py
+    pip install neo4j pandas networkx policy_sentry
+    python3 neo4j_graph_builder.py
 """
 
+from __future__ import annotations
+
+import collections
+import re
+from dataclasses import dataclass
+
 import pandas as pd
-from datetime import datetime, timezone
 from neo4j import GraphDatabase
 
+import privilege_features as pf
+
 # ── Connection ────────────────────────────────────────────────────────────────
-URI      = "bolt://localhost:7687"          # change to neo4j+s://... for Aura
+URI      = "bolt://localhost:7687"
 USER     = "neo4j"
-PASSWORD = "test1234"                       # change to your password
-CSV_PATH = "./invictus_synthetic_1000.csv"
+PASSWORD = "test1234"
 
-# ── Known attacker identities (from IR report) ────────────────────────────────
-ATTACKER_IDENTITIES = {
-    "bert-jan",
-    "stratus-red-team-ec2-get-password-data-role",
-    "stratus-red-team-ec2-steal-credentials-role",
-    "stratus-red-team-leave-org-role",
-    "stratus-red-team-get-usr-data-role",
-    "stratus-red-team-ec2-enumerate-role",
-    "stratus-red-team-ec2lui-role-pcccexdthk",
-    "stratus-red-team-ec2lui-role-wuzemnoeqa",
-    "stratus-red-team-nmfalu-gfjyeaypjt",
-}
+CSV_PATH = "./cloudtrail_structural.csv"
 
-# ── Privilege-escalation API calls (MITRE ATT&CK for Cloud) ──────────────────
-PRIV_ESC_ACTIONS = {
-    "PutRolePolicy", "PutUserPolicy", "PutGroupPolicy",
-    "AttachRolePolicy", "AttachUserPolicy", "AttachGroupPolicy",
-    "CreateAccessKey", "CreateLoginProfile", "UpdateLoginProfile",
-    "AddUserToGroup", "UpdateAssumeRolePolicy", "CreateRole",
-    "PassRole", "SetDefaultPolicyVersion",
-}
-
-# ── Read-only API prefixes ────────────────────────────────────────────────────
-READ_ONLY_PREFIXES = (
-    "Get", "List", "Describe", "Head", "Lookup",
-    "Scan", "Query", "Search", "Check", "Validate",
-)
-
-# ── Action encoding map (extend as needed) ───────────────────────────────────
-ACTION_MAP = {
-    "AssumeRole": 1,
-    "PutUserPolicy": 2, "PutRolePolicy": 3, "PutGroupPolicy": 4,
-    "AttachRolePolicy": 5, "AttachUserPolicy": 6,
-    "CreateRole": 7, "CreateUser": 8, "CreateAccessKey": 9,
-    "GetSecretValue": 10, "GetPasswordData": 11,
-    "DeleteTrail": 12, "StopLogging": 13, "PutEventSelectors": 14,
-    "PutBucketPolicy": 15, "DeleteBucketPolicy": 16,
-    "UpdateAssumeRolePolicy": 17, "AddUserToGroup": 18,
-}
+REQUIRED_COLUMNS = {"log_id", "source_node", "target_node", "edge_type", "label"}
+UNRESOLVED_PRINCIPAL = "UNRESOLVED_PRINCIPAL"
 
 
-# ── Feature engineering ───────────────────────────────────────────────────────
+# ══════════════════════════════════════════════════════════════════════════
+# Principal / Target string parsing (unchanged rules from v2 — reproduced
+# here rather than imported, since privilege_features.py deliberately has
+# no dependency on this exact CSV's raw-string conventions; it only
+# consumes the already-parsed GraphNodeKey / access-level outputs)
+# ══════════════════════════════════════════════════════════════════════════
 
-def classify_principal(username: str, principal_type: str) -> str:
-    """Return User, Service, or Role."""
-    if pd.isna(username):
-        return "Service"
-    if "amazonaws.com" in username:
-        return "Service"
-    if principal_type == "AssumedRole":
-        return "Role"
-    return "User"
-
-
-def event_source_category(event_source: str) -> str:
-    """Extract short service name: iam.amazonaws.com → iam"""
-    if pd.isna(event_source):
-        return "unknown"
-    return event_source.replace(".amazonaws.com", "")
+@dataclass(frozen=True)
+class PrincipalInfo:
+    arn: str
+    name: str
+    principal_type: str  # IAMUser | AssumedRole | AWSServiceLinkedRole | Unresolved
 
 
-def parse_hour_normalized(timestamp: str) -> float:
-    """Parse ISO timestamp and return hour / 23.0 (0.0–1.0)."""
-    try:
-        dt = datetime.fromisoformat(str(timestamp))
-        return round(dt.hour / 23.0, 4)
-    except Exception:
-        return 0.0
+def parse_principal(source_node) -> PrincipalInfo:
+    if pd.isna(source_node) or str(source_node).strip() == "":
+        return PrincipalInfo(arn=UNRESOLVED_PRINCIPAL, name=UNRESOLVED_PRINCIPAL, principal_type="Unresolved")
+    arn = str(source_node)
+    if ":user/" in arn:
+        return PrincipalInfo(arn=arn, name=arn.split(":user/")[-1], principal_type="IAMUser")
+    if ":assumed-role/" in arn:
+        role_name = arn.split(":assumed-role/")[-1].split("/")[0]
+        ptype = "AWSServiceLinkedRole" if role_name.startswith("AWSServiceRoleFor") else "AssumedRole"
+        return PrincipalInfo(arn=arn, name=role_name, principal_type=ptype)
+    if ":role/" in arn:
+        role_name = arn.split(":role/")[-1]
+        ptype = "AWSServiceLinkedRole" if role_name.startswith("AWSServiceRoleFor") else "AssumedRole"
+        return PrincipalInfo(arn=arn, name=role_name, principal_type=ptype)
+    return PrincipalInfo(arn=arn, name=arn, principal_type="Unresolved")
+
+
+_ARN_RE        = re.compile(r"^arn:aws:([a-zA-Z0-9\-]+):[^:]*:[^:]*:(.*)$")
+_DOMAIN_SUFFIX = ".amazonaws.com"
+_EC2_ID_RE     = re.compile(r"^i-[0-9a-z]{8,}$")
+_EC2_TYPE_RE   = re.compile(r"^[a-z][0-9a-z]*\.[a-z0-9]+$")  # e.g. p2.xlarge, t2.micro
+_REGION_RE     = re.compile(r"^[a-z]{2}-[a-z]+-\d$")
+_ACCOUNT_ID_RE = re.compile(r"^\d{12}$")
+
+
+@dataclass(frozen=True)
+class TargetInfo:
+    value: str
+    resource_type: str
+    service: str
+    resolved: bool
+
+
+def _service_from_domain(value: str):
+    if not value.endswith(_DOMAIN_SUFFIX):
+        return None
+    prefix = value[: -len(_DOMAIN_SUFFIX)]
+    if not prefix:
+        return None
+    labels = [lbl for lbl in prefix.split(".") if lbl]
+    candidates = [lbl for lbl in labels if not _ACCOUNT_ID_RE.match(lbl) and not _REGION_RE.match(lbl)]
+    return candidates[0] if len(candidates) == 1 else None
+
+
+def parse_target(target_node) -> TargetInfo:
+    value = str(target_node)
+    m = _ARN_RE.match(value)
+    if m:
+        return TargetInfo(value=value, resource_type="arn-resource", service=m.group(1), resolved=True)
+    if value.endswith(_DOMAIN_SUFFIX):
+        service = _service_from_domain(value)
+        return TargetInfo(value=value, resource_type="service-domain",
+                           service=service or "unresolved", resolved=service is not None)
+    if _EC2_ID_RE.match(value):
+        return TargetInfo(value=value, resource_type="ec2-instance-id", service="unresolved", resolved=False)
+    if _EC2_TYPE_RE.match(value):
+        return TargetInfo(value=value, resource_type="ec2-instance-type", service="unresolved", resolved=False)
+    if _REGION_RE.match(value):
+        return TargetInfo(value=value, resource_type="aws-region", service="unresolved", resolved=False)
+    return TargetInfo(value=value, resource_type="opaque", service="unresolved", resolved=False)
+
+
+READ_ONLY_PREFIXES = ("Get", "List", "Describe", "Head", "Lookup", "Scan", "Query", "Search", "Check", "Validate")
 
 
 def is_read_only(event_name: str) -> bool:
-    return any(event_name.startswith(p) for p in READ_ONLY_PREFIXES)
+    return str(event_name).startswith(READ_ONLY_PREFIXES)
 
 
-def edge_features(row) -> dict:
-    """
-    Build the full feature dict for a INVOKED edge.
-    These are the features consumed by the GNN and sequence model.
-    """
-    event_name = str(row.get("event_name", ""))
-    username   = str(row.get("username", "")) if not pd.isna(row.get("username")) else ""
-
-    return {
-        # ── Structural (get_structural_data equivalent) ──────────────────
-        "edge_type":              event_name,
-        "event_source":           str(row.get("event_source", "")),
-        "aws_region":             str(row.get("aws_region", "")),
-        "source_ip":              str(row.get("source_ip", "")) if not pd.isna(row.get("source_ip")) else "",
-
-        # ── Temporal / numerical (get_temporal_features equivalent) ──────
-        "hour_normalized":        parse_hour_normalized(row.get("timestamp")),
-        "action_encoded":         ACTION_MAP.get(event_name, 0),
-        "is_error":               0 if pd.isna(row.get("error_code")) else 1,
-        "is_read_only":           1 if is_read_only(event_name) else 0,
-
-        # ── Security signals ──────────────────────────────────────────────
-        "privilege_score":        1.0 if event_name in PRIV_ESC_ACTIONS else 0.0,
-        "is_attack_user":         1 if username in ATTACKER_IDENTITIES else 0,
-        "event_source_category":  event_source_category(row.get("event_source", "")),
-
-        # ── Ground truth labels (for supervised GNN training) ─────────────
-        "label":                  int(row.get("label", 0)),
-        "session_label":          int(row.get("session_label", 0)),
-        "attack_technique":       "" if pd.isna(row.get("attack_technique")) else str(row.get("attack_technique")),
-    }
+# Rhino Security Labs' published IAM privilege-escalation TECHNIQUE list —
+# narrower and more specific than the broad "Permissions management"
+# access-level category from policy_sentry (kept as a separate property;
+# see module docstring).
+PRIVILEGE_ESCALATION_TECHNIQUES = {
+    "CreateAccessKey", "CreateLoginProfile", "UpdateLoginProfile",
+    "AttachUserPolicy", "AttachGroupPolicy", "AttachRolePolicy",
+    "PutUserPolicy", "PutGroupPolicy", "PutRolePolicy",
+    "AddUserToGroup", "UpdateAssumeRolePolicy",
+    "CreatePolicyVersion", "SetDefaultPolicyVersion", "PassRole",
+}
 
 
-# ── Cypher statements ─────────────────────────────────────────────────────────
+def compute_attacker_principals(df: pd.DataFrame) -> set:
+    attacker_rows = df[df["label"] == 1]
+    names = attacker_rows["source_node"].dropna().apply(lambda a: parse_principal(a).name)
+    return set(names.unique())
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# Cypher templates — node label / relationship type dispatched in Python
+# (see module docstring for why this avoids requiring APOC)
+# ══════════════════════════════════════════════════════════════════════════
 
 CONSTRAINTS = [
-    # Principal uniqueness on ARN (most specific identifier)
-    "CREATE CONSTRAINT IF NOT EXISTS FOR (p:Principal) REQUIRE p.arn IS UNIQUE",
-    # AWSService uniqueness on name
-    "CREATE CONSTRAINT IF NOT EXISTS FOR (s:AWSService) REQUIRE s.name IS UNIQUE",
-    # IPAddress uniqueness
-    "CREATE CONSTRAINT IF NOT EXISTS FOR (ip:IPAddress) REQUIRE ip.address IS UNIQUE",
+    "CREATE CONSTRAINT IF NOT EXISTS FOR (n:User) REQUIRE n.key IS UNIQUE",
+    "CREATE CONSTRAINT IF NOT EXISTS FOR (n:Role) REQUIRE n.key IS UNIQUE",
+    "CREATE CONSTRAINT IF NOT EXISTS FOR (n:UnresolvedPrincipal) REQUIRE n.key IS UNIQUE",
+    "CREATE CONSTRAINT IF NOT EXISTS FOR (n:Service) REQUIRE n.key IS UNIQUE",
+    "CREATE CONSTRAINT IF NOT EXISTS FOR (n:Resource) REQUIRE n.key IS UNIQUE",
+    "CREATE CONSTRAINT IF NOT EXISTS FOR (n:Policy) REQUIRE n.key IS UNIQUE",
 ]
 
-MERGE_PRINCIPAL = """
-MERGE (p:Principal {arn: $arn})
-SET
-  p.username       = $username,
-  p.principal_type = $principal_type,
-  p.actor_class    = $actor_class,
-  p.is_attacker    = $is_attacker,
-  p.is_service     = $is_service
-"""
+_NODE_MERGE_TEMPLATES = {
+    "User": "MERGE (n:User:Principal {key: $key}) SET n += $props",
+    "Role": "MERGE (n:Role:Principal {key: $key}) SET n += $props",
+    "UnresolvedPrincipal": "MERGE (n:UnresolvedPrincipal:Principal {key: $key}) SET n += $props",
+    "Service": "MERGE (n:Service:Target {key: $key}) SET n += $props",
+    "Resource": "MERGE (n:Resource:Target {key: $key}) SET n += $props",
+    "Policy": "MERGE (n:Policy:Target {key: $key}) SET n += $props",
+}
 
-MERGE_SERVICE = """
-MERGE (s:AWSService {name: $name})
-SET s.category = $category
-"""
+_RELATION_TYPES = ["ASSUMES", "LIST", "READ", "WRITE", "TAGGING", "PERMISSIONS_MANAGEMENT", "UNKNOWN_ACTION"]
 
-MERGE_IP = """
-MERGE (ip:IPAddress {address: $address})
-"""
-
-# Core INVOKED edge — aggregates per (principal, service, event_name)
-# ON CREATE initialises counters; ON MATCH increments them.
-# SET always refreshes the latest security signal values.
-MERGE_INVOKED = """
-MATCH (p:Principal  {arn: $arn})
-MATCH (s:AWSService {name: $service_name})
-MERGE (p)-[r:INVOKED {edge_type: $edge_type}]->(s)
-  ON CREATE SET
-    r.count          = 1,
-    r.first_seen     = $timestamp,
-    r.last_seen      = $timestamp,
-    r.attack_count   = $label,
-    r.session_hit    = $session_label
-  ON MATCH SET
-    r.count          = r.count + 1,
-    r.last_seen      = $timestamp,
-    r.attack_count   = r.attack_count + $label,
-    r.session_hit    = CASE WHEN $session_label = 1 THEN 1 ELSE r.session_hit END
-SET
-  r.hour_normalized       = $hour_normalized,
-  r.action_encoded        = $action_encoded,
-  r.is_error              = $is_error,
-  r.is_read_only          = $is_read_only,
-  r.privilege_score       = $privilege_score,
-  r.is_attack_user        = $is_attack_user,
-  r.event_source_category = $event_source_category,
-  r.label                 = $label,
-  r.session_label         = $session_label,
-  r.attack_technique      = $attack_technique,
-  r.aws_region            = $aws_region,
-  r.source_ip             = $source_ip
-"""
-
-# FROM_IP edge — links the INVOKED action back to originating IP
-MERGE_FROM_IP = """
-MATCH (p:Principal  {arn: $arn})
-MATCH (ip:IPAddress {address: $address})
-MERGE (p)-[:ORIGINATED_FROM]->(ip)
-"""
+_EDGE_CREATE_TEMPLATES = {
+    rel: f"""
+        MATCH (src {{key: $src_key}}) MATCH (dst {{key: $dst_key}})
+        CREATE (src)-[r:{rel} {{
+            log_id: $log_id, edge_type: $edge_type, relation: $relation,
+            access_level: $access_level, is_privilege_escalation_technique: $is_priv_esc,
+            hop_count: $hop_count, privilege_gain: $privilege_gain,
+            privilege_gain_defined: $privilege_gain_defined,
+            abnormal_path_frequency: $abnormal_path_frequency,
+            action_global_frequency: $action_global_frequency,
+            is_attack: $is_attack
+        }}]->(dst)
+    """
+    for rel in _RELATION_TYPES
+}
 
 
-# ── Main builder ──────────────────────────────────────────────────────────────
+def merge_node(session, node_key: pf.GraphNodeKey, props: dict):
+    template = _NODE_MERGE_TEMPLATES[node_key.label]
+    session.run(template, key=node_key.key, props=props)
+
+
+def create_edge(session, relation: str, src_key: str, dst_key: str, **props):
+    # NOTE: unrelated to the log_id migration — pre-existing bug found
+    # during end-to-end verification. `relation` selects which Cypher
+    # template to use, but the template also references it as the
+    # $relation query parameter (`relation: $relation` — see
+    # _EDGE_CREATE_TEMPLATES above); it must be forwarded here rather
+    # than left for the caller to supply (the caller supplying it caused
+    # a "multiple values for argument 'relation'" conflict against this
+    # function's own positional `relation` parameter).
+    session.run(_EDGE_CREATE_TEMPLATES[relation], src_key=src_key, dst_key=dst_key, relation=relation, **props)
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# Main builder
+# ══════════════════════════════════════════════════════════════════════════
 
 def build_graph():
-    # ── Load CSV ──────────────────────────────────────────────────────────────
     print(f"Loading {CSV_PATH} …")
     df = pd.read_csv(CSV_PATH)
-    df["timestamp"]   = df["timestamp"].astype(str)
-    df["username"]    = df["username"].fillna("unknown")
-    df["principal_arn"] = df["principal_arn"].fillna(
-        df["username"].apply(lambda u: f"arn:synthetic::{u}")
-    )
-    print(f"  {len(df):,} events | {df['label'].sum()} attack | {df['session_label'].sum()} in attack sessions")
+    missing = REQUIRED_COLUMNS - set(df.columns)
+    if missing:
+        raise ValueError(f"CSV is missing required columns {missing}")
+
+    resolver = pf.ActionAccessLevelResolver()
+    print(f"Action access-level resolver: {resolver.source}")
+
+    principal_infos = df["source_node"].apply(parse_principal)
+    target_infos     = df["target_node"].apply(parse_target)
+
+    src_keys = [
+        pf.node_key_for_principal(arn, info.principal_type, info.name)
+        for arn, info in zip(df["source_node"], principal_infos)
+    ]
+    dst_keys = [
+        pf.node_key_for_target(t.value, t.resource_type, t.service)
+        for t in target_infos
+    ]
+
+    attacker_principals = compute_attacker_principals(df)
+    action_freq = df["edge_type"].value_counts()
+
+    # Build the structural graph once (shared source of truth for every
+    # topology-derived feature — see privilege_features.py).
+    # log_id is kept exactly as read from the CSV — a unique opaque STRING
+    # identifier under the Feature Engine schema (e.g.
+    # "synthetic_cloudtrail.csv:0"), not an integer. PrivilegePropagationGraph
+    # never assumed int here (it just stores whatever it's given — see its
+    # module/class docstrings), so no int() coercion was ever required by
+    # that class; it was only ever done here, and is now removed.
+    rows_for_graph = [
+        {"log_id": lid, "source_key": sk, "target_key": dk, "edge_type": et, "label": int(lbl)}
+        for lid, sk, dk, et, lbl in zip(df["log_id"], src_keys, dst_keys, df["edge_type"], df["label"])
+    ]
+    ppg = pf.PrivilegePropagationGraph(resolver).build_from_rows(rows_for_graph)
+    edge_features = ppg.compute_all_edge_features().set_index("log_id")
+
+    # Node-level topology stats (out/in-degree, fan-out/fan-in, role
+    # transitions) computed once over the shared graph.
+    node_out_degree      = collections.Counter()
+    node_in_degree       = collections.Counter()
+    node_unique_targets  = collections.defaultdict(set)
+    node_unique_sources  = collections.defaultdict(set)
+    node_unique_actions  = collections.defaultdict(set)
+    for u, v, d in ppg.graph.edges(data=True):
+        node_out_degree[u] += 1
+        node_in_degree[v] += 1
+        node_unique_targets[u].add(v)
+        node_unique_sources[v].add(u)
+        node_unique_actions[u].add(d["edge_type"])
+
+    target_info_by_value = {t.value: t for t in target_infos}
+    sensitivity_lookup = {}
+    for n in ppg.graph.nodes:
+        label, key = n
+        if label in ("Service", "Resource", "Policy"):
+            matching = target_info_by_value.get(key)
+            svc = matching.service if matching else "unresolved"
+            rtype = matching.resource_type if matching else "opaque"
+            sensitivity_lookup[n] = pf.resource_sensitivity_score(svc, rtype)
+        else:
+            sensitivity_lookup[n] = -1  # principals aren't scored for sensitivity
+
+    print(f"  {len(df):,} rows | {df['label'].sum()} labelled attack | "
+          f"{ppg.graph.number_of_nodes()} nodes | {ppg.graph.number_of_edges()} edges")
 
     driver = GraphDatabase.driver(URI, auth=(USER, PASSWORD))
-
     with driver.session() as session:
-
-        # 1. Constraints
         print("Creating constraints …")
         for cql in CONSTRAINTS:
             session.run(cql)
-
-        # 2. Wipe existing graph for clean rebuild
         print("Clearing existing graph …")
         session.run("MATCH (n) DETACH DELETE n")
 
-        # 3. Ingest rows
-        print(f"Ingesting {len(df):,} events …")
+        print("Ingesting nodes …")
+        seen_nodes = set()
+        for n in ppg.graph.nodes:
+            if n in seen_nodes:
+                continue
+            seen_nodes.add(n)
+            label, key = n
+            props = {
+                "out_degree": node_out_degree.get(n, 0),
+                "in_degree": node_in_degree.get(n, 0),
+                "unique_targets": len(node_unique_targets.get(n, set())),
+                "unique_principals": len(node_unique_sources.get(n, set())),
+                "unique_actions": len(node_unique_actions.get(n, set())),
+                "role_transition_count": ppg.role_transition_count(n),
+                "resource_sensitivity": sensitivity_lookup.get(n, -1),
+                "distance_to_sensitive_resource": ppg.distance_to_sensitive_resource(n, sensitivity_lookup),
+            }
+            if label in ("User", "Role", "UnresolvedPrincipal"):
+                props["is_known_attacker_identity"] = key in attacker_principals
+            merge_node(session, pf.GraphNodeKey(label, key), props)
+
+        print(f"Ingesting {len(df):,} typed edges …")
         for i, row in df.iterrows():
-
-            arn            = str(row["principal_arn"])
-            username       = str(row["username"])
-            principal_type = str(row.get("principal_type", "unknown"))
-            actor_class    = classify_principal(username, principal_type)
-            is_attacker    = username in ATTACKER_IDENTITIES
-            is_service     = principal_type == "AWSService" or "amazonaws.com" in username
-            service_name   = str(row.get("event_source", "unknown"))
-            category       = event_source_category(service_name)
-            source_ip      = str(row["source_ip"]) if not pd.isna(row.get("source_ip")) else None
-            timestamp      = str(row["timestamp"])
-            feats          = edge_features(row)
-
-            # Principal node
-            session.run(
-                MERGE_PRINCIPAL,
-                arn=arn,
-                username=username,
-                principal_type=principal_type,
-                actor_class=actor_class,
-                is_attacker=is_attacker,
-                is_service=is_service,
+            src, dst = src_keys[i], dst_keys[i]
+            relation = pf.resolve_relation_type(str(row["edge_type"]), resolver)
+            # log_id is a unique opaque string (Feature Engine schema) — the
+            # edge_features DataFrame is indexed by that same string (see
+            # rows_for_graph above), so this is a plain, un-coerced lookup.
+            feats = edge_features.loc[row["log_id"]]
+            create_edge(
+                session, relation,
+                src_key=src.key, dst_key=dst.key,
+                log_id=str(row["log_id"]), edge_type=str(row["edge_type"]),
+                access_level=resolver.access_level(str(row["edge_type"])),
+                is_priv_esc=str(row["edge_type"]) in PRIVILEGE_ESCALATION_TECHNIQUES,
+                hop_count=int(feats["hop_count"]),
+                privilege_gain=float(feats["privilege_gain"]),
+                privilege_gain_defined=bool(feats["privilege_gain_defined"]),
+                abnormal_path_frequency=float(feats["abnormal_path_frequency"]),
+                action_global_frequency=int(action_freq[row["edge_type"]]),
+                is_attack=int(row["label"]),
             )
-
-            # AWSService node
-            session.run(MERGE_SERVICE, name=service_name, category=category)
-
-            # INVOKED edge
-            session.run(
-                MERGE_INVOKED,
-                arn=arn,
-                service_name=service_name,
-                timestamp=timestamp,
-                **feats,
-            )
-
-            # IPAddress node + ORIGINATED_FROM edge
-            if source_ip:
-                session.run(MERGE_IP, address=source_ip)
-                session.run(MERGE_FROM_IP, arn=arn, address=source_ip)
-
             if (i + 1) % 500 == 0:
                 print(f"  … {i+1:,} rows processed")
 
     driver.close()
-    print("\n✅ Graph built successfully.")
-    print("\nUseful queries to run in Neo4j Browser (localhost:7474):")
+    print(f"\n✅ Privilege Propagation Graph built: {len(seen_nodes)} nodes, {len(df)} typed edges.")
+    print("\nSanity queries for Neo4j Browser (localhost:7474):")
     print("─" * 60)
-    print("// All attacker actions")
-    print("MATCH (p:Principal {is_attacker: true})-[r:INVOKED]->(s)")
-    print("RETURN p.username, r.edge_type, s.name, r.attack_technique")
-    print("ORDER BY r.privilege_score DESC\n")
-    print("// Privilege escalation edges only")
-    print("MATCH (p)-[r:INVOKED]->(s)")
-    print("WHERE r.privilege_score = 1.0")
-    print("RETURN p, r, s\n")
-    print("// Sessions containing attack events")
-    print("MATCH (p)-[r:INVOKED]->(s)")
-    print("WHERE r.session_label = 1")
-    print("RETURN p, r, s LIMIT 100")
+    print("// The one verified real attack chain in this dataset")
+    print("MATCH (u:User {key:'bert-jan'})-[a:ASSUMES]->(r:Role)-[x:READ]->(res:Resource)")
+    print("WHERE x.is_attack = 1 RETURN u, a, r, x, res LIMIT 10\n")
+    print("// All 2-hop (role-mediated) edges")
+    print("MATCH (p)-[r]->(t) WHERE r.hop_count = 2 RETURN p.key, type(r), r.edge_type, t.key, r.is_attack\n")
+    print("// Rarest structural patterns (abnormal_path_frequency, label-blind)")
+    print("MATCH (p)-[r]->(t) RETURN p.key, type(r), t.key, r.abnormal_path_frequency")
+    print("ORDER BY r.abnormal_path_frequency DESC LIMIT 20")
 
 
 if __name__ == "__main__":
