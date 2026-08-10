@@ -112,7 +112,7 @@ def normalize_cloudtrail_row(row):
         'source_ip': row.get('source_ip') or row.get('sourceIPAddress') or '0.0.0.0',
         'user_agent': row.get('user_agent') or row.get('userAgent') or '',
         'read_only': read_only,
-        'aws_region': row.get('aws_region') or row.get('awsRegion') or 'us-east-1',
+        'aws_region': (row.get('aws_region') or '').strip() or (row.get('awsRegion') or '').strip(),
         'mfa_authenticated': mfa_authenticated,
         'error_code': row.get('error_code') or row.get('errorCode') or '',
         'target_resource': target_resource or 'aws_service',
@@ -187,6 +187,9 @@ FIXED_EVENT_SOURCES = [
     UNK_TOKEN, "iam.amazonaws.com", "sts.amazonaws.com", "ec2.amazonaws.com",
     "s3.amazonaws.com", "secretsmanager.amazonaws.com", "ssm.amazonaws.com",
     "cloudtrail.amazonaws.com", "lambda.amazonaws.com", "kms.amazonaws.com",
+    "rds.amazonaws.com", "elasticloadbalancing.amazonaws.com", "account.amazonaws.com",
+    "notifications.amazonaws.com", "ce.amazonaws.com", "budgets.amazonaws.com",
+    "freetier.amazonaws.com",
 ]
 
 class VocabIndex:

@@ -132,6 +132,21 @@ BENIGN_EVENTS_WEIGHTED = [
     ("ModifyDBInstance",              "rds.amazonaws.com",            False, 1),
 ]
 
+BENIGN_ADMIN_IAM_EVENTS_WEIGHTED = [
+    ("CreateRole",             "iam.amazonaws.com", False, 6),
+    ("AttachRolePolicy",       "iam.amazonaws.com", False, 6),
+    ("PutRolePolicy",          "iam.amazonaws.com", False, 4),
+    ("CreateUser",             "iam.amazonaws.com", False, 5),
+    ("AttachUserPolicy",       "iam.amazonaws.com", False, 5),
+    ("CreateAccessKey",        "iam.amazonaws.com", False, 3),
+    ("CreateLoginProfile",     "iam.amazonaws.com", False, 2),
+    ("AddUserToGroup",         "iam.amazonaws.com", False, 4),
+    ("CreatePolicyVersion",    "iam.amazonaws.com", False, 2),
+    ("SetDefaultPolicyVersion","iam.amazonaws.com", False, 2),
+    ("UpdateAssumeRolePolicy", "iam.amazonaws.com", False, 2),
+    ("PutBucketPolicy",        "s3.amazonaws.com",  False, 2),
+]
+
 ASSUMED_ROLE_BENIGN = [
     ("DescribeInstances",   "ec2.amazonaws.com",            True,  5),
     ("GetParameter",        "ssm.amazonaws.com",            True,  5),
@@ -336,6 +351,42 @@ def generate_benign_assumed_role(n_events=12):
     return rows
 
 
+# ── PATCH 3: legitimate admin/IaC IAM mutations ────────────────────────────────
+# CreateRole/AttachUserPolicy/CreateAccessKey/etc. are routine in real accounts
+# (Terraform applies, onboarding a new engineer) -- but before this patch, every
+# occurrence of these event names in this dataset came from ATTACK_CHAINS, so
+# event_name alone was a perfect (100%-accurate, non-generalizing) predictor of
+# label. This session type gives the same event names a legitimate context with
+# a genuinely different behavioral signature: MFA present, slow/deliberate
+# pacing, legit tooling UA -- instead of the attack chains' no-MFA/rapid/
+# attacker-UA signature. Forces any model (or hand-tuned prior) to learn from
+# behavior, not just which API was called.
+#
+# StopLogging and GetPasswordData are deliberately left out of this pool --
+# disabling trail logging and retrieving a Windows instance password are rare
+# enough even for legitimate admins that keeping them attack-exclusive is a
+# reasonable modeling choice, not an oversight.
+def generate_benign_admin_iam_session(n_events=4):
+    account_id = rand_account(); admin = rand_str(random.randint(4, 10))
+    source_ip  = rand_ip(); access_key = rand_key()
+    ua         = random.choice(USER_AGENTS)
+    t          = datetime(2024, random.randint(1,12), random.randint(1,28),
+                          random.randint(7,19), 0, 0, tzinfo=timezone.utc)
+    rows = []
+    for name, source, ro in _weighted_sample(BENIGN_ADMIN_IAM_EVENTS_WEIGHTED, n_events):
+        t += jitter(120, 900)  # deliberate/slow admin pacing, not a rapid attack chain
+        rows.append({"timestamp": t.isoformat(), "event_name": name, "event_source": source,
+            "aws_region": "us-east-1", "source_ip": source_ip, "error_code": None,
+            "label": 0, "attack_technique": None, "read_only": ro, "user_agent": ua,
+            "access_key_id": access_key,
+            "mfa_authenticated": "True" if random.random() < 0.85 else "False",
+            "target_resource": _benign_target_resource(source), "request_params_raw": None,
+            "principal_type": "IAMUser",
+            "principal_arn": f"arn:aws:iam::{account_id}:user/{admin}",
+            "username": admin, "session_label": 0, "synthetic": True})
+    return rows
+
+
 # ── AWS service/root background noise (closes the principal_type gap) ────────
 # Patterns below are taken directly from what real_dataset_combined.csv
 # actually contains for each principal_type, not invented:
@@ -425,6 +476,10 @@ def main():
     N_PER_CHAIN       = 20
     N_BENIGN_IAMUSER  = 340
     N_BENIGN_ASSUMED  = 60
+    # Sized so the IAM-mutation event names shared with ATTACK_CHAINS (CreateRole,
+    # AttachUserPolicy, CreateAccessKey, etc.) land around a ~25-30% benign share
+    # instead of the 100%-attack they'd otherwise have -- see PATCH 3.
+    N_BENIGN_ADMIN_IAM = 45
     # Sized so principal_type ends up ~18.5% AWSService / ~1.7% unknown /
     # ~1.3% Root of the final dataset, matching real_dataset_combined.csv.
     N_SERVICE_NOISE       = 178
@@ -441,6 +496,8 @@ def main():
         all_rows.extend(generate_benign_iamuser(n_events=random.randint(8, 20)))
     for _ in range(N_BENIGN_ASSUMED):
         all_rows.extend(generate_benign_assumed_role(n_events=random.randint(6, 15)))
+    for _ in range(N_BENIGN_ADMIN_IAM):
+        all_rows.extend(generate_benign_admin_iam_session(n_events=random.randint(2, 6)))
     for _ in range(N_SERVICE_NOISE):
         all_rows.extend(generate_service_noise_session(n_events=random.randint(6, 14)))
     for _ in range(N_SECRETSMANAGER_NOISE):
