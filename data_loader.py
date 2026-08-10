@@ -172,9 +172,20 @@ class PrivilegePropagationGraphLoader:
         user: str = DEFAULT_USER,
         password: str = DEFAULT_PASS,
         device: str = "cpu",
+        fit_artifacts: dict = None,
     ):
+        """fit_artifacts (optional): {"edge_scaler", "node_scalers",
+        "label_encoders"} from a PRIOR load() call (e.g. saved in a
+        wrapped checkpoint via infer.py's wrap_checkpoint). When given,
+        every scaler/encoder is applied with .transform() only -- never
+        re-fit -- so a real/held-out graph is normalized on the exact
+        training-time distribution instead of its own. Without this, two
+        load() calls on different graphs would each fit fresh statistics,
+        making any cross-graph comparison (e.g. train-on-synthetic,
+        evaluate-on-real) invalid."""
         self.driver = GraphDatabase.driver(uri, auth=(user, password))
         self.device = torch.device(device)
+        self._fit_artifacts = fit_artifacts
         self.label_encoders: Dict[str, LabelEncoder] = {}
         self.node_scalers: Dict[str, StandardScaler] = {}
         self.edge_scaler = StandardScaler()
@@ -207,20 +218,31 @@ class PrivilegePropagationGraphLoader:
 
         # A global edge_type encoder fit across every relation's actions,
         # so `edge_type` is on a single consistent encoding regardless of
-        # which relation bucket an edge lands in.
-        all_edge_types = pd.concat([df["edge_type"] for df in edge_dfs.values()]) if edge_dfs else pd.Series([], dtype=str)
-        edge_type_enc = LabelEncoder().fit(all_edge_types)
-        self.label_encoders["edge_type"] = edge_type_enc
+        # which relation bucket an edge lands in. Reused (never re-fit)
+        # from _fit_artifacts when evaluating a graph against an
+        # already-trained model -- see __init__ docstring.
+        fitted_edge_type_enc = (self._fit_artifacts or {}).get("label_encoders", {}).get("edge_type")
+        if fitted_edge_type_enc is not None:
+            edge_type_enc = fitted_edge_type_enc
+        else:
+            all_edge_types = pd.concat([df["edge_type"] for df in edge_dfs.values()]) if edge_dfs else pd.Series([], dtype=str)
+            edge_type_enc = LabelEncoder().fit(all_edge_types)
+            self.label_encoders["edge_type"] = edge_type_enc
 
         # Fit ONE shared edge-feature scaler across ALL relations' rows, so
         # every relation's edge_attr lives on the same numeric scale before
-        # being consumed by the single shared EdgeClassifierHead.
+        # being consumed by the single shared EdgeClassifierHead. Reused
+        # (never re-fit) from _fit_artifacts, same rationale as above.
         for df in edge_dfs.values():
             df["action_global_frequency_log"] = np.log1p(
             df["action_global_frequency"].astype(float)
             )
-        all_num = pd.concat([df[EDGE_NUM_COLS] for df in edge_dfs.values()]) if edge_dfs else pd.DataFrame(columns=EDGE_NUM_COLS)
-        self.edge_scaler.fit(all_num.astype(float).values) if len(all_num) else None
+        fitted_edge_scaler = (self._fit_artifacts or {}).get("edge_scaler")
+        if fitted_edge_scaler is not None:
+            self.edge_scaler = fitted_edge_scaler
+        else:
+            all_num = pd.concat([df[EDGE_NUM_COLS] for df in edge_dfs.values()]) if edge_dfs else pd.DataFrame(columns=EDGE_NUM_COLS)
+            self.edge_scaler.fit(all_num.astype(float).values) if len(all_num) else None
 
         # Single pass, grouped by the FULL (src_type, relation, dst_type) key,
         # sorted lexicographically by that key. This matters beyond tidiness:
@@ -371,20 +393,31 @@ class PrivilegePropagationGraphLoader:
             )
         df[num_cols] = df[num_cols].fillna(0).astype(float)
 
-        scaler = StandardScaler()
-        if len(df) > 1:
+        fitted_scalers = (self._fit_artifacts or {}).get("node_scalers", {})
+        fitted_scaler = fitted_scalers.get(ntype)
+        if fitted_scaler is not None:
+            num = fitted_scaler.transform(df[num_cols].values)
+        elif len(df) > 1:
+            scaler = StandardScaler()
             num = scaler.fit_transform(df[num_cols].values)
             self.node_scalers[ntype] = scaler  # only registered once actually fitted
         else:
             num = df[num_cols].values
 
         if cat_cols:
+            fitted_encoders = (self._fit_artifacts or {}).get("label_encoders", {})
             cat_arrays = []
             for col in cat_cols:
                 df[col] = df[col].fillna("unknown").astype(str)
-                enc = LabelEncoder().fit(df[col])
-                self.label_encoders[f"{ntype}.{col}"] = enc
-                cat_arrays.append(enc.transform(df[col]).astype(float).reshape(-1, 1))
+                fitted_enc = fitted_encoders.get(f"{ntype}.{col}")
+                if fitted_enc is not None:
+                    known = set(fitted_enc.classes_)
+                    safe_vals = df[col].where(df[col].isin(known), fitted_enc.classes_[0])
+                    cat_arrays.append(fitted_enc.transform(safe_vals).astype(float).reshape(-1, 1))
+                else:
+                    enc = LabelEncoder().fit(df[col])
+                    self.label_encoders[f"{ntype}.{col}"] = enc
+                    cat_arrays.append(enc.transform(df[col]).astype(float).reshape(-1, 1))
             feats = np.concatenate([num] + cat_arrays, axis=1)
         else:
             feats = num
@@ -399,7 +432,13 @@ class PrivilegePropagationGraphLoader:
 
         num = df[EDGE_NUM_COLS].astype(float).values
         num = self.edge_scaler.transform(num)
-        cat = edge_type_enc.transform(df["edge_type"]).astype(float).reshape(-1, 1)
+        # A real/held-out graph can contain edge_type values never seen
+        # while fitting edge_type_enc on the training graph -- map those to
+        # the encoder's first known class rather than letting .transform()
+        # raise, same fallback used for node categorical features above.
+        known = set(edge_type_enc.classes_)
+        safe_edge_type = df["edge_type"].where(df["edge_type"].isin(known), edge_type_enc.classes_[0])
+        cat = edge_type_enc.transform(safe_edge_type).astype(float).reshape(-1, 1)
         return torch.tensor(np.concatenate([num, cat], axis=1), dtype=torch.float)
 
 
