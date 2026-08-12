@@ -1,1 +1,26 @@
+# Large / redundant datasets
 botsv3_enriched_features_behavioral.csv
+
+# OS / editor
+.DS_Store
+**/.DS_Store
+.vscode/
+.idea/
+Thumbs.db
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+
+# Generated training outputs (weights, plots, scores)
+artifacts/
+*.pt
+*.npy
+*.pkl
+*.joblib
+
+# Accidental placeholder paths
+graph_construction/path/
