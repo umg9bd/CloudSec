@@ -24,3 +24,11 @@ artifacts/
 
 # Accidental placeholder paths
 graph_construction/path/
+
+# Local-only — keep notebooks/data on this branch, not scripts/docs/prod
+AGENT.md
+FIX_PLAN.md
+Dockerfile
+temporal-v3.ipynb
+*.py
+prod/
