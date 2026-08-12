@@ -15,9 +15,10 @@ __pycache__/
 *.py[cod]
 .ipynb_checkpoints/
 
-# Generated training outputs (weights, plots, scores)
-artifacts/
-*.pt
+# Generated training outputs (plots, extra weights, scores)
+# Keep the working v2 checkpoint; ignore everything else under artifacts/
+artifacts/*
+!artifacts/temporal_lstm_v2.pt
 *.npy
 *.pkl
 *.joblib

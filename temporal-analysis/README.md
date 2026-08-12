@@ -50,9 +50,9 @@ A window is labeled attack if **any** event in it has `label == 1`. Windows are 
 | Schema | `temporal_lstm_v2.1` |
 | Sequence length | 32 (pad / truncate) |
 | Split | User-disjoint `GroupShuffleSplit` |
-| Checkpoint (local) | `artifacts/temporal_lstm_v2.pt` |
+| Checkpoint | [`artifacts/temporal_lstm_v2.pt`](artifacts/temporal_lstm_v2.pt) |
 
-**Weights are not on GitHub.** `.gitignore` excludes `artifacts/` and `*.pt`. Train from the notebook (`RUN_TRAIN = True`) to create the checkpoint locally.
+The working v2 weights are in git. Other artifacts (plots, score CSVs, v1 / fe-final-only checkpoints) stay gitignored. Set `RUN_TRAIN = False` in the notebook to load this file.
 
 ## Requirements
 
