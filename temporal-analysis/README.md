@@ -1,85 +1,77 @@
 # CloudSec Temporal Analysis
 
-This folder contains the temporal anomaly analysis workflow for the BOTSv3-derived CloudTrail dataset. It prepares event sequences using sliding windows and trains an LSTM model for anomaly detection.
+Sequence-model track for AWS privilege-escalation detection. Per-user CloudTrail events are turned into 10-minute windows and scored by an LSTM. The output is one attack probability per window (`P_seq`) for fusion with the graph model (`P_graph`).
 
-## Project Goal
+## Working notebook
 
-Build a time-aware detection pipeline that:
+**Use this:** [`temporal-lstm.ipynb`](temporal-lstm.ipynb)
 
-1. Validates and inspects enriched behavioral security logs.
-2. Converts per-user activity into fixed-shape temporal windows.
-3. Trains and evaluates an LSTM classifier to predict anomalous behavior.
+That notebook is the current pipeline: load merged data, window events, train/evaluate `temporal_lstm_v2` (masked BiLSTM + attention, bag of 5), and plot metrics.
 
-## Contents
+Set `RUN_TRAIN = True` to train. Set it `False` to load a local checkpoint at `artifacts/temporal_lstm_v2.pt` (weights are not in git; see below).
 
-- `botsv3_enriched_features_behavioral.csv`: Main enriched behavioral dataset.
-- `capstone-temporal-analyst.ipynb`: Baseline temporal pipeline notebook.
-- `capstone-temporal-analyst  v2.ipynb`: Updated notebook with time-based windowing refinements.
-- `README.md`: This documentation.
+Run it with the working directory set to this folder (`temporal-analysis/`) so `data/lstm/train_temporal.csv` resolves.
 
-Related data notes are in `../datasets/LINKS.txt`.
+### Older notebooks (archive)
 
-## Data Source
+These are earlier BOTSv3 experiments, not the production sequence track:
 
-The dataset is based on Splunk BOTSv3 synthetic security logs (CloudTrail and network-focused activity).
+- `capstone-temporal-analyst.ipynb` — row-count windows (`WINDOW_SIZE = 10`)
+- `capstone-temporal-analyst  v2.ipynb` — 10-minute windows, majority-vote labels
+- `capstone-temporal-analyst v(2)-new.ipynb` — further BOTSv3 iteration
 
-Reference:
-- https://github.com/splunk/botsv3/blob/master
+## Merged dataset
 
-## Workflow Summary
+**Use this:** [`data/lstm/train_temporal.csv`](data/lstm/train_temporal.csv)
 
-Both notebooks follow the same high-level flow:
+Official Invictus IR CloudTrail plus fe-final CloudTrail, joined on a union event-name vocab. Usernames are prefixed `inv:` / `fe:` so windows never mix the two sources.
 
-1. Load and inspect the dataset.
-2. Validate required fields (including temporal and anomaly labels).
-3. Clean records (`cloudtrail_time` parsing, null handling, deduplication).
-4. Build sliding windows per user.
-5. Save training arrays.
-6. Train and evaluate an LSTM model in PyTorch.
+| Source | File | Rows |
+|--------|------|------|
+| Invictus | `data/lstm/invictus_temporal.csv` | 2,900 |
+| fe-final CloudTrail | `data/lstm/cloudtrail_temporal.csv` | 9,711 |
+| **Merged (train)** | **`data/lstm/train_temporal.csv`** | **12,611** |
 
-### Version Differences
+Supporting files:
 
-- `capstone-temporal-analyst.ipynb`
-	- Uses row-count sliding windows with `WINDOW_SIZE = 10`.
-	- Creates labels from the next event after each window.
+- `data/lstm/event_name_vocab.json` — union vocab (`event_name_idx` 1–280; PAD/UNK = 0)
+- `data/lstm/event_name_vocab_fe_final.json` — fe-final IDs 1–67 (frozen)
+- `data/lstm/manifest.json` — merge stats and windowing notes
+- `data/lstm/cloudtrail_structural.csv` — structural companion table
+- `invictus_enriched.csv` / `invictus_temporal.csv` — Invictus source copies
 
-- `capstone-temporal-analyst  v2.ipynb`
-	- Uses 10-minute time-based windows.
-	- Uses majority-vote window labels.
-	- Saves event names per window to JSON.
+A window is labeled attack if **any** event in it has `label == 1`. Windows are 10 minutes with a 2-minute stride, per username. Primary metric is AUC-PR (not accuracy).
+
+## Model
+
+| Item | Value |
+|------|--------|
+| Architecture | Embedding → concat numeric features → masked BiLSTM → attention pool → binary head |
+| Schema | `temporal_lstm_v2.1` |
+| Sequence length | 32 (pad / truncate) |
+| Split | User-disjoint `GroupShuffleSplit` |
+| Checkpoint (local) | `artifacts/temporal_lstm_v2.pt` |
+
+**Weights are not on GitHub.** `.gitignore` excludes `artifacts/` and `*.pt`. Train from the notebook (`RUN_TRAIN = True`) to create the checkpoint locally.
 
 ## Requirements
 
-Use Python 3.10+.
-
-Install dependencies:
+Python 3.10+.
 
 ```bash
-pip install numpy pandas torch jupyter
+pip install numpy pandas torch scikit-learn matplotlib jupyter
 ```
 
-## Running the Analysis
-
-1. Open one of the notebooks in Jupyter/VS Code.
-2. Confirm the CSV path in the notebook points to this local file:
+## Layout
 
 ```text
-temporal-analysis/botsv3_enriched_features_behavioral.csv
+temporal-analysis/
+  temporal-lstm.ipynb          # working notebook
+  data/lstm/train_temporal.csv # merged training table
+  data/lstm/                   # vocabs, unmerged sources, manifest
+  invictus_enriched.csv
+  invictus_temporal.csv
+  README.md
 ```
 
-3. Run cells top-to-bottom.
-
-## Expected Outputs
-
-During notebook execution, the following artifacts are generated in the working directory:
-
-- `X_sequences.npy`: Windowed feature tensor, shape `(N, 10, 19)`.
-- `y_labels.npy`: Binary labels for each window.
-- `window_summary.txt`: Data cleaning and windowing summary.
-- `event_names_per_window.json`: Event names per window (v2 notebook).
-- `lstm_model.pt`: Trained PyTorch LSTM model weights.
-
-## Notes
-
-- The notebooks were originally authored in a Kaggle-style environment, so some input paths may need to be updated for local execution.
-- For reproducibility, keep window size/duration and feature columns consistent across experiments.
+Related dataset notes: [`../datasets/LINKS.txt`](../datasets/LINKS.txt).
