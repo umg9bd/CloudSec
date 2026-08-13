@@ -200,7 +200,11 @@ class TestBatchIncrementalEquivalence(unittest.TestCase):
         target_infos = cls.df["target_node"].apply(nb.parse_target)
         src_keys = [pf.node_key_for_principal(arn, info.principal_type, info.name)
                     for arn, info in zip(cls.df["source_node"], principal_infos)]
-        dst_keys = [pf.node_key_for_target(t.value, t.resource_type, t.service) for t in target_infos]
+        known_role_names = {info.name for info in principal_infos
+                             if info.principal_type in ("AssumedRole", "AWSServiceLinkedRole")}
+        known_user_names = {info.name for info in principal_infos if info.principal_type == "IAMUser"}
+        dst_keys = [pf.node_key_for_target(t.value, t.resource_type, t.service,
+                                            known_role_names, known_user_names) for t in target_infos]
         rows = [
             {"log_id": lid, "source_key": sk, "target_key": dk, "edge_type": et, "label": int(lbl)}
             for lid, sk, dk, et, lbl in zip(cls.df["log_id"], src_keys, dst_keys, cls.df["edge_type"], cls.df["label"])

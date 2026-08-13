@@ -310,8 +310,20 @@ def build_graph():
         pf.node_key_for_principal(arn, info.principal_type, info.name)
         for arn, info in zip(df["source_node"], principal_infos)
     ]
+
+    # Bare role/user names appearing as targets (not full ARNs) need to be
+    # reconciled against names already resolved on the principal side --
+    # see node_key_for_target's docstring for why this matters.
+    known_role_names = {
+        info.name for info in principal_infos
+        if info.principal_type in ("AssumedRole", "AWSServiceLinkedRole")
+    }
+    known_user_names = {
+        info.name for info in principal_infos if info.principal_type == "IAMUser"
+    }
     dst_keys = [
-        pf.node_key_for_target(t.value, t.resource_type, t.service)
+        pf.node_key_for_target(t.value, t.resource_type, t.service,
+                                known_role_names, known_user_names)
         for t in target_infos
     ]
 

@@ -297,6 +297,13 @@ class IncrementalGraphUpdater:
         # canonical Role nodes correctly merged — see module docstring).
         self._known_nodes: Set[Node] = set(self.graph.nodes)
 
+        # Running name sets for target-side bare-name reconciliation (see
+        # node_key_for_target's docstring) — kept incremental rather than
+        # recomputed from _known_nodes per event, matching this class's O(1)
+        # per-event design.
+        self._known_role_names: Set[str] = {k for (l, k) in self._known_nodes if l == "Role"}
+        self._known_user_names: Set[str] = {k for (l, k) in self._known_nodes if l == "User"}
+
     # ── Public API ────────────────────────────────────────────────────────
 
     def apply_event(self, event: CloudTrailEvent) -> UpdateResult:
@@ -308,7 +315,8 @@ class IncrementalGraphUpdater:
         source_key = pf.node_key_for_principal(event.source_node, principal_info.principal_type, principal_info.name)
 
         target_info = nb.parse_target(event.target_node)
-        target_key = pf.node_key_for_target(target_info.value, target_info.resource_type, target_info.service)
+        target_key = pf.node_key_for_target(target_info.value, target_info.resource_type, target_info.service,
+                                             self._known_role_names, self._known_user_names)
 
         relation = pf.resolve_relation_type(event.edge_type, self.resolver)
 
@@ -371,6 +379,10 @@ class IncrementalGraphUpdater:
             return False
         self._known_nodes.add(node)
         label, key = node
+        if label == "Role":
+            self._known_role_names.add(key)
+        elif label == "User":
+            self._known_user_names.add(key)
         attrs = {"out_degree": 0, "in_degree": 0, "unique_targets": set(),
                  "unique_actions": set(), "unique_principals": set(), "role_transitions": set()}
         if label in ("Service", "Resource", "Policy") and target_info is not None:

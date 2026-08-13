@@ -325,7 +325,9 @@ def node_key_for_principal(principal_arn, principal_type: str, principal_name: s
     return GraphNodeKey("UnresolvedPrincipal", principal_name)
 
 
-def node_key_for_target(target_value: str, target_resource_type: str, target_service: str) -> GraphNodeKey:
+def node_key_for_target(target_value: str, target_resource_type: str, target_service: str,
+                         known_role_names: Optional[set] = None,
+                         known_user_names: Optional[set] = None) -> GraphNodeKey:
     role_name = role_name_from_iam_arn(target_value)
     if role_name:
         return GraphNodeKey("Role", role_name)  # canonical link — see docstring
@@ -333,6 +335,18 @@ def node_key_for_target(target_value: str, target_resource_type: str, target_ser
         return GraphNodeKey("Policy", target_value)
     if target_resource_type == "service-domain":
         return GraphNodeKey("Service", target_value)
+    # target_resource is sometimes a bare role/user NAME rather than a full
+    # ARN (e.g. lifted from a request parameter like roleName), which
+    # role_name_from_iam_arn's ":role/" regex can't see. Without this check,
+    # the same identity gets a "Role" node on the principal side and a
+    # "Resource" node here -- two disconnected nodes for one entity, which
+    # is what was silently inflating the real-vs-synthetic edge-type schema
+    # mismatch. Reconcile against names already known from the principal side.
+    value = str(target_value)
+    if known_role_names and value in known_role_names:
+        return GraphNodeKey("Role", value)
+    if known_user_names and value in known_user_names:
+        return GraphNodeKey("User", value)
     return GraphNodeKey("Resource", target_value)
 
 

@@ -65,10 +65,12 @@ ATTACK_CHAINS = {
     "update_assume_role_policy": [
         {"event_name": "UpdateAssumeRolePolicy", "event_source": "iam.amazonaws.com", "attack_technique": "persistence",          "read_only": False, "target_key": "role"},
         {"event_name": "AssumeRole",             "event_source": "sts.amazonaws.com",  "attack_technique": "privilege-escalation", "read_only": False, "target_key": "role"},
+        {"event_name": "GetSecretValue",         "event_source": "secretsmanager.amazonaws.com", "attack_technique": "credential-access", "read_only": True, "target_key": "secret"},
     ],
     "full_kill_chain": [
         {"event_name": "CreateRole",       "event_source": "iam.amazonaws.com",            "attack_technique": "persistence",          "read_only": False, "target_key": "role"},
         {"event_name": "AttachRolePolicy", "event_source": "iam.amazonaws.com",            "attack_technique": "privilege-escalation", "read_only": False, "target_key": "role"},
+        {"event_name": "AssumeRole",       "event_source": "sts.amazonaws.com",            "attack_technique": "privilege-escalation", "read_only": False, "target_key": "role"},
         {"event_name": "GetSecretValue",   "event_source": "secretsmanager.amazonaws.com", "attack_technique": "credential-access",    "read_only": True,  "target_key": "secret"},
         {"event_name": "PutBucketPolicy",  "event_source": "s3.amazonaws.com",             "attack_technique": "exfiltration",         "read_only": False, "target_key": "bucket"},
         {"event_name": "StopLogging",      "event_source": "cloudtrail.amazonaws.com",     "attack_technique": "defense-evasion",      "read_only": False, "target_key": "trail", "error_probability": 0.4},
@@ -240,6 +242,11 @@ def _mfa_value():
     return "True" if random.random() < 0.036 else "False"  # 96.4% False when present
 
 
+# Mirrors privilege_features.ASSUME_ACTIONS -- kept as a local copy since this
+# script is standalone and has no dependency on the graph-construction package.
+_ASSUME_ACTIONS = {"AssumeRole", "AssumeRoleWithSAML", "AssumeRoleWithWebIdentity"}
+
+
 # ── Attack session generator (unchanged logic; recon/noise now use the patches) ─
 def generate_attack_session(chain_name, recon_events=5, noise_events=3):
     chain      = ATTACK_CHAINS[chain_name]
@@ -262,6 +269,19 @@ def generate_attack_session(chain_name, recon_events=5, noise_events=3):
             "principal_arn": f"arn:aws:iam::{account_id}:user/{attacker}",
             "username": attacker, "session_label": 1, "synthetic": True})
 
+    # Identity pivots to the assumed role once an AssumeRole-family step is
+    # processed -- every action after that point in a real AssumeRole-based
+    # escalation is performed AS the role (temp STS credentials), not as the
+    # original user. Without this, no attack-labeled chain ever produced a
+    # Role-sourced action edge, even though "assume then abuse" is the
+    # canonical AWS privilege-escalation shape (this was the root cause of
+    # the GNN never learning that pattern -- see privilege_features.py's
+    # node_key_for_principal/node_key_for_target for the matching graph-side
+    # canonicalization this now lines up with).
+    principal_type = "IAMUser"
+    principal_arn  = f"arn:aws:iam::{account_id}:user/{attacker}"
+    principal_name = attacker
+
     for step in chain:
         t += jitter(5, 60)
         ep = step.get("error_probability", 0)
@@ -273,9 +293,15 @@ def generate_attack_session(chain_name, recon_events=5, noise_events=3):
             "user_agent": ua, "access_key_id": access_key, "mfa_authenticated": "False",
             "target_resource": resources[step["target_key"]],
             "request_params_raw": json.dumps({step["target_key"]+"Name": resources[step["target_key"]]}),
-            "principal_type": "IAMUser",
-            "principal_arn": f"arn:aws:iam::{account_id}:user/{attacker}",
-            "username": attacker, "session_label": 1, "synthetic": True})
+            "principal_type": principal_type,
+            "principal_arn": principal_arn,
+            "username": principal_name, "session_label": 1, "synthetic": True})
+
+        if step["event_name"] in _ASSUME_ACTIONS:
+            role_name = resources[step["target_key"]]
+            principal_type = "AssumedRole"
+            principal_arn  = f"arn:aws:sts::{account_id}:assumed-role/{role_name}/{rand_str(16)}"
+            principal_name = role_name
 
     for name, source, ro in _weighted_sample(BENIGN_EVENTS_WEIGHTED, noise_events):
         t += jitter(10, 90)
@@ -284,9 +310,9 @@ def generate_attack_session(chain_name, recon_events=5, noise_events=3):
             "label": 0, "attack_technique": None, "read_only": ro, "user_agent": ua,
             "access_key_id": access_key, "mfa_authenticated": _mfa_value(),
             "target_resource": _benign_target_resource(source), "request_params_raw": None,
-            "principal_type": "IAMUser",
-            "principal_arn": f"arn:aws:iam::{account_id}:user/{attacker}",
-            "username": attacker, "session_label": 1, "synthetic": True})
+            "principal_type": principal_type,
+            "principal_arn": principal_arn,
+            "username": principal_name, "session_label": 1, "synthetic": True})
     return rows
 
 
