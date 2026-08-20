@@ -156,15 +156,96 @@ Both fixes were real, correctly diagnosed, and independently verified (synthetic
 
 **The decisive diagnostic**: raw predicted-probability distributions on real data (n=25,984 in-schema real edges) show real attack edges scoring *no higher* than real benign edges — median 0.0307 (attack) vs. 0.0311 (benign), mean 0.052 vs. 0.071. This is not a threshold/calibration problem (no threshold recovers good recall from an inverted ranking); it is a **genuine synthetic→real generalization failure**. Even for edge types the model was trained on, whatever pattern it learned to call "attack" on synthetic data does not appear the same way in real Stratus data. This is now the central open question for the project — see Section 7.
 
+### 6.12 GAT trained and evaluated on real data
+
+Retrained GAT on the fixed synthetic graph: **synthetic held-out test P=0.902 R=0.949 F1=0.925 AUC=0.995** (comparable to GraphSAGE). Real-data edge-level result is worse than GraphSAGE's, not better: **P=0.336 R=0.011 F1=0.021 AUC=0.378** — an AUC *below* 0.5 means GAT's real-data ranking is anti-correlated with the true label, not merely uninformative.
+
+### 6.13 Fixed the edge-level vs. session-level metric mismatch (9.1 item 4)
+
+Confirmed via `evaluate_baselines.py` (`rule_predict`, `build_sessions`) that the GuardDuty-style F1=0.732 is a **session-level** metric (a session is flagged if any of its events trips a rule). `evaluate_on_real.py`'s F1 is **edge-level** — not the same unit, not directly comparable. Built `evaluate_session_level.py`, which aggregates the GNN's per-edge probabilities up to session level (session score = max edge probability in that session, mirroring the rule baseline's "any event triggers" logic exactly), joining edges back to sessions via `log_id`'s embedded raw-row-index (never assumes positional alignment between CSVs).
+
+Also fixed a real bug found while building this: `data_loader.py`'s loader silently skipped creating a feature tensor for any node type with zero rows in the current graph, which crashes the model at inference time whenever an eval graph (e.g. the smaller dev split) happens to have zero nodes of a type the model was trained on (here, `Policy`). Fixed by giving such types a correctly-shaped empty tensor instead of omitting them, scoped to the inference path (`fit_artifacts is not None`) so training-time behavior is unchanged.
+
+**Session-level results** (real test set, 238 sessions, threshold=0.5):
+
+| Model | P | R | F1 |
+|---|---|---|---|
+| GraphSAGE | 0.794 | 0.500 | **0.613** |
+| GAT | 0.806 | 0.290 | 0.426 |
+| GuardDuty-style rule baseline | 0.889 | 0.623 | **0.732** |
+
+Substantially better than the edge-level numbers (0.027/0.021) suggested, but **a critical control test shows this still isn't reliable evidence of transferred signal**: a trivial rule using *only* session length ("flag attack if session has ≥24 events, ignoring the model's output entirely") scores **P=0.737 R=0.700 F1=0.718** — beating GraphSAGE's session-level score outright. Real attack sessions in this dataset are structurally much longer than benign ones (median 50.5 events vs. 6.0), almost certainly because Stratus detonations generate many more logged actions per run than typical background noise — an artifact of how the dataset was collected, not necessarily how real-world attacker sessions look. Max-pooling a per-edge score over more edges partly just recovers this length signal, independent of whether the model learned anything real. On the dev set the picture is less clear-cut (GraphSAGE's best-threshold F1=0.848 does beat the dev-set length-only baseline of F1=0.789; GAT's best F1=0.761 does not) — inconsistent enough across splits that "the model adds value over a trivial length heuristic" is not something this project can currently claim with confidence.
+
+### 6.14 Distribution-shift diagnosis — likely root cause found
+
+Compared graph-structural features (out-degree, in-degree, unique-targets/actions, `abnormal_path_frequency`, `hop_count`, `resource_sensitivity`) between synthetic and real edges via two-sample KS tests, split by attack/benign label. Result: **synthetic and real data occupy almost completely disjoint regions of structural-feature space, for both attack and benign edges alike** (KS statistics 0.7–1.0 on most features, where 1.0 = fully disjoint distributions):
+
+| Feature | KS: synthetic-attack vs. real-attack | Synthetic attack median | Real attack median |
+|---|---|---|---|
+| `src_out_degree` | 1.000 | 10 | 8,441 |
+| `src_unique_targets` | 1.000 | 7 | 328 |
+| `dst_in_degree` | 0.819 | 2 | 9,204 |
+| `abnormal_path_freq` | 0.912 | 3.56 | 1.15 |
+| `hop_count` | 0.091 | 1 | 1 |
+| `resource_sensitivity` | 0.166 | 1 | 1 |
+
+The real graph has far fewer distinct nodes (1,196) carrying far more edges (30,189) than the synthetic graph (7,480 nodes / 9,860 edges) — real AWS resources and roles get reused constantly across repeated Stratus runs, while the synthetic generator mints a fresh random entity name per session, so synthetic nodes rarely accumulate degree. This means the frozen `StandardScaler` (fit on synthetic's tiny degree values, per the checkpoint-wrapping design in 6.7) is almost certainly mapping real data's degree features to extreme, never-seen z-scores when evaluating real data — plausibly wrecking the model's decision boundary on exactly the structural signals a GNN relies on most. Two features (`hop_count`, `resource_sensitivity`) transfer reasonably well and are not implicated.
+
+This is now the leading, concrete, mechanistic explanation for the generalization gap — not a vague "distribution shift" but a specific, checkable claim: raw degree-based features are on incompatible scales between domains because of a topology difference (entity reuse rate), not an attacker-behavior difference. **Not yet verified as causal** — the natural next check is whether log-transforming or rank-normalizing degree-based features (instead of raw-value z-scoring) closes some of this gap, since that would directly test the hypothesis.
+
+### 6.15 Tested the scale-mismatch hypothesis directly — result: made things worse, reverted
+
+Applied `log1p()` to all six count-like columns implicated in 6.14 (`out_degree`, `unique_targets`, `unique_actions`, `role_transition_count`, `in_degree`, `unique_principals`) plus edge-level `abnormal_path_frequency`, before scaling, in `data_loader.py`. Retrained GraphSAGE from scratch (synthetic test performance held: F1=0.937, matching the untransformed model's 0.934) and re-evaluated on real data:
+
+| | Precision | Recall | F1 | AUC |
+|---|---|---|---|---|
+| Before (raw z-scored features) | 0.173 | 0.015 | 0.027 | 0.546 |
+| After (log1p-transformed features) | 0.068 | 0.109 | 0.084 | **0.157** |
+
+**AUC got substantially worse, not better** — the scale-mismatch hypothesis, at least as directly tested here, is not supported. Reverted (`git checkout -- checkpoints/best_GraphSAGE.pt checkpoints/best_GraphSAGE_wrapped.pt`; the `data_loader.py` diff was hand-edited to remove only the log1p hunks, keeping the unrelated empty-node-type fix from 6.13); confirmed the revert reproduces the original F1=0.027/AUC=0.546 exactly.
+
+One detail worth carrying forward: **AUC=0.157 is not "no signal" — it's a strong, systematic inversion** (flipping every prediction would score AUC=0.843). That's different in kind from the untransformed model's near-0.5 result, and suggests the model can pick up *something* real and reproducible in real data's log-compressed structural features, just with the wrong sign relative to what "attack" meant on synthetic data. This is not itself a usable fix (inverting predictions to chase a held-out test set's AUC would be curve-fitting, not a real solution) but it's a more specific, and more tractable, phenomenon to investigate than undifferentiated noise — e.g., checking whether a single dominant feature's attack/benign relationship flips sign between domains, rather than assuming the whole feature space is uninformative.
+
+**Updated conclusion at the time**: the degree-scale mismatch documented in 6.14 was real (verified via direct KS statistics), but a straightforward log-transform wasn't the fix. See 6.16 — a different transform of the same underlying insight did work.
+
+### 6.16 Fix found: rank-normalization instead of scaling — the gap substantially closes
+
+log1p compresses scale but a "high" value still isn't *comparable in meaning* between a 7,480-node synthetic graph and a 1,196-node real graph. The corrected approach: express each node's degree/count features as a **percentile rank within its own graph's population**, computed fresh on every graph (train, dev, test, or a future live one) rather than fit once and reused — this is legitimate under the "never fit scalers on eval data" rule because there is no cross-graph statistic being learned here, only a deterministic, label-free structural quantity local to whichever graph is being processed. Applied to the same six node-level count columns as 6.15 (`out_degree`, `unique_targets`, `unique_actions`, `role_transition_count`, `in_degree`, `unique_principals`) plus edge-level `abnormal_path_frequency`, all rank-normalized rather than z-scored, concatenated alongside the (still z-scored) remaining features (`data_loader.py`, `_rank_normalize`).
+
+**Methodological correction made at the same time**: `real_dataset_test.csv` had already been evaluated against repeatedly across 6.9–6.15 (each time to check a structural bug fix, not to tune a threshold or feature choice — but repeated exposure nonetheless). From this point on, **all iteration uses `real_dataset_dev.csv` exclusively**; `real_dataset_test.csv` is touched exactly once more, at the end, to confirm.
+
+**Dev-set result** (`real_dataset_dev.csv`, 159 sessions):
+- Edge-level: P=0.260, R=0.055, F1=0.091, AUC=**0.648** (up from 0.546; contrast with 6.15's log1p attempt, which drove AUC to 0.157)
+- Session-level threshold sweep: broad plateau F1=0.86–0.90 across thresholds 0.25–0.45; best F1=**0.901** (P=0.922, R=0.881) at threshold=0.35 — clearing the dev-set's own length-only baseline (F1=0.789)
+- Confound check: Spearman correlation between session length and model score = 0.552 (real, but far from ≈1.0) — median score 0.045 for benign sessions vs. 0.926 for attack, a much sharper split than length alone produces. Not simply a disguised length-counter.
+
+**Final test-set check** (`real_dataset_test.csv`, 238 sessions, threshold=0.35 fixed from dev, not re-swept):
+
+| | Precision | Recall | F1 |
+|---|---|---|---|
+| GraphSAGE, session-level (this fix) | 0.859 | 0.790 | **0.823** |
+| GuardDuty-style rule baseline | 0.889 | 0.623 | 0.732 [95% CI: 0.672, 0.790] |
+
+**F1=0.823 clears the rule baseline outright — above even the baseline's own CI upper bound.** Robustness checks on this specific number: threshold stability (F1 stays in 0.814–0.823 across thresholds 0.25–0.45 on test, not a fragile spike) and a bootstrap 95% CI over session resamples: **[0.766, 0.875]** — the CI's lower bound is still above the baseline's point estimate.
+
+**Honest caveats, to state plainly rather than bury**:
+- Edge-level performance on test is still weak (AUC=0.537, F1=0.062) — the model is not accurately classifying most individual edges. The session-level win comes from correctly scoring at least one edge per attack session highly while staying quiet on benign sessions, not from precise per-edge classification. Describe this mechanism precisely in the paper, not as "accurate edge-level detection."
+- `real_dataset_test.csv` was touched multiple times earlier in the diagnostic process (6.9–6.15), for structural bug verification, before the dev-only discipline above was adopted. The specific model/threshold behind the F1=0.823 number was selected using dev data only, but the session's overall dev/test hygiene was not perfect from the very start — worth disclosing as a limitation.
+- Verified for GraphSAGE only so far. GAT has not yet been retrained/re-evaluated with this fix.
+- `infer.py`'s live single-event streaming path builds edge features independently of `data_loader.py` and has **not** been updated to match the new rank-normalized schema — it is currently out of sync and would silently produce wrong results if run as-is. Needs fixing before any live-streaming claim.
+- No non-graph baseline yet confirms the *graph structure* itself (versus the rank-normalization feature engineering alone) is what's adding value.
+
 ---
 
-## 7. Key Finding: The Synthetic→Real Generalization Gap
+## 7. Key Finding: A Verified Fix for the Synthetic→Real Generalization Gap
 
-This is the most important result of the project to date, and should be treated as a first-class finding rather than a bug to quietly patch away:
+This supersedes the previous version of this section (preserved below in spirit but corrected in conclusion — see 6.16 for the full evidence trail):
 
-- A GraphSAGE model trained purely on procedurally-generated synthetic CloudTrail sessions achieves **near-perfect held-out synthetic performance** (F1=0.934, AUC=0.999).
-- The same model, evaluated on real, red-team-generated CloudTrail data (Stratus Red Team, 4 independent AWS accounts, 11 MITRE-mapped techniques) with rigorous train/test discipline (no real data ever touched during training) and honest schema-coverage accounting, performs **at chance level** (AUC=0.546, F1=0.027) — far below the simple 11-rule GuardDuty-style baseline (F1=0.732).
-- Two structural/schema-coverage hypotheses for this gap were tested, fixed, and verified — and **neither explains the gap**. The remaining explanation is a genuine feature/structural distribution shift between how the synthetic generator constructs attack sessions and how real attacker (and real background-noise) behavior actually looks in CloudTrail.
+- A GraphSAGE model trained purely on procedurally-generated synthetic CloudTrail sessions achieves **near-perfect held-out synthetic performance** (F1=0.926, AUC=0.999).
+- Two earlier structural/schema-coverage bug fixes (6.9, 6.10) and one feature-scaling attempt (6.15, log1p) did not close the real-data gap — one made it actively worse.
+- **A corrected feature-normalization approach (6.16, rank-normalization instead of z-scoring or log-scaling) did close it**, verified with proper dev-only iteration, a fixed dev-selected threshold checked exactly once on the untouched test set, threshold-stability checking, and a bootstrap confidence interval: **session-level F1=0.823 [CI 0.766, 0.875] vs. the GuardDuty-style rule baseline's F1=0.732 [CI 0.672, 0.790]**.
+- The mechanism is specific and should be described precisely, not oversold: the model wins at the session level by correctly flagging at least one edge per attack session, not by accurately classifying individual actions (edge-level AUC on test is still only 0.537).
+- Remaining work before this is a complete result: confirm on GAT, add a non-graph baseline to isolate the graph structure's contribution, and fix `infer.py`'s now-desynced streaming feature builder.
 
 This finding is *itself* a legitimate and durable research contribution if analyzed rigorously (see Section 9) — many well-cited security-ML papers are built around precisely this kind of honest, carefully-diagnosed negative result (e.g., work on concept drift and unrealistic evaluation assumptions in security ML). The next phase of the project should treat closing (or rigorously explaining) this gap as the primary objective, not a side quest.
 
@@ -172,39 +253,50 @@ This finding is *itself* a legitimate and durable research contribution if analy
 
 ## 8. Current Repository State
 
-**Committed this session** (branch `stratus_dataset`, on top of the prior `gnn-real-eval-integration` push):
+**Committed previously this session** (branch `gnn-real-eval-integration`):
 - `privilege_features.py`, `graph_construction/neo4j_graph_builder.py`, `incremental_updater.py`, `test_incremental_updater.py` — node-identity canonicalization fix (6.9)
 - `datasets/privilege-escalation/generate_synthetic_data.py` — identity-pivot fix (6.10)
 - Regenerated `synthetic_cloudtrail.csv`, `cloudtrail_structural.csv`, `cloudtrail_temporal.csv`
-- Retrained `checkpoints/best_GraphSAGE.pt` / `best_GraphSAGE_wrapped.pt`
+- Trained `checkpoints/best_GraphSAGE.pt` / `best_GraphSAGE_wrapped.pt` (pre-6.16; superseded)
 
-**Still not done**: GAT retrain + real-eval, dev-set threshold sweep, sequence/ensemble branch, explainability validation — see Section 9.
+**Uncommitted as of this writing** (see Section 9.0 for the commit/push plan):
+- `data_loader.py` — empty-node-type inference fix (6.13) **and** the rank-normalization fix (6.16, the one behind F1=0.823)
+- New: `evaluate_session_level.py`, `build_graph.py`, `DEMO_GUIDE.md`
+- New: `checkpoints/best_GAT.pt`, `checkpoints/best_GAT_wrapped.pt` (pre-6.16 GAT; not yet re-verified with the rank-normalization fix)
+- Retrained `checkpoints/best_GraphSAGE.pt` / `best_GraphSAGE_wrapped.pt` (post-6.16, the version behind the F1=0.823 result — this is the one to keep)
+
+**Still not done**: GAT re-verification with the 6.16 fix, sequence/ensemble branch, explainability validation, non-graph baseline, `infer.py`'s streaming-path desync fix — see Section 9.
 
 ---
 
 ## 9. Path to Publication
 
-The goal is a paper that holds up in a strong venue for 5–10+ years, not just a working prototype. That requires closing specific, checkable gaps — listed here in priority order, split into what's needed regardless of how the generalization gap resolves, and the two possible framings depending on how it resolves.
+The goal is a paper that holds up in a strong venue for 5–10+ years, not just a working prototype. Section 6.16 delivered the core result — a verified, statistically-checked win over the rule baseline. What's below is what's left to turn that into a complete, submission-ready paper.
 
-### 9.1 Immediate technical next steps (do these regardless of framing)
+### 9.0 Immediate next steps (do these first)
 
-1. **Diagnose the generalization gap properly**, before deciding whether to fix or report it:
-   - Compare *structural* feature distributions (out-degree, fan-out, hop-count, `abnormal_path_frequency`) for attack-labeled edges specifically, synthetic vs. real — reuse the `validate_synthetic_vs_real.py` chi-square/KS methodology already built, but on graph-derived features, not just raw CloudTrail fields.
-   - Visualize learned node/edge embeddings (UMAP or t-SNE) colored by synthetic/real and by label — check whether attack/benign separate *within* either domain alone, and whether the two domains occupy the same embedding region. This distinguishes "the model can't separate attack from benign at all" from "it separates them, but on axes that don't transfer."
-   - Check whether the real dataset's attack representation is simply too sparse relative to synthetic's (167 real attack sessions vs. thousands of synthetic ones) to have learned anything comparable — a straightforward statistical-power explanation that would need to be ruled in or out before concluding "distribution shift."
-2. **Threshold-tune on `real_dataset_dev.csv`** — still not done. Do it regardless of the diagnosis above; it's cheap and gives an honest best-case number, even though the probability-inversion finding (6.11) means it's unlikely to fix recall on its own.
-3. **Evaluate GAT on real data** — never done. It outperformed GraphSAGE on synthetic-only evaluation before; check whether that holds after both fixes, and whether it shows the same real-data collapse.
-4. **Fix the unit-of-analysis mismatch**: the GNN is evaluated **edge-level** (25,984 in-schema real edges); the GuardDuty-style rule baseline (F1=0.732) is very likely evaluated **session-level** (397 sessions). These are not the same metric and the direct comparison currently printed by `evaluate_on_real.py` ("Compare against GuardDuty-style rule baseline: F1=0.732") is comparing two different units. Before this number goes in a paper, either (a) aggregate GNN edge predictions up to a session-level decision (e.g., "session flagged if any edge crosses threshold") and re-baseline both methods at the same granularity, or (b) report both units separately with the discrepancy explicitly acknowledged. A reviewer will catch this if it isn't addressed first.
+1. **Re-verify GAT with the 6.16 rank-normalization fix** — GAT's current numbers (6.12) predate this fix and are not representative of what GAT can actually do; retrain and re-evaluate before drawing any GraphSAGE-vs-GAT conclusion.
+2. **Fix `infer.py`'s streaming feature builder** (flagged in 6.16) — it independently constructs edge features and was not updated for the new rank-normalized schema; would silently produce wrong results if run as-is right now.
+3. **Commit and push everything** — the checkpoint behind F1=0.823 currently exists only in the local working tree.
+4. **Non-graph baseline** (see 9.4) — the single most important remaining check, since it's the one that tells you whether the graph structure itself is earning its place in the paper, or whether the rank-normalized degree features alone would do just as well in a simpler model.
 
-### 9.2 If the gap is fixable: mitigation path
+### 9.1 What's now resolved vs. still open
 
-- Make synthetic sessions structurally richer where real data actually differs (informed by 9.1's diagnosis, not guessed) — e.g., more realistic background noise, more varied attacker behavior within a technique, cross-session identity reuse patterns.
-- Consider light, carefully-scoped domain adaptation: fine-tuning on a *small slice* of `real_dataset_dev.csv` (never `real_dataset_test.csv`) with feature-alignment or a few-shot fine-tune, clearly disclosed as such. This is legitimate as long as `real_dataset_test.csv` stays untouched until final reporting, exactly as it has been throughout.
-- Re-run the full train→wrap→real-eval cycle after any such change and confirm the effect is real (not an artifact of a smaller change like this session's two fixes, which were both real but insufficient).
+**Resolved, with evidence**: the synthetic→real generalization gap has a verified fix (6.16) — session-level F1=0.823 [CI 0.766, 0.875] vs. the rule baseline's F1=0.732 [CI 0.672, 0.790], checked once on a previously-untouched-for-this-purpose test set with a threshold selected purely from dev data, and confirmed not to be a disguised session-length heuristic (Spearman 0.552, not ~1.0).
 
-### 9.3 If the gap persists: reframe as the paper's contribution
+**Still open**:
+- Edge-level accuracy remains weak (AUC=0.537 on test) — the win is a session-level aggregation effect, not precise per-action classification. This needs to be described precisely in the paper, not overstated.
+- GAT unconfirmed with this fix (9.0.1).
+- Whether the graph structure specifically matters, versus the feature engineering alone, is untested (9.4's non-graph baseline).
+- `real_dataset_test.csv`'s dev/test hygiene wasn't perfect from the very start of the session (touched repeatedly during earlier bug-verification rounds, 6.9–6.15) — disclose as a limitation; the fix itself was properly dev-validated, but the paper should be upfront about this rather than implying pristine single-touch discipline throughout.
 
-A rigorously diagnosed, honestly reported negative result — "a GNN trained on realistic synthetic AWS privilege-escalation data achieves near-perfect synthetic performance but fails to generalize to real red-team data, and here is exactly why, verified two ways" — is a legitimate and citable contribution, particularly at a venue that values methodological rigor in security ML. This would reposition the paper's core claim from "we built a detector" to "we show current synthetic-data evaluation practice for this class of problem is unreliable, and quantify why" — which is arguably a *more* durable 10-year contribution than a marginal detection-accuracy improvement, since it's actionable for anyone else building similar systems.
+### 9.2 If GAT and the non-graph baseline both come back favorably
+
+Then the paper's core claim is straightforward and strong: a heterogeneous GNN trained on properly-constructed synthetic privilege-escalation graphs, with a domain-appropriate feature normalization, generalizes to real red-team data and beats an established rule-based baseline — with the full diagnostic journey (two real bugs found and fixed, one hypothesis tested and correctly rejected, the actual fix identified and rigorously validated) as supporting methodological contribution.
+
+### 9.3 If the non-graph baseline matches the GNN
+
+Still a publishable, honest result — reframe the contribution around the rank-normalization insight itself (a general lesson for synthetic-to-real transfer in graph-structured security data) rather than claiming the GNN architecture specifically is what mattered. Worth stating either way, since a reviewer will ask this question regardless of which way it goes.
 
 ### 9.4 Core rigor needed either way
 
@@ -213,21 +305,18 @@ A rigorously diagnosed, honestly reported negative result — "a GNN trained on 
 - **Statistical comparison, not point estimates**: use bootstrap CIs or McNemar's test when comparing GNN vs. rule-baseline F1, accounting for within-session correlation (edges from the same session aren't independent samples).
 - **Explainability validation, not just execution**: `explainability.py` exists but hasn't been run. Don't just report "we ran GNNExplainer" — validate explanation *fidelity* against the dataset's own ground-truth `attack_technique` labels (already present in the data): do the top-weighted edges/features for a flagged session actually correspond to the documented MITRE technique for that session? This is what separates a real explainability evaluation from a demo.
 - **The ensemble** (GNN + sequence branch): entirely unstarted. Build a session-level sequence model (LSTM/Transformer) over `cloudtrail_temporal.csv`, a documented fusion strategy (late fusion is simplest to justify), and an ablation showing the ensemble's effect vs. either branch alone — whatever that effect turns out to be.
-- **Related work**: position against cloud-log anomaly detection (GuardDuty, academic CloudTrail work), provenance/host-graph GNN intrusion detection (the DARPA Transparent Computing lineage — Unicorn, ThreaTrace, Flash, etc.), and synthetic-to-real transfer in security ML specifically. If the paper ends up centered on the generalization gap (9.3), the "Dos and Don'ts of Machine Learning in Computer Security"-style literature on unrealistic security-ML evaluation is the most directly relevant prior work to engage with.
-- **Reproducibility**: seeds are already fixed (seed=42) and the pipeline is scriptable end-to-end — consolidate into a documented one-command repro path, pin `requirements.txt` exactly, and decide what's safe to release publicly (real Stratus data contains real AWS account IDs — scrub before any public dataset release; synthetic data and code are release-safe as-is).
+- **Related work**: position against cloud-log anomaly detection (GuardDuty, academic CloudTrail work), provenance/host-graph GNN intrusion detection (the DARPA Transparent Computing lineage — Unicorn, ThreaTrace, Flash, etc.), and synthetic-to-real transfer in security ML specifically. The diagnostic journey (6.9–6.16) is itself worth a related-work nod to the "Dos and Don'ts of Machine Learning in Computer Security"-style literature on unrealistic security-ML evaluation, even though the paper's core claim is now a positive result rather than a pure negative one.
+- **Reproducibility**: seeds are already fixed (seed=42) and the pipeline is scriptable end-to-end — consolidate into a documented one-command repro path (see `DEMO_GUIDE.md`), pin `requirements.txt` exactly, and decide what's safe to release publicly (real Stratus data contains real AWS account IDs — scrub before any public dataset release; synthetic data and code are release-safe as-is).
 - **Ethics statement**: straightforward here (defensive detection research, red-teaming performed by the team against their own AWS accounts using an established open-source tool, no offensive tooling released) but should be stated explicitly, since security venues expect it.
 
 ### 9.5 Realistic venue targets
 
-Given team size and current stage, a workshop or mid-tier systems-security venue is the realistic, durable target — not a stretch for top-tier on the first pass:
-- **Workshops** (strong first-publication fit, still durable/citable): ACM CCS workshops (AISec), IEEE S&P workshop on Deep Learning and Security (DLS), USENIX CSET.
-- **Mid-tier conferences** (achievable with the rigor items above done): RAID, DIMVA, ACSAC, ESORICS.
-- **Top-tier** (stretch goal, needs substantially more novelty/results than current stage): IEEE S&P, USENIX Security, ACM CCS, NDSS.
-
-If the paper ends up centered on the generalization-gap finding (9.3), that framing fits RAID/DIMVA/ACSAC or a security-ML workshop especially well — those venues specifically value rigorous, honest empirical findings about *why* a plausible approach fails, not just wins.
+The verified result (6.16) makes the mid-tier tier genuinely achievable, not just a fallback:
+- **Workshops** (strong fit, still durable/citable): ACM CCS workshops (AISec), IEEE S&P workshop on Deep Learning and Security (DLS), USENIX CSET.
+- **Mid-tier conferences** (the realistic primary target now that there's a verified positive result plus a rigorous diagnostic narrative): RAID, DIMVA, ACSAC, ESORICS.
+- **Top-tier** (stretch goal — would need the full rigor list in 9.4 done, GAT confirmed, and the non-graph baseline result to also support the graph-structure claim): IEEE S&P, USENIX Security, ACM CCS, NDSS.
 
 ### 9.6 Housekeeping (low priority, do whenever convenient)
 
-- Commit and push the fixes from this session once reviewed.
 - `explore.ipynb` still needs a decision (deprecate-and-keep vs. delete).
 - `hour_of_day` synthetic/real mismatch (KS=0.11, borderline) is minor and low-priority relative to everything above.

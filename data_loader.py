@@ -142,6 +142,14 @@ _PRINCIPAL_NUM_COLS = ["out_degree", "unique_targets", "unique_actions", "role_t
 _TARGET_NUM_COLS    = ["in_degree", "unique_principals", "resource_sensitivity",
                         "distance_to_sensitive_resource"]
 
+# Raw degree/count columns -- rank-normalized within their own graph instead
+# of z-scored (see _rank_normalize below). Excludes resource_sensitivity/
+# distance_to_sensitive_resource (bounded scores, not counts) and hop_count
+# (small bounded integer, not implicated -- see PROJECT_STATUS_REPORT.md
+# section 6.14).
+_COUNT_LIKE_COLS = {"out_degree", "unique_targets", "unique_actions",
+                     "role_transition_count", "in_degree", "unique_principals"}
+
 NODE_FEATURE_SCHEMA: Dict[str, Tuple[List[str], List[str]]] = {
     "User":               (_PRINCIPAL_NUM_COLS, []),
     "Role":                (_PRINCIPAL_NUM_COLS, []),
@@ -153,9 +161,10 @@ NODE_FEATURE_SCHEMA: Dict[str, Tuple[List[str], List[str]]] = {
 
 EDGE_NUM_COLS = [
     "hop_count", "privilege_gain", "privilege_gain_defined",
-    "abnormal_path_frequency", "action_global_frequency_log",
+    "action_global_frequency_log",
     "is_privilege_escalation_technique", "is_read_only",
-]
+]  # abnormal_path_frequency is handled separately (rank-normalized, not
+   # scaled -- see _rank_normalize and abnormal_path_frequency_rank below)
 EDGE_CAT_COLS = ["edge_type"]  # label-encoded GLOBALLY across all 260 actions,
                                 # shared across every relation type, so the
                                 # single shared EdgeClassifierHead sees a
@@ -202,6 +211,19 @@ class PrivilegePropagationGraphLoader:
         data = HeteroData()
         for ntype, df in node_dfs.items():
             if len(df) == 0:
+                # During training this type is legitimately absent from the
+                # graph entirely. During inference against a pretrained
+                # checkpoint, though, the model's input_proj has a layer for
+                # every node type seen at training time and looks each one
+                # up unconditionally -- a real eval graph simply having zero
+                # instances of a trained type (e.g. no Policy nodes in a
+                # smaller dev split) must not crash the model, so give it an
+                # empty-but-correctly-shaped tensor instead of skipping it.
+                if self._fit_artifacts is not None:
+                    num_cols, cat_cols = NODE_FEATURE_SCHEMA[ntype]
+                    data[ntype].x = torch.zeros((0, len(num_cols) + len(cat_cols)), dtype=torch.float)
+                    data[ntype].key = []
+                    node_idx[ntype] = {}
                 continue
             node_idx[ntype] = {key: i for i, key in enumerate(df["key"])}
             data[ntype].x = self._node_features(ntype, df)
@@ -237,6 +259,21 @@ class PrivilegePropagationGraphLoader:
             df["action_global_frequency_log"] = np.log1p(
             df["action_global_frequency"].astype(float)
             )
+
+        # abnormal_path_frequency rank-normalized across the WHOLE graph's
+        # edges (not per-relation-group -- a rare relation would have too
+        # few edges for a meaningful percentile). Computed fresh per graph,
+        # positionally sliced back into each relation's df before the
+        # groupby below so _edge_features sees it as a plain column.
+        if edge_dfs:
+            lens = [len(df) for df in edge_dfs.values()]
+            all_apf = pd.concat([df["abnormal_path_frequency"] for df in edge_dfs.values()], ignore_index=True)
+            all_apf_rank = self._rank_normalize(all_apf)
+            offset = 0
+            for df, n in zip(edge_dfs.values(), lens):
+                df["abnormal_path_frequency_rank"] = all_apf_rank[offset:offset + n]
+                offset += n
+
         fitted_edge_scaler = (self._fit_artifacts or {}).get("edge_scaler")
         if fitted_edge_scaler is not None:
             self.edge_scaler = fitted_edge_scaler
@@ -384,6 +421,22 @@ class PrivilegePropagationGraphLoader:
 
     # ── Feature builders ──────────────────────────────────────────────────────
 
+    @staticmethod
+    def _rank_normalize(series: pd.Series) -> np.ndarray:
+        """Percentile rank of each value WITHIN this series' own population,
+        in (0, 1]. Deterministic per-graph, uses no labels, fits nothing --
+        computed identically and fresh on any graph (training, dev, test,
+        or a future live one), so this is not subject to the "never fit on
+        eval data" rule the StandardScalers below follow: there is no
+        cross-graph statistic here to leak, only this graph's own topology.
+        Exists because a fixed scale transform (raw or log1p) still can't
+        make a node's degree comparable in MEANING between a small sparse
+        synthetic graph and a small number of heavily-reused real entities
+        -- see PROJECT_STATUS_REPORT.md section 6.15/6.16."""
+        if len(series) <= 1:
+            return np.ones(len(series), dtype=float)
+        return series.rank(pct=True, method="average").to_numpy(dtype=float)
+
     def _node_features(self, ntype: str, df: pd.DataFrame) -> torch.Tensor:
         num_cols, cat_cols = NODE_FEATURE_SCHEMA[ntype]
         df = df.copy()
@@ -393,16 +446,24 @@ class PrivilegePropagationGraphLoader:
             )
         df[num_cols] = df[num_cols].fillna(0).astype(float)
 
+        scaled_cols = [c for c in num_cols if c not in _COUNT_LIKE_COLS]
+        rank_cols = [c for c in num_cols if c in _COUNT_LIKE_COLS]
+        rank_part = np.stack([self._rank_normalize(df[c]) for c in rank_cols], axis=1) if rank_cols \
+            else np.zeros((len(df), 0))
+
         fitted_scalers = (self._fit_artifacts or {}).get("node_scalers", {})
         fitted_scaler = fitted_scalers.get(ntype)
-        if fitted_scaler is not None:
-            num = fitted_scaler.transform(df[num_cols].values)
+        if not scaled_cols:
+            scaled_part = np.zeros((len(df), 0))
+        elif fitted_scaler is not None:
+            scaled_part = fitted_scaler.transform(df[scaled_cols].values)
         elif len(df) > 1:
             scaler = StandardScaler()
-            num = scaler.fit_transform(df[num_cols].values)
+            scaled_part = scaler.fit_transform(df[scaled_cols].values)
             self.node_scalers[ntype] = scaler  # only registered once actually fitted
         else:
-            num = df[num_cols].values
+            scaled_part = df[scaled_cols].values
+        num = np.concatenate([scaled_part, rank_part], axis=1)
 
         if cat_cols:
             fitted_encoders = (self._fit_artifacts or {}).get("label_encoders", {})
@@ -432,6 +493,8 @@ class PrivilegePropagationGraphLoader:
 
         num = df[EDGE_NUM_COLS].astype(float).values
         num = self.edge_scaler.transform(num)
+        rank_part = df[["abnormal_path_frequency_rank"]].to_numpy(dtype=float)
+        num = np.concatenate([num, rank_part], axis=1)
         # A real/held-out graph can contain edge_type values never seen
         # while fitting edge_type_enc on the training graph -- map those to
         # the encoder's first known class rather than letting .transform()

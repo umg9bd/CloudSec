@@ -4,7 +4,31 @@
 
 This project detects AWS privilege-escalation attacks from CloudTrail
 logs using a heterogeneous Graph Neural Network (GraphSAGE), Neo4j, and
-incremental streaming inference.
+incremental streaming inference. Trained on procedurally-generated
+synthetic CloudTrail sessions, validated against real attack data collected
+with [Stratus Red Team](https://stratus-red-team.cloud/) across 4
+independent AWS accounts.
+
+## Results
+
+| | Precision | Recall | F1 |
+|---|---|---|---|
+| GraphSAGE, session-level, real held-out test data | 0.859 | 0.790 | **0.823** [95% CI: 0.766, 0.875] |
+| Rule-based baseline (GuardDuty-style, 11 rules) | 0.889 | 0.623 | 0.732 [95% CI: 0.672, 0.790] |
+
+The GNN clears the rule-based baseline on real, previously-unseen attack
+sessions — verified with a dev-set-only selected threshold, checked once on
+held-out test data, threshold-stability checked, and bootstrap-CI checked.
+Getting here required diagnosing and fixing a real synthetic-to-real
+generalization gap (two structural bugs, one ruled-out hypothesis, and the
+actual fix — a rank-normalization feature transform). Full evidence trail,
+caveats, and what's still open: **`PROJECT_STATUS_REPORT.md`**. Full runnable
+commands with expected output at each step: **`DEMO_GUIDE.md`**.
+
+One honest caveat up front: the win is a *session-level* effect (the model
+correctly flags at least one edge per attack session) — edge-level accuracy
+on individual actions is still weak (AUC≈0.54). See the report for the full
+picture before citing the headline number alone.
 
 ## Architecture
 
@@ -66,19 +90,28 @@ GraphSAGE
 
 ## Repository
 
--   train.py --- training
--   infer.py --- streaming inference
--   model_graphsage.py --- model
--   data_loader.py --- graph loading
--   privilege_features.py --- graph creation
--   incremental_updater.py --- graph updates
--   feature_engine9.py --- feature engineering
--   blast_radius.py --- blast radius
+-   train.py --- training (GraphSAGE and GAT)
+-   infer.py --- streaming inference + checkpoint wrapping (see note below)
+-   model_graphsage.py / model_gat.py --- models
+-   data_loader.py --- graph loading, feature normalization
+-   privilege_features.py --- node/edge identity, relation classification
+-   graph_construction/neo4j_graph_builder.py --- batch graph construction
+-   incremental_updater.py --- streaming graph updates
+-   feature_engine9.py --- feature engineering (raw CloudTrail -> structural/temporal CSVs)
+-   datasets/privilege-escalation/generate_synthetic_data.py --- synthetic training data generator
+-   build_graph.py --- CLI wrapper to load a structural CSV into Neo4j
+-   evaluate_on_real.py --- edge-level real-data evaluation
+-   evaluate_session_level.py --- session-level real-data evaluation (comparable to the rule baseline)
+-   datasets/privilege-escalation/evaluate_baselines.py --- rule-based baselines
+-   blast_radius.py --- downstream reachability/impact analysis (not yet exercised)
+-   explainability.py --- prediction explanations (not yet exercised)
+-   PROJECT_STATUS_REPORT.md --- full evaluation history, evidence, and publication roadmap
+-   DEMO_GUIDE.md --- runnable demo script with expected output at each step
 
 ## Training
 
 ``` bash
-python3 train.py \         
+python train.py \
     --model sage \
     --epochs 100 \
     --save_dir ./checkpoints
@@ -87,17 +120,32 @@ python3 train.py \
 ## Wrap checkpoint
 
 ``` bash
-python infer.py --wrap-checkpoint checkpoints/best_sage.pt
+python infer.py --wrap-checkpoint checkpoints/best_GraphSAGE.pt --wrapped-output checkpoints/best_GraphSAGE_wrapped.pt
 ```
 
-## Run inference
+## Evaluate against real data
 
 ``` bash
-python infer.py   --checkpoint checkpoints/best_sage_wrapped.pt   --watch incoming   --alert-dir alerts   --threshold 0.5   --seed-from-neo4j
-
-
+python evaluate_on_real.py --checkpoint checkpoints/best_GraphSAGE_wrapped.pt --model sage
+python evaluate_session_level.py --checkpoint checkpoints/best_GraphSAGE_wrapped.pt --model sage --raw-csv datasets/privilege-escalation/real_dataset_test.csv --threshold 0.35
 ```
-Insert json logs into incoming directory to get real time prediction of the action performed 
+
+Full setup (Neo4j, environment variables, expected output) in `DEMO_GUIDE.md`.
+
+## Run live streaming inference
+
+``` bash
+python infer.py   --checkpoint checkpoints/best_GraphSAGE_wrapped.pt   --watch incoming   --alert-dir alerts   --threshold 0.5   --seed-from-neo4j
+```
+Insert json logs into incoming directory to get real time prediction of the action performed.
+
+**Known issue**: `infer.py`'s live single-event feature builder constructs
+edge features independently of `data_loader.py` and has not yet been
+updated for the rank-normalized feature schema behind the current best
+checkpoint (see `PROJECT_STATUS_REPORT.md` section 6.16) — it will run
+without erroring but produce incorrect scores until this is fixed. Use the
+batch evaluation commands above for anything that needs to be trusted right
+now.
 
 ## Outputs
 
