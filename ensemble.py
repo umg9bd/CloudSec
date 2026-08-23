@@ -191,12 +191,19 @@ def score_gnn_blast_radius(structural_df: pd.DataFrame, source: str = "csv") -> 
     acting in this batch. source="csv" builds the graph directly from
     structural_df (no infra); source="neo4j" reads the same graph back
     out of a live Neo4j instance already loaded via build_graph.py."""
+    # Built once and threaded through every compute() call below --
+    # BlastRadiusEngine.compute() defaults to constructing a fresh
+    # ActionAccessLevelResolver() per call when none is passed, and each
+    # one re-parses policy_sentry's offline IAM action database (~0.4s).
+    # Across hundreds of principals that's minutes of pure redundant
+    # JSON parsing before any real reachability work happens.
+    resolver = pf.ActionAccessLevelResolver()
     if source == "neo4j":
-        ppg, principals = build_ppg_from_neo4j()
+        ppg, principals = build_ppg_from_neo4j(resolver=resolver)
     else:
-        ppg, principals = build_ppg(structural_df)
+        ppg, principals = build_ppg(structural_df, resolver=resolver)
     engine = br.BlastRadiusEngine(ppg)
-    return {node: engine.compute(node) for node in principals}
+    return {node: engine.compute(node, resolver=resolver) for node in principals}
 
 
 # ── LSTM side: P_seq via the existing prod scorer ────────────────────────────
