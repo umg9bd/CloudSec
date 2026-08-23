@@ -1,0 +1,33 @@
+# Large / redundant datasets
+botsv3_enriched_features_behavioral.csv
+
+# OS / editor
+.DS_Store
+**/.DS_Store
+.vscode/
+.idea/
+Thumbs.db
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+
+# Generated score dumps and plots (keep checkpoints + metrics)
+temporal-analysis/artifacts/lstm_transformer/P_event.csv
+temporal-analysis/artifacts/lstm_transformer/P_seq.csv
+temporal-analysis/artifacts/lstm_transformer/plots/
+
+# Accidental placeholder paths
+graph_construction/path/
+
+# Local-only planning notes — never push to GitHub
+AGENT.md
+**/AGENT.md
+agent.md
+**/agent.md
+FIX_PLAN.md
+**/FIX_PLAN.md
+temporal-v3.ipynb
