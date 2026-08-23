@@ -295,12 +295,18 @@ def main():
                               "structural CSV directly (no infra); 'neo4j' reads the same "
                               "graph back out of a live Neo4j instance already loaded via "
                               "build_graph.py (bolt://localhost:7687, see build_ppg_from_neo4j)")
+    parser.add_argument("--show-table", action="store_true",
+                         help="Also print the full per-principal risk table to the terminal. "
+                              "Off by default -- the run prints only feature_engine9's "
+                              "[FAST-LANE ALERT] lines and a one-line summary; the full table "
+                              "always goes to --out regardless of this flag.")
     args = parser.parse_args()
 
     result = run(args.input, args.weight_gnn, args.weight_lstm, args.agg,
                  args.out, args.freeze_vocab, gnn_source=args.source)
-    with pd.option_context("display.max_rows", 50, "display.width", 160):
-        print(result.to_string(index=False))
+    if args.show_table:
+        with pd.option_context("display.max_rows", 50, "display.width", 160):
+            print(result.to_string(index=False))
     print(f"\n{len(result)} principals scored -> {args.out}")
 
 
