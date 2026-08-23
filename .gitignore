@@ -23,7 +23,11 @@ temporal-analysis/artifacts/lstm_transformer/plots/
 # Accidental placeholder paths
 graph_construction/path/
 
-# Local-only planning notes
+# Local-only planning notes — never push to GitHub
 AGENT.md
+**/AGENT.md
+agent.md
+**/agent.md
 FIX_PLAN.md
+**/FIX_PLAN.md
 temporal-v3.ipynb
