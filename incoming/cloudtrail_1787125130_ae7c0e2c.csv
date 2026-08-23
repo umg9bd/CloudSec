@@ -1,0 +1,9 @@
+timestamp,event_name,event_source,aws_region,source_ip,error_code,label,attack_technique,read_only,user_agent,access_key_id,mfa_authenticated,target_resource,request_params_raw,principal_type,principal_arn,username,session_label,synthetic
+2024-01-03 13:06:46+00:00,AssumeRole,sts.amazonaws.com,us-east-1,resource-explorer-2.amazonaws.com,,0,,True,resource-explorer-2.amazonaws.com,,,role-cgqdmt,,AWSService,,resource-explorer-2.amazonaws.com,0,True
+2024-01-03 13:10:07+00:00,GetBucketAcl,s3.amazonaws.com,us-east-1,cloudtrail.amazonaws.com,,0,,True,cloudtrail.amazonaws.com,,,data-gstzbr-bucket,,AWSService,,cloudtrail.amazonaws.com,0,True
+2024-01-03 13:12:41+00:00,AssumeRole,sts.amazonaws.com,us-east-1,resource-explorer-2.amazonaws.com,,0,,True,resource-explorer-2.amazonaws.com,,,role-pcoohs,,AWSService,,resource-explorer-2.amazonaws.com,0,True
+2024-01-03 13:16:36+00:00,AssumeRole,sts.amazonaws.com,us-east-1,resource-explorer-2.amazonaws.com,,0,,True,resource-explorer-2.amazonaws.com,,,role-endmws,,AWSService,,resource-explorer-2.amazonaws.com,0,True
+2024-01-03 13:19:59+00:00,GetBucketAcl,s3.amazonaws.com,us-east-1,cloudtrail.amazonaws.com,,0,,True,cloudtrail.amazonaws.com,,,data-pljglk-bucket,,AWSService,,cloudtrail.amazonaws.com,0,True
+2024-01-03 13:24:54+00:00,AssumeRole,sts.amazonaws.com,us-east-1,resource-explorer-2.amazonaws.com,,0,,True,resource-explorer-2.amazonaws.com,,,role-cwalyv,,AWSService,,resource-explorer-2.amazonaws.com,0,True
+2024-01-03 16:01:59+00:00,DescribeDBInstances,rds.amazonaws.com,us-east-1,131.31.131.222,,0,,True,aws-cli/1.29.0 Python/3.9.0 Darwin/22.0.0 botocore/1.31.0,AKIAF7Z6KQMCKA7105LM,,,,IAMUser,arn:aws:iam::493883649653:user/tbfeyz,tbfeyz,0,True
+2024-01-03 16:03:31+00:00,GetParameter,ssm.amazonaws.com,us-east-1,131.31.131.222,,0,,True,aws-cli/1.29.0 Python/3.9.0 Darwin/22.0.0 botocore/1.31.0,AKIAF7Z6KQMCKA7105LM,,/app/tmxjkq/config,,IAMUser,arn:aws:iam::493883649653:user/tbfeyz,tbfeyz,0,True

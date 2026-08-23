@@ -1,12 +1,3 @@
-"""
-Run:
-    python feature_engine9.py
-        One-shot batch over synthetic_cloudtrail.csv.
-
-    python feature_engine9.py --watch incoming/ [--simulate]
-        Same watch-folder mode as fe6-fe8.
-"""
-
 import argparse
 import csv
 import gzip
@@ -14,11 +5,10 @@ import json
 import os
 import time
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime
 
 import ipaddress
 import numpy as np
-
 
 def _parse_json_text(value):
     if value is None:
@@ -60,7 +50,7 @@ def _absent_or_present(value):
 
 
 def normalize_cloudtrail_row(row):
-    """Map raw CloudTrail fields or enriched aliases onto the internal schema."""
+    """Map raw CloudTrail fields onto the internal schema."""
 
     user_identity = _parse_json_text(row.get('userIdentity')) or {}
     session_context = user_identity.get('sessionContext') or {}
@@ -190,7 +180,7 @@ FIXED_EVENT_SOURCES = [
     "rds.amazonaws.com", "elasticloadbalancing.amazonaws.com", "account.amazonaws.com",
     "notifications.amazonaws.com", "ce.amazonaws.com", "budgets.amazonaws.com",
     "freetier.amazonaws.com",
-]
+ ]
 
 class VocabIndex:
     def __init__(self, fixed_tokens=None, path=None):
@@ -217,6 +207,32 @@ class VocabIndex:
         if self.path:
             with open(self.path, 'w', encoding='utf-8') as f:
                 json.dump(self.token_to_idx, f, indent=2, sort_keys=True)
+
+
+class AdaptiveRiskPrior:
+    def __init__(self, priors, default=0.1, prior_weight=15, path=None):
+        self.priors = priors
+        self.default = default
+        self.prior_weight = prior_weight
+        self.path = path
+        self.counts = {}  # key -> [attacks_seen, total_seen]
+        if path and os.path.exists(path):
+            self.counts = json.loads(open(path, encoding='utf-8').read())
+
+    def score(self, key):
+        prior = self.priors.get(key, self.default)
+        attacks, total = self.counts.get(key, (0, 0))
+        return (self.prior_weight * prior + attacks) / (self.prior_weight + total)
+
+    def update(self, key, label):
+        attacks, total = self.counts.get(key, (0, 0))
+        attacks += 1 if str(label) == '1' else 0
+        self.counts[key] = (attacks, total + 1)
+
+    def save(self):
+        if self.path:
+            with open(self.path, 'w', encoding='utf-8') as f:
+                json.dump(self.counts, f, indent=2, sort_keys=True)
 
 
 # ── Policy/permission feature parsing ─────────────────────────────────────
@@ -329,7 +345,7 @@ def _extract_account_id(arn):
 
 class GraphNodeTracker:
     EWMA_ALPHA = 0.3  # weight on the newest risk sample
-    NODE_AGE_CAP_SECONDS = 86400.0  # normalize node age against 1 day
+    NODE_AGE_CAP_SECONDS = 86400.0  # number of secs in a day
 
     def __init__(self, path=None):
         self.path = path
@@ -489,7 +505,8 @@ class StateTracker:
 
 
 class FeatureEngineer:
-    def __init__(self, event_name_vocab_path=None, state_tracker_path=None, graph_state_path=None):
+    def __init__(self, event_name_vocab_path=None, state_tracker_path=None, graph_state_path=None,
+                 action_prior_path=None, principal_prior_path=None):
         self.tracker = StateTracker(path=state_tracker_path)
         self.graph_tracker = GraphNodeTracker(path=graph_state_path)
         self.principal_type_vocab = VocabIndex(fixed_tokens=FIXED_PRINCIPAL_TYPES)
@@ -535,20 +552,36 @@ class FeatureEngineer:
         }
         self.default_risk = 1
 
-        self.principal_risk_prior = {
-            "Root": 1.0, "IAMUser": 0.8, "FederatedUser": 0.6,
-            "AssumedRole": 0.5, "AWSService": 0.1,
-        }
+        self.action_risk_prior = AdaptiveRiskPrior(
+            priors={k: v / 10.0 for k, v in self.action_map.items()},
+            default=self.default_risk / 10.0,
+            prior_weight=15,
+            path=action_prior_path,
+        )
+
+        self.principal_risk_prior = AdaptiveRiskPrior(
+            priors={
+                "Root": 1.0, "IAMUser": 0.8, "FederatedUser": 0.6,
+                "AssumedRole": 0.5, "AWSService": 0.1,
+            },
+            default=0.3,
+            prior_weight=15,
+            path=principal_prior_path,
+        )
 
     def save_state(self):
         self.event_name_vocab.save()
         self.tracker.save()
         self.graph_tracker.save()
+        self.action_risk_prior.save()
+        self.principal_risk_prior.save()
+
+    def observe_label(self, log):
+        label = log.get('label', '0')
+        self.action_risk_prior.update(log.get('event_name'), label)
+        self.principal_risk_prior.update(log.get('principal_type', ''), label)
 
     def get_structural_data(self, log):
-        """Generates GNN triples, extended (fe9) with per-node graph
-        attributes -- see GraphNodeTracker and the module docstring for
-        which attributes live here vs. in a future Blast Radius Engine."""
         p_arn = log.get('principal_arn', 'unknown_principal')
         event = log.get('event_name', 'unknown_action')
         target = log.get('target_resource') or 'aws_service'
@@ -558,7 +591,7 @@ class FeatureEngineer:
             raise ValueError(f"row for principal {p_arn!r} has no timestamp/eventTime")
         dt = _parse_timestamp(timestamp_str)
 
-        event_risk = self.action_map.get(event, self.default_risk) / 10.0
+        event_risk = self.action_risk_prior.score(event)
 
         read_only = log.get('read_only')
         is_write_action = 0 if read_only is None else (1 if str(read_only).lower() == 'false' else 0)
@@ -584,8 +617,6 @@ class FeatureEngineer:
         }
 
     def get_temporal_features(self, log):
-        """Generates the temporal-branch feature vector (see TEMPORAL_COLS).
-        Unchanged from fe8."""
         f = []
         p_arn = log.get('principal_arn', 'unknown')
 
@@ -606,7 +637,7 @@ class FeatureEngineer:
             f.append(0)  # mfa_absent
 
         p_type = log.get('principal_type', '')
-        f.append(self.principal_risk_prior.get(p_type, 0.3))  # principal_type_prior_risk
+        f.append(self.principal_risk_prior.score(p_type))  # principal_type_prior_risk
         f.append(self.principal_type_vocab.index(p_type))  # principal_type_idx
 
         f.append(1 if log.get('access_key_id') else 0)  # has_access_key
@@ -628,7 +659,7 @@ class FeatureEngineer:
 
         # PILLAR 3: ACTION INTENT
         event_name = log.get('event_name')
-        f.append(self.action_map.get(event_name, self.default_risk) / 10.0)  # action_risk_prior
+        f.append(self.action_risk_prior.score(event_name))  # action_risk_prior
         f.append(self.event_name_vocab.index(event_name))  # event_name_idx
         f.append(self.event_source_vocab.index(log.get('event_source')))  # event_source_idx
 
@@ -709,6 +740,8 @@ STATE_FILE = os.path.join(DATA_DIR, ".feature_engine9_state.json")
 EVENT_NAME_VOCAB_FILE = os.path.join(DATA_DIR, ".event_name_vocab.json")
 STATE_TRACKER_FILE = os.path.join(DATA_DIR, ".state_tracker.json")
 GRAPH_NODE_STATE_FILE = os.path.join(DATA_DIR, ".graph_node_state.json")
+ACTION_PRIOR_FILE = os.path.join(DATA_DIR, ".action_risk_prior.json")
+PRINCIPAL_PRIOR_FILE = os.path.join(DATA_DIR, ".principal_risk_prior.json")
 
 # ── Fast-lane: defense-evasion actions that get an immediate alert ───────────
 CRITICAL_ACTIONS = {
@@ -719,9 +752,7 @@ CRITICAL_ACTIONS = {
 }
 
 def fast_lane_alert(row) -> None:
-    """Fires the instant a defense-evasion action is seen, ahead of the
-    rest of that row's feature computation. Models a low-latency
-    EventBridge rule running alongside the batched feature pipeline."""
+  
     event_name = row.get('event_name')
     reason = CRITICAL_ACTIONS.get(event_name)
     if reason:
@@ -803,6 +834,10 @@ def process_batch_file(engine: FeatureEngineer, input_path: str) -> int:
                 print(f"[SKIP] {input_path}: {e}")
                 continue
 
+            # Update the adaptive priors *after* scoring this row, so its own
+            # label can't leak into its own action_risk_prior/principal_risk_prior features.
+            engine.observe_label(row)
+
             label = row.get("label", "0")
             log_id = f"{os.path.basename(input_path)}:{count}"
 
@@ -841,13 +876,27 @@ def run_batch(input_path: str) -> None:
     if not os.path.exists(input_path):
         print(f"Error: Could not find {input_path}")
         raise SystemExit(1)
+
+    state = load_state()
+    processed = set(state["processed_files"])
+    name = os.path.basename(input_path)
+    if name in processed:
+        print(f"[SKIP] {input_path} was already processed (in {STATE_FILE}) -- not re-appending.")
+        return
+
     engine = FeatureEngineer(
         event_name_vocab_path=EVENT_NAME_VOCAB_FILE,
         state_tracker_path=STATE_TRACKER_FILE,
         graph_state_path=GRAPH_NODE_STATE_FILE,
+        action_prior_path=ACTION_PRIOR_FILE,
+        principal_prior_path=PRINCIPAL_PRIOR_FILE,
     )
     print(f"Reading logs in BATCH mode from {input_path}...")
     process_batch_file(engine, input_path)
+
+    processed.add(name)
+    state["processed_files"] = sorted(processed)
+    save_state(state)
 
 
 # ── Watch mode: react to new log files landing (stand-in for S3 trigger) ─────
@@ -880,6 +929,8 @@ def watch_folder(directory: str) -> None:
         event_name_vocab_path=EVENT_NAME_VOCAB_FILE,
         state_tracker_path=STATE_TRACKER_FILE,
         graph_state_path=GRAPH_NODE_STATE_FILE,
+        action_prior_path=ACTION_PRIOR_FILE,
+        principal_prior_path=PRINCIPAL_PRIOR_FILE,
     )
     state = load_state()
     processed = set(state["processed_files"])
@@ -913,94 +964,58 @@ def watch_folder(directory: str) -> None:
         observer.join()
 
 
-# ── Optional: drop mock log files into the watched folder, for demoing
-#    without a real S3 bucket / EventBridge rule ──────────────────────────────
+# ── Optional: drop chunks of a real CloudTrail CSV into the watched folder,
+#    for demoing without a real S3 bucket / EventBridge rule ─────────────────
 
-def _generate_mock_log():
-    import random
-
-    actions = [
-        ("GetCallerIdentity", "sts.amazonaws.com", "true"),
-        ("ListBuckets", "s3.amazonaws.com", "true"),
-        ("DescribeInstances", "ec2.amazonaws.com", "true"),
-        ("CreateAccessKey", "iam.amazonaws.com", "false"),
-        ("PutUserPolicy", "iam.amazonaws.com", "false"),
-        ("AttachUserPolicy", "iam.amazonaws.com", "false"),
-        ("GetSecretValue", "secretsmanager.amazonaws.com", "true"),
-        ("AssumeRole", "sts.amazonaws.com", "false"),
-        ("DeleteTrail", "cloudtrail.amazonaws.com", "false"),
-        ("StopLogging", "cloudtrail.amazonaws.com", "false"),
-    ]
-    event_name, event_source, read_only = random.choice(actions)
-    principals = [
-        {"arn": "arn:aws:iam::123456789012:user/DevUser", "type": "IAMUser"},
-        {"arn": "arn:aws:iam::123456789012:user/AdminUser", "type": "IAMUser"},
-        {"arn": "arn:aws:iam::123456789012:role/EC2_Service_Role", "type": "AssumedRole"},
-        {"arn": "arn:aws:iam::123456789012:user/Attacker", "type": "IAMUser"},
-    ]
-    principal = random.choice(principals)
-    ips = ["10.0.0.15", "10.0.1.200", "192.168.1.100", "203.0.113.45", "198.51.100.22"]
-    is_evil = principal["arn"].endswith("Attacker")
-
-    return {
-        "timestamp": datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),
-        "event_name": event_name,
-        "event_source": event_source,
-        "principal_type": principal["type"],
-        "principal_arn": principal["arn"],
-        "source_ip": random.choice(ips),
-        "user_agent": "aws-cli/2.0 Python/3.8",
-        "read_only": read_only,
-        "aws_region": random.choice(["us-east-1", "us-east-1", "us-west-2"]),
-        "mfa_authenticated": str(random.choice([True, True, False])).lower(),
-        "error_code": "AccessDenied" if random.random() < 0.05 else "",
-        "target_resource": f"resource-{random.randint(1, 50)}",
-        "label": "1" if is_evil else "0",
-        "request_params_raw": "{}",
-    }
-
-
-def simulate_incoming_files(directory: str, min_rows: int = 5, max_rows: int = 20,
+def simulate_incoming_files(directory: str, source_path: str, min_rows: int = 5, max_rows: int = 20,
                              min_interval: float = 3.0, max_interval: float = 8.0) -> None:
-    """Periodically drops a new CSV into `directory`, each containing a
-    handful of mock events -- a stand-in for a CloudTrail log file landing
-    in S3 every ~5 minutes, compressed down to seconds for demo purposes."""
+    """Periodically drops a new CSV into `directory`, each containing the next
+    chunk of rows read from `source_path` -- a stand-in for a CloudTrail log
+    file landing in S3 every ~5 minutes, compressed down to seconds for demo
+    purposes."""
     import random
     import threading
 
     os.makedirs(directory, exist_ok=True)
-    fieldnames = list(_generate_mock_log().keys())
+
+    with open(source_path, newline='', encoding='utf-8') as f:
+        reader = csv.DictReader(f)
+        fieldnames = reader.fieldnames
+        rows = list(reader)
+
+    if not rows:
+        print(f"[SIMULATE] {source_path} has no rows -- nothing to drop.")
+        return
 
     def loop():
-        while True:
+        pos = 0
+        while pos < len(rows):
             time.sleep(random.uniform(min_interval, max_interval))
-            n_rows = random.randint(min_rows, max_rows)
+            chunk = rows[pos:pos + random.randint(min_rows, max_rows)]
+            pos += len(chunk)
             fname = f"cloudtrail_{int(time.time())}_{uuid.uuid4().hex[:8]}.csv"
             path = os.path.join(directory, fname)
-            with open(path, mode='w', newline='', encoding='utf-8') as f:
-                writer = csv.DictWriter(f, fieldnames=fieldnames)
+            with open(path, mode='w', newline='', encoding='utf-8') as out:
+                writer = csv.DictWriter(out, fieldnames=fieldnames)
                 writer.writeheader()
-                for _ in range(n_rows):
-                    writer.writerow(_generate_mock_log())
-            print(f"[SIMULATE] dropped {fname} ({n_rows} events)")
+                writer.writerows(chunk)
+            print(f"[SIMULATE] dropped {fname} ({len(chunk)} events, {pos}/{len(rows)} from {source_path})")
+        print(f"[SIMULATE] all {len(rows)} rows from {source_path} have been dropped into {directory}")
 
     t = threading.Thread(target=loop, daemon=True)
     t.start()
-
-
-# ── CLI ────────────────────────────────────────────────────────────────────────
 
 def main():
     parser = argparse.ArgumentParser(description="Micro-batch CloudTrail feature engine")
     parser.add_argument("--input", default=DEFAULT_INPUT, help="CSV to process in one-shot batch mode")
     parser.add_argument("--watch", metavar="DIR", help="Watch DIR and process each new log file as it lands")
     parser.add_argument("--simulate", action="store_true",
-                         help="With --watch, also drop mock CloudTrail log files into DIR periodically")
+                         help="With --watch, also chunk --input into small CSVs dropped into DIR periodically")
     args = parser.parse_args()
 
     if args.watch:
         if args.simulate:
-            simulate_incoming_files(args.watch)
+            simulate_incoming_files(args.watch, args.input)
         watch_folder(args.watch)
     else:
         run_batch(args.input)
@@ -1008,3 +1023,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+#python feature_engine9.py --input datasets/privilege-escalation/some_other_file.csv
+#python feature_engine9.py --watch incoming/
+#python feature_engine9.py --watch incoming/ --simulate

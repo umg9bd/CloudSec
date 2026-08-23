@@ -1,0 +1,7 @@
+timestamp,event_name,event_source,aws_region,source_ip,error_code,label,attack_technique,read_only,user_agent,access_key_id,mfa_authenticated,target_resource,request_params_raw,principal_type,principal_arn,username,session_label,synthetic
+2024-01-01 09:02:03+00:00,DescribeSubnets,ec2.amazonaws.com,us-east-1,167.80.236.26,,0,,True,Terraform/1.5.0 aws-sdk-go/1.44.300,AKIATPIO8C6ONORSVD00,,,,IAMUser,arn:aws:iam::921048676870:user/hyyafj,hyyafj,0,True
+2024-01-01 09:02:17+00:00,GetRole,iam.amazonaws.com,us-east-1,167.80.236.26,,0,,True,Terraform/1.5.0 aws-sdk-go/1.44.300,AKIATPIO8C6ONORSVD00,,,,IAMUser,arn:aws:iam::921048676870:user/hyyafj,hyyafj,0,True
+2024-01-01 09:02:56+00:00,ListFunctions,lambda.amazonaws.com,us-east-1,167.80.236.26,,0,,True,Terraform/1.5.0 aws-sdk-go/1.44.300,AKIATPIO8C6ONORSVD00,,fn-eobppm,,IAMUser,arn:aws:iam::921048676870:user/hyyafj,hyyafj,0,True
+2024-01-01 09:03:28+00:00,RebootInstances,ec2.amazonaws.com,us-east-1,167.80.236.26,,0,,False,Terraform/1.5.0 aws-sdk-go/1.44.300,AKIATPIO8C6ONORSVD00,,i-ncabtqtkwrqfriqsj,,IAMUser,arn:aws:iam::921048676870:user/hyyafj,hyyafj,0,True
+2024-01-01 09:05:27+00:00,ModifyInstanceAttribute,ec2.amazonaws.com,us-east-1,167.80.236.26,,0,,False,Terraform/1.5.0 aws-sdk-go/1.44.300,AKIATPIO8C6ONORSVD00,,i-pxqznuussioxiqzfm,,IAMUser,arn:aws:iam::921048676870:user/hyyafj,hyyafj,0,True
+2024-01-01 09:06:49+00:00,ListFunctions,lambda.amazonaws.com,us-east-1,167.80.236.26,,0,,True,Terraform/1.5.0 aws-sdk-go/1.44.300,AKIATPIO8C6ONORSVD00,,,,IAMUser,arn:aws:iam::921048676870:user/hyyafj,hyyafj,0,True
