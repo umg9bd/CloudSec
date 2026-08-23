@@ -832,18 +832,29 @@ def process_batch_file(engine: FeatureEngineer, input_path: str) -> int:
         if struct_is_new:
             struct_writer.writeheader()
 
-        for row in iter_input_rows(input_path):
+        for source_row_index, row in enumerate(iter_input_rows(input_path)):
             fast_lane_alert(row)  # low-latency lane, runs before full feature computation
 
             try:
                 struct = engine.get_structural_data(row)
                 temporal = engine.get_temporal_features(row)
             except ValueError as e:
-                print(f"[SKIP] {input_path}: {e}")
+                # NOTE: log_id below is indexed by source_row_index, NOT by
+                # `count`. It previously used `count`, which is only
+                # incremented for successfully-processed rows -- so a single
+                # skip here silently shifted every subsequent log_id one row
+                # off its true position in the input CSV. Downstream,
+                # evaluate_session_level.py indexes the raw CSV by that
+                # number to recover each edge's session, so the drift would
+                # have misattributed every following edge to the wrong
+                # session with no error anywhere. No skip has occurred on the
+                # current datasets (row counts match exactly), but the
+                # coupling was silent and is now removed.
+                print(f"[SKIP] {input_path} row {source_row_index}: {e}")
                 continue
 
             label = row.get("label", "0")
-            log_id = f"{os.path.basename(input_path)}:{count}"
+            log_id = f"{os.path.basename(input_path)}:{source_row_index}"
 
             struct_row = {
                 "log_id": log_id,

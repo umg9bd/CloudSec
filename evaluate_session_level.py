@@ -22,7 +22,9 @@ Usage:
 """
 
 import argparse
+import os
 import re
+import sys
 
 import numpy as np
 import pandas as pd
@@ -34,6 +36,71 @@ from evaluate_on_real import build_model_from_args
 from utils import evaluate
 
 LOG_ID_RE = re.compile(r"^(.*):(\d+)$")
+
+# Rhino/GuardDuty-style 11-rule set, imported rather than restated so it can
+# never drift from evaluate_baselines.py's definition.
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                 "datasets", "privilege-escalation"))
+from evaluate_baselines import RULES  # noqa: E402
+
+GUARDDUTY = "GuardDuty-style (11 rules)"
+N_BOOTSTRAP = 10000
+
+
+def _prf(y_true: np.ndarray, y_pred: np.ndarray):
+    return (precision_score(y_true, y_pred, zero_division=0),
+            recall_score(y_true, y_pred, zero_division=0),
+            f1_score(y_true, y_pred, zero_division=0))
+
+
+def report_baseline_comparison(raw_df, sessions_true, y_true, y_model):
+    """Computes the rule baseline on THE SAME sessions just scored, and reports
+    a PAIRED bootstrap on the difference.
+
+    This used to be a hardcoded `F1=0.732 [0.672, 0.790]` print statement. That
+    number came from evaluate_baselines.py running on real_dataset_combined.csv
+    -- all 397 dev+test sessions -- while the model above is scored on the 238
+    test sessions only. Comparing them was apples-to-oranges: the same rule set
+    scores 0.747 on test alone. Two independently-bootstrapped CIs are also not
+    a significance test; the sessions are paired, so the difference must be
+    resampled jointly. Computing both here makes the mismatch impossible."""
+    rules = RULES[GUARDDUTY]
+    events = raw_df.groupby("session_id")["event_name"].apply(set).reindex(sessions_true.index)
+    y_rule = events.apply(lambda s: int(bool(s & rules))).to_numpy()
+
+    mp, mr, mf = _prf(y_true, y_model)
+    bp, br, bf = _prf(y_true, y_rule)
+
+    # Fully vectorized: one (N_BOOTSTRAP x n) resample-index matrix, F1 computed
+    # row-wise as 2TP / (2TP + FP + FN). Looping with sklearn's scorers here
+    # would mean ~60k Python-level calls and take minutes for a number that
+    # prints on every run.
+    rng = np.random.default_rng(42)
+    n = len(y_true)
+    idx = rng.integers(0, n, (N_BOOTSTRAP, n))
+    yt, ym, yr = y_true[idx], y_model[idx], y_rule[idx]
+
+    def _f1_rows(t, p):
+        tp = ((t == 1) & (p == 1)).sum(1)
+        fp = ((t == 0) & (p == 1)).sum(1)
+        fn = ((t == 1) & (p == 0)).sum(1)
+        denom = 2 * tp + fp + fn
+        return np.where(denom > 0, 2 * tp / np.maximum(denom, 1), 0.0)
+
+    deltas = _f1_rows(yt, ym) - _f1_rows(yt, yr)
+    lo, hi = np.percentile(deltas, [2.5, 97.5])
+    p_two_sided = 2 * min(float(np.mean(deltas <= 0)), float(np.mean(deltas >= 0)))
+
+    print(f"\n{'':<28}{'P':>8}{'R':>8}{'F1':>8}")
+    print(f"{'GNN (session-level)':<28}{mp:>8.3f}{mr:>8.3f}{mf:>8.3f}")
+    print(f"{GUARDDUTY:<28}{bp:>8.3f}{br:>8.3f}{bf:>8.3f}   <- computed on THESE {n} sessions")
+    print(f"\nPAIRED bootstrap on (GNN - rule) F1: {mf - bf:+.4f}  "
+          f"95% CI [{lo:+.4f}, {hi:+.4f}]  two-sided p = {p_two_sided:.4f}")
+    if lo > 0:
+        print("The improvement is significant at the 5% level.")
+    else:
+        print("The improvement is NOT significant at the 5% level -- the CI includes zero. "
+              "Report it as a point estimate with this interval, not as 'beats the baseline'.")
 
 
 def main():
@@ -59,8 +126,25 @@ def main():
     loader = PrivilegePropagationGraphLoader(
         uri=args.neo4j_uri, user=args.neo4j_user, password=args.neo4j_pass,
         fit_artifacts=fit_artifacts,
+        model_node_types=set(model_args["node_feat_dims"]),
     )
     data, meta = loader.load()
+
+    # Neo4j holds exactly ONE graph at a time, and nothing previously stopped
+    # this script from scoring (say) the test graph against the dev CSV. The
+    # join below would still "work" -- row indices exist in both -- and produce
+    # a plausible, entirely meaningless F1. Check provenance before trusting it.
+    raw_basename = os.path.basename(args.raw_csv)
+    expected_struct = raw_basename.replace(".csv", "_structural.csv")
+    if meta.get("source_csv") is None:
+        print(f"WARNING: the graph in Neo4j predates provenance stamping; cannot verify it was "
+              f"built from {expected_struct}. Rebuild with build_graph.py to enable this check.")
+    elif meta["source_csv"] != expected_struct:
+        raise SystemExit(
+            f"GRAPH MISMATCH: Neo4j holds a graph built from {meta['source_csv']!r}, but "
+            f"--raw-csv is {raw_basename!r} (expected {expected_struct!r}).\n"
+            f"Run:  python build_graph.py datasets/privilege-escalation/{expected_struct}"
+        )
 
     trained_triples = set(tuple(t) for t in model_args["edge_types"])
     real_triples = set(data.edge_types)
@@ -87,8 +171,24 @@ def main():
         mobj = LOG_ID_RE.match(lid)
         if not mobj:
             raise ValueError(f"Unparseable log_id: {lid!r}")
+        # The prefix names the raw CSV the row came from. Asserting it here
+        # makes the "recover the originating row" claim in this module's
+        # docstring actually enforced rather than assumed -- indexing
+        # raw_df by a row number that came from a DIFFERENT file is silent
+        # corruption, not an error.
+        if mobj.group(1) != raw_basename:
+            raise SystemExit(
+                f"LOG_ID MISMATCH: edge log_id {lid!r} originates from {mobj.group(1)!r}, "
+                f"but --raw-csv is {raw_basename!r}. These row indices are not comparable."
+            )
         row_idx.append(int(mobj.group(2)))
     row_idx = np.array(row_idx)
+
+    if row_idx.max() >= len(raw_df):
+        raise SystemExit(
+            f"LOG_ID OUT OF RANGE: max row index {row_idx.max()} exceeds {raw_basename} "
+            f"({len(raw_df)} rows). The structural CSV and the raw CSV are out of sync."
+        )
 
     session_id_per_edge = raw_df["session_id"].to_numpy()[row_idx]
 
@@ -125,7 +225,8 @@ def main():
     else:
         pr, rc, f1 = score_at(args.threshold)
         print(f"\nSESSION-LEVEL @ threshold={args.threshold}: P={pr:.3f}  R={rc:.3f}  F1={f1:.3f}")
-        print("Compare directly against GuardDuty-style rule baseline: F1=0.732 [95% CI: 0.672, 0.790]")
+        y_pred = (y_prob_full >= args.threshold).astype(int)
+        report_baseline_comparison(raw_df, sessions_true, y_true, y_pred)
 
 
 if __name__ == "__main__":

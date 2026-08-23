@@ -4,8 +4,12 @@ currently exists in Neo4j (real_dataset_test_structural.csv, in our case),
 reusing the training-fitted scalers/encoders baked into the checkpoint by
 infer.py's wrap_checkpoint -- never re-fitting on the evaluation graph.
 
-This is the train-on-synthetic / test-on-real number, comparable to the
-rule-based baselines in evaluate_baselines.py (GuardDuty-style F1=0.732).
+This is the train-on-synthetic / test-on-real number, at EDGE level.
+
+NOTE ON COMPARABILITY: this F1 is edge-level and is NOT comparable to
+evaluate_baselines.py's session-level rule F1 -- different units. Use
+evaluate_session_level.py for any baseline comparison; it computes the rule
+baseline on the same sessions it just scored and reports a paired bootstrap.
 
 Usage:
     python evaluate_on_real.py --checkpoint checkpoints/best_GraphSAGE_wrapped.pt --model sage
@@ -64,6 +68,7 @@ def main():
     loader = PrivilegePropagationGraphLoader(
         uri=args.neo4j_uri, user=args.neo4j_user, password=args.neo4j_pass,
         fit_artifacts=fit_artifacts,
+        model_node_types=set(model_args["node_feat_dims"]),
     )
     data, meta = loader.load()
 
@@ -114,7 +119,8 @@ def main():
 
     print(f"\nSUMMARY: P={metrics['precision']:.3f}  R={metrics['recall']:.3f}  "
           f"F1={metrics['f1']:.3f}  AUC={metrics['roc_auc']:.3f}")
-    print("Compare against GuardDuty-style rule baseline: F1=0.732 [95% CI: 0.672, 0.790]")
+    print("\nNOTE: this is an EDGE-level score. Do not compare it against the rule baselines,")
+    print("which are session-level. Run evaluate_session_level.py for a like-for-like comparison.")
 
 
 if __name__ == "__main__":

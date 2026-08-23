@@ -38,13 +38,25 @@ The initial session grouping (by `username`) collapsed dozens of separate detona
 
 Re-ran the original notebook's three rule sets (Minimal SIEM, GuardDuty-style, Post-incident) against the corrected data, with **bootstrap 95% confidence intervals** added (the original real-data baseline was computed on just 18 sessions).
 
-| Method | Precision | Recall | F1 (real data) |
-|---|---|---|---|
-| Minimal SIEM (3 rules) | 0.881 | 0.353 | 0.504 |
-| **GuardDuty-style (11 rules)** | 0.889 | 0.623 | **0.732** [95% CI: 0.672, 0.790] |
-| Post-incident (23 rules, unfair upper bound) | 0.916 | 0.910 | 0.913 |
+> ### ⚠️ CORRECTED — the baseline must be read per split, not pooled
+>
+> An earlier version of this report quoted the **combined (dev+test, 397-session)** baseline of F1=0.732 as "the number to beat," and then compared it against a model scored on the **test split only (238 sessions)**. Those are different populations and the comparison was invalid. The rule set is measurably harder to beat on test alone. All three splits, recomputed:
 
-**GuardDuty-style F1=0.732 is the number any model needs to beat.** The gap from synthetic (F1=0.889) to real (F1=0.732) is expected and traced to a real cause: GuardDuty-style's 11 rules cover 5 of the 11 collected techniques (IAM-focused); the 6 it misses are credential-access-flavored (`GetPasswordData`, `GetSecretValue`, `DescribeParameters`/`GetParameters`, etc.) — a rule set tuned for one attack category missing an adjacent one.
+| Method | Split | P | R | F1 | 95% CI |
+|---|---|---|---|---|---|
+| Minimal SIEM (3 rules) | combined (397) | 0.881 | 0.353 | 0.504 | [0.421, 0.581] |
+| **GuardDuty-style (11 rules)** | combined (397) | 0.889 | 0.623 | 0.732 | [0.669, 0.787] |
+| Post-incident (23 rules, unfair upper bound) | combined (397) | 0.916 | 0.910 | 0.913 | [0.879, 0.943] |
+| Minimal SIEM (3 rules) | **test (238)** | 0.864 | 0.380 | 0.528 | [0.427, 0.622] |
+| **GuardDuty-style (11 rules)** | **test (238)** | 0.878 | 0.650 | **0.747** | **[0.667, 0.811]** |
+| Post-incident (23 rules, unfair upper bound) | **test (238)** | 0.912 | 0.930 | 0.921 | [0.879, 0.957] |
+| GuardDuty-style (11 rules) | dev (159) | 0.907 | 0.582 | 0.709 | [0.602, 0.800] |
+
+**GuardDuty-style F1=0.747 on the test split is the number any model reported on that split needs to beat.** Use 0.732 only when describing the baseline over the full real dataset, never as the comparator for a test-split model score.
+
+Two independently-bootstrapped confidence intervals are also **not** a significance test. Because both systems score the same sessions, the difference must be resampled jointly — `evaluate_session_level.py` now computes the rule baseline on whatever sessions it just scored and reports a paired bootstrap on the difference, so this class of mismatch cannot recur.
+
+The gap from synthetic (F1=0.889) to real (F1=0.732 combined / 0.747 test) is expected and traced to a real cause: GuardDuty-style's 11 rules cover 5 of the 11 collected techniques (IAM-focused); the 6 it misses are credential-access-flavored (`GetPasswordData`, `GetSecretValue`, `DescribeParameters`/`GetParameters`, etc.) — a rule set tuned for one attack category missing an adjacent one.
 
 ---
 
@@ -130,7 +142,21 @@ An earlier version of this report claimed the root cause was that "synthetic ses
 
 `neo4j_graph_builder.py`'s `parse_target()` only recognizes fully-qualified ARNs (`_ARN_RE`) when classifying a target as a `Role`. A bare role/user **name** appearing as a `target_resource` value (e.g. lifted from a `roleName` request parameter rather than a full ARN) fell through to a generic `Resource` node — even when that exact name was already correctly known as a `Role` from the principal side of other rows in the same dataset. This silently split one identity into two disconnected nodes, inflating the apparent real-vs-synthetic schema mismatch.
 
-**Fix**: `node_key_for_target()` (`privilege_features.py`) now accepts optional `known_role_names`/`known_user_names` sets, built from the principal side of the same batch, and reconciles a bare-name target against them before falling back to `Resource`. Applied in both the batch graph builder and the streaming `incremental_updater.py` (there, using an incrementally-grown, causally-correct set of names seen so far in the stream). `test_incremental_updater.py`'s batch/incremental equivalence tests (asserting the two pipelines produce identical graphs) all still pass after the change.
+**Fix**: `node_key_for_target()` (`privilege_features.py`) now accepts optional `known_role_names`/`known_user_names` sets, built from the principal side of the same batch, and reconciles a bare-name target against them before falling back to `Resource`. Applied in both the batch graph builder and the streaming `incremental_updater.py` (there, using an incrementally-grown, causally-correct set of names seen so far in the stream).
+
+> ### ⚠️ CORRECTED — the equivalence tests do NOT all pass
+>
+> An earlier version of this section claimed `test_incremental_updater.py`'s batch/incremental equivalence tests "all still pass after the change." **They do not.** Re-run three times, identical result each time: `Ran 13 tests — FAILED (failures=3)`. All three failures are in `TestBatchIncrementalEquivalence`:
+>
+> | Test | Failure |
+> |---|---|
+> | `test_same_node_and_edge_counts` | `7520 != 7480` — streaming builds 40 more nodes than batch on the same 9,860 rows |
+> | `test_distance_to_sensitive_resource_converges_regardless_of_order` | returns a non-empty mismatch list where `[]` is asserted — the propagation-correction algorithm does not converge independently of insertion order |
+> | `test_hop_count_mismatches_are_causally_explainable_not_arbitrary` | `log_id=synthetic_cloudtrail.csv:159` mismatched with no later `AssumeRole` grant to explain it — the test's own message calls this "an unexplained bug, not the expected pattern" |
+>
+> Not a failure, despite appearances: the `abnormal_path_frequency` drift printout (9,859/9,860 edges differ, max |diff| = 3.22) comes from `test_abnormal_path_frequency_is_NOT_identical_and_that_is_documented`, which deliberately asserts *bounded* drift and passes.
+>
+> **Impact on reported results: none.** The batch path (`build_graph.py` → `neo4j_graph_builder.build_graph()` → `data_loader.py`) never imports `incremental_updater.py`, so every number in this report is unaffected. What is affected is the **streaming** pipeline: `hop_count` and `distance_to_sensitive_resource` are both live model inputs, so the streaming path currently feeds the model different feature values than the batch path it was trained against. Combined with the `infer.py` schema desync (§6.16), the real-time path is broken in two independent ways and must not be claimed until fixed.
 
 **Result**: real-graph excluded-edge percentage dropped from ~35% to **14.3%** (48→35 distinct real triples vs. 14 trained triples). Synthetic graph was byte-for-byte unchanged (same 7,353 nodes / 9,711 edges before and after) — confirming this was a real-data-only artifact, not a synthetic generation issue.
 
@@ -235,16 +261,50 @@ log1p compresses scale but a "high" value still isn't *comparable in meaning* be
 - `infer.py`'s live single-event streaming path builds edge features independently of `data_loader.py` and has **not** been updated to match the new rank-normalized schema — it is currently out of sync and would silently produce wrong results if run as-is. Needs fixing before any live-streaming claim.
 - No non-graph baseline yet confirms the *graph structure* itself (versus the rank-normalization feature engineering alone) is what's adding value.
 
+### 6.17 Independent audit, three correctness fixes, and a retrain — current headline numbers
+
+An adversarial audit re-executed the whole pipeline rather than reading this report. It **reproduced F1=0.823 exactly** from the shipped checkpoint (edge AUC 0.5372, 25,984 in-schema edges, threshold-stability band 0.814–0.823 — every figure matched), and confirmed there is no fabricated metric, no train/test leakage (0 shared sessions, 0 shared `principal_arn`, 0 shared `target_resource` between synthetic training data and real test data), and no label leakage (`is_known_attacker_identity` is label-derived but provably excluded — node feature dims 4/4/4/5/4 match the label-free schema exactly). It also found four defects that had to be fixed before the number was defensible.
+
+**Fix A — the baseline was measured on a different population than the model.** `evaluate_baselines.py` computes F1=0.732 on `real_dataset_combined.csv` (397 dev+test sessions); the model is scored on 238 test sessions. On matched sessions the same rule set scores **0.747**. Comparing two independently-bootstrapped CIs is also not a significance test. `evaluate_session_level.py` now computes the rule baseline on whatever sessions it just scored and reports a **paired** bootstrap on the difference, so this cannot recur. See §3.
+
+**Fix B — 70.5% of real edges were fed a fabricated action name.** The `edge_type` encoder was fit on 67 synthetic actions; the real test graph has 645. Every unseen one was mapped to `classes_[0]` — alphabetically `AddUserToGroup`, itself a privilege-escalation action. Sweeping that arbitrary choice across other classes moved test F1 between **0.756 and 0.823**, with the shipped default landing on the maximum. Fixed by fitting a reserved `<UNK>` class at training time.
+
+**Fix C — `edge_type` was fed to the network as a raw unscaled ordinal 0–66**, inventing an ordering over nominal AWS actions and dominating the z-scored features by one to two orders of magnitude. Occlusion showed it was actively harmful (collapsing it to a constant *raised* session AUC 0.912→0.934). Now one-hot encoded; `edge_feat_dim` 8 → 75, no model-side change needed.
+
+**Fix D — a live scaler re-fit on evaluation data.** `_node_features` only registered a fitted `StandardScaler` when a node type had >1 node at training. The synthetic graph had exactly one `Policy` node, so no `Policy` scaler existed, and at inference the code silently fitted one on the *real* graph's Policy nodes. Now scalers are fit unconditionally, and a missing scaler for a type the model consumes raises instead of falling through.
+
+**Retrained with all four fixes, following the protocol strictly** — synthetic held-out first, threshold re-selected on **dev only**, test touched exactly once:
+
+| Stage | Result |
+|---|---|
+| Synthetic held-out test | P=0.973 R=0.923 **F1=0.947** AUC=0.9997 (was 0.934) |
+| Dev threshold sweep (159 sessions) | best **threshold=0.65**, F1=0.887 (P=0.894, R=0.881) |
+| **Real test, session-level (238 sessions, thr=0.65 fixed from dev)** | **P=0.874 R=0.830 F1=0.851** [95% CI 0.794, 0.900] |
+| GuardDuty-style baseline, *same 238 sessions* | P=0.878 R=0.650 F1=0.747 [0.667, 0.811] |
+| **Paired bootstrap on the difference** | **+0.104 F1, 95% CI [+0.040, +0.171], p=0.0008 — significant** |
+
+Threshold stability on test across 0.50–0.70: F1 = 0.845 / 0.857 / 0.882 / 0.851 / 0.802 — a plateau, not a spike.
+
+**Two confound controls, both passed** (the second answers §6.13's own objection more convincingly than the Spearman check did):
+- **Permutation test** — permuting per-edge probabilities across the graph while preserving every session's size exactly destroys the edge→session association but leaves the "max over more edges" length effect intact. Permuted session AUC: mean 0.733, max 0.782 over 200 draws. Observed: **0.921 — beats all 200 (p<0.005).**
+- **Within-length-strata AUC** — 0.998 / 0.970 / 0.872 / 0.759 across length bands, where session length alone is uninformative within strata (0.30–0.55). Length correlation also *fell* (Spearman 0.42, down from 0.51). The win is not a length artifact.
+
+**Non-graph baseline (closes the §9.4 gap).** Logistic regression over a bag-of-actions vector, same protocol (train on synthetic, tune threshold on dev, test once): **F1=0.647, AUC=0.658** — well below the graph pipeline's 0.851/0.921. Adding session length made it worse (0.473); length alone scores 0.254. The graph pipeline earns its place.
+
+**Ablations.** Zeroing `is_privilege_escalation_technique` (the hand-coded Rhino action list) changed the pre-fix result by *nothing* — the model is not covertly replaying the rule baseline. Zeroing all rank-normalized node features dropped session AUC 0.912→0.808 and pushed edge AUC below chance, supporting §6.16's claim that rank-normalization is the operative mechanism.
+
+**⚠️ Open question — edge-level ranking is now strongly inverted.** Test edge AUC fell from 0.537 to **0.260** (dev: 0.399) even as session-level performance improved. Pooled over all 25,984 in-schema edges, real attack edges score *lower* than real benign edges, yet the per-session maximum separates the classes better than before. This echoes the inversion first seen in §6.15 (AUC=0.157 under log1p) and is not understood. It does not invalidate the session-level result — which survives the permutation and length-strata controls above — but it must be reported, not buried, and it rules out describing this system as an edge-level detector.
+
 ---
 
 ## 7. Key Finding: A Verified Fix for the Synthetic→Real Generalization Gap
 
 This supersedes the previous version of this section (preserved below in spirit but corrected in conclusion — see 6.16 for the full evidence trail):
 
-- A GraphSAGE model trained purely on procedurally-generated synthetic CloudTrail sessions achieves **near-perfect held-out synthetic performance** (F1=0.926, AUC=0.999).
+- A GraphSAGE model trained purely on procedurally-generated synthetic CloudTrail sessions achieves **near-perfect held-out synthetic performance** (F1=0.934, AUC=0.999 — §6.10). *(An earlier version of this line read "F1=0.926", which appears nowhere else as a synthetic score; 0.926 is the median attack-session score on dev from §6.16, copied here in error.)* Note this synthetic split is **transductive** — `stratified_edge_split` is a random split of edges over one shared graph, with degree features computed across the whole graph including held-out edges. It is not an inductive generalization estimate; the real-data numbers below are.
 - Two earlier structural/schema-coverage bug fixes (6.9, 6.10) and one feature-scaling attempt (6.15, log1p) did not close the real-data gap — one made it actively worse.
-- **A corrected feature-normalization approach (6.16, rank-normalization instead of z-scoring or log-scaling) did close it**, verified with proper dev-only iteration, a fixed dev-selected threshold checked exactly once on the untouched test set, threshold-stability checking, and a bootstrap confidence interval: **session-level F1=0.823 [CI 0.766, 0.875] vs. the GuardDuty-style rule baseline's F1=0.732 [CI 0.672, 0.790]**.
-- The mechanism is specific and should be described precisely, not oversold: the model wins at the session level by correctly flagging at least one edge per attack session, not by accurately classifying individual actions (edge-level AUC on test is still only 0.537).
+- **A corrected feature-normalization approach (6.16, rank-normalization instead of z-scoring or log-scaling) did close it**, and four correctness fixes from an independent audit (6.17) then strengthened it. Current numbers, all on the same 238 held-out test sessions, dev-selected threshold, test touched once: **session-level F1=0.851 [CI 0.794, 0.900] vs. the GuardDuty-style rule baseline's F1=0.747 [CI 0.667, 0.811], paired difference +0.104 [+0.040, +0.171], p=0.0008**.
+- The mechanism is specific and should be described precisely, not oversold: the model wins at the session level by correctly flagging at least one edge per attack session, not by accurately classifying individual actions. Edge-level AUC on test is **0.260** — not merely uninformative but strongly *inverted* (see 6.17's open question).
 - Remaining work before this is a complete result: confirm on GAT, add a non-graph baseline to isolate the graph structure's contribution, and fix `infer.py`'s now-desynced streaming feature builder.
 
 This finding is *itself* a legitimate and durable research contribution if analyzed rigorously (see Section 9) — many well-cited security-ML papers are built around precisely this kind of honest, carefully-diagnosed negative result (e.g., work on concept drift and unrealistic evaluation assumptions in security ML). The next phase of the project should treat closing (or rigorously explaining) this gap as the primary objective, not a side quest.
@@ -282,12 +342,12 @@ The goal is a paper that holds up in a strong venue for 5–10+ years, not just 
 
 ### 9.1 What's now resolved vs. still open
 
-**Resolved, with evidence**: the synthetic→real generalization gap has a verified fix (6.16) — session-level F1=0.823 [CI 0.766, 0.875] vs. the rule baseline's F1=0.732 [CI 0.672, 0.790], checked once on a previously-untouched-for-this-purpose test set with a threshold selected purely from dev data, and confirmed not to be a disguised session-length heuristic (Spearman 0.552, not ~1.0).
+**Resolved, with evidence**: the synthetic→real generalization gap has a verified fix (6.16, hardened by 6.17) — session-level F1=0.851 [CI 0.794, 0.900] vs. the rule baseline's F1=0.747 [CI 0.667, 0.811] on the same sessions, paired difference +0.104 [+0.040, +0.171], p=0.0008. Threshold selected purely from dev data; test touched once. Confirmed not to be a disguised session-length heuristic by a permutation test (observed session AUC 0.921 beats all 200 size-preserving permutations) and within-length-strata AUCs of 0.998/0.970/0.872/0.759 — a stronger control than the Spearman check previously cited.
 
 **Still open**:
 - Edge-level accuracy remains weak (AUC=0.537 on test) — the win is a session-level aggregation effect, not precise per-action classification. This needs to be described precisely in the paper, not overstated.
 - GAT unconfirmed with this fix (9.0.1).
-- Whether the graph structure specifically matters, versus the feature engineering alone, is untested (9.4's non-graph baseline).
+- ~~Whether the graph structure specifically matters, versus the feature engineering alone, is untested.~~ **Closed (6.17)**: a bag-of-actions logistic regression under the identical protocol scores F1=0.647 / AUC=0.658 vs. the graph pipeline's 0.851 / 0.921.
 - `real_dataset_test.csv`'s dev/test hygiene wasn't perfect from the very start of the session (touched repeatedly during earlier bug-verification rounds, 6.9–6.15) — disclose as a limitation; the fix itself was properly dev-validated, but the paper should be upfront about this rather than implying pristine single-touch discipline throughout.
 
 ### 9.2 If GAT and the non-graph baseline both come back favorably

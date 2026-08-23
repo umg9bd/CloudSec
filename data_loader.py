@@ -131,6 +131,11 @@ def get_specific_label(labels: List[str]) -> str:
 # within that cutoff get this explicit sentinel rather than NaN.
 UNREACHABLE_DISTANCE_SENTINEL = 7
 
+# Reserved category for values never seen while fitting an encoder. Fit as a
+# real class at training time so evaluation-time unknowns have a dedicated
+# code instead of being silently aliased onto some arbitrary known class.
+UNK_CATEGORY = "<UNK>"
+
 # ── Feature schemas per node type (numeric cols, categorical cols) ──────────
 # Principal-like types (User/Role/UnresolvedPrincipal) share a schema: node
 # TYPE itself now carries what used to be the `principal_type` categorical
@@ -182,6 +187,7 @@ class PrivilegePropagationGraphLoader:
         password: str = DEFAULT_PASS,
         device: str = "cpu",
         fit_artifacts: dict = None,
+        model_node_types=None,
     ):
         """fit_artifacts (optional): {"edge_scaler", "node_scalers",
         "label_encoders"} from a PRIOR load() call (e.g. saved in a
@@ -191,10 +197,18 @@ class PrivilegePropagationGraphLoader:
         training-time distribution instead of its own. Without this, two
         load() calls on different graphs would each fit fresh statistics,
         making any cross-graph comparison (e.g. train-on-synthetic,
-        evaluate-on-real) invalid."""
+        evaluate-on-real) invalid.
+
+        model_node_types (optional): the node types the trained model actually
+        consumes, i.e. set(model_args["node_feat_dims"]). Used only to decide
+        whether a MISSING fitted scaler is fatal (the model consumes this type,
+        so a wrong scaling changes predictions) or merely worth a warning (the
+        type is loaded but never reaches the encoder). Pass it whenever you
+        have it; without it, missing scalers only warn."""
         self.driver = GraphDatabase.driver(uri, auth=(user, password))
         self.device = torch.device(device)
         self._fit_artifacts = fit_artifacts
+        self._model_node_types = set(model_node_types) if model_node_types is not None else None
         self.label_encoders: Dict[str, LabelEncoder] = {}
         self.node_scalers: Dict[str, StandardScaler] = {}
         self.edge_scaler = StandardScaler()
@@ -203,6 +217,7 @@ class PrivilegePropagationGraphLoader:
     # ── Public API ────────────────────────────────────────────────────────────
 
     def load(self) -> Tuple[HeteroData, dict]:
+        source_csv = self._fetch_provenance()
         node_dfs = {ntype: self._fetch_nodes(ntype) for ntype in ALL_NODE_TYPES}
         edge_dfs = {rel: self._fetch_edges(rel) for rel in RELATION_TYPES}
         edge_dfs = {rel: df for rel, df in edge_dfs.items() if len(df) > 0}
@@ -248,7 +263,16 @@ class PrivilegePropagationGraphLoader:
             edge_type_enc = fitted_edge_type_enc
         else:
             all_edge_types = pd.concat([df["edge_type"] for df in edge_dfs.values()]) if edge_dfs else pd.Series([], dtype=str)
-            edge_type_enc = LabelEncoder().fit(all_edge_types)
+            # UNK_CATEGORY is fit as a real class alongside the observed
+            # actions, so an eval graph's unseen actions have a dedicated
+            # "I have not seen this" code to land on. Previously the fallback
+            # was classes_[0] -- alphabetically AddUserToGroup, itself a
+            # privilege-escalation action -- which told the model that 70.5%
+            # of real edges were AddUserToGroup and made the reported score
+            # depend on an arbitrary alphabetical accident.
+            edge_type_enc = LabelEncoder().fit(
+                pd.concat([all_edge_types, pd.Series([UNK_CATEGORY], dtype=str)], ignore_index=True)
+            )
             self.label_encoders["edge_type"] = edge_type_enc
 
         # Fit ONE shared edge-feature scaler across ALL relations' rows, so
@@ -352,6 +376,7 @@ class PrivilegePropagationGraphLoader:
         edge_feat_dim = data[populated_triples[0]].edge_attr.shape[1] if populated_triples else 0
 
         meta = {
+            "source_csv": source_csv,   # which CSV built this graph; None on pre-provenance graphs
             "node_counts": {k: v.x.shape[0] for k, v in data.node_items()},
             "populated_triples": populated_triples,
             "edge_order": edge_order,                       # global order, list of (src,rel,dst,local_idx)
@@ -370,6 +395,19 @@ class PrivilegePropagationGraphLoader:
     # ── Neo4j queries (static per node/relation type — see
     #    neo4j_graph_builder.py's Cypher note on why these are not
     #    parameterized) ──────────────────────────────────────────────────────
+
+    def _fetch_provenance(self) -> str | None:
+        """basename of the structural CSV this graph was built from, as stamped
+        by neo4j_graph_builder.build_graph(). Returns None for a graph built
+        before provenance stamping existed, so old graphs still load."""
+        with self.driver.session() as s:
+            rec = s.run(
+                "MATCH (p:_GraphProvenance) RETURN p.source_csv AS csv "
+                "ORDER BY p.built_at DESC LIMIT 1"
+            ).single()
+        csv = rec["csv"] if rec else None
+        log.info("Graph provenance: %s", csv or "UNSTAMPED (built before provenance tracking)")
+        return csv
 
     def _fetch_nodes(self, node_type: str) -> pd.DataFrame:
         with self.driver.session() as s:
@@ -457,12 +495,41 @@ class PrivilegePropagationGraphLoader:
             scaled_part = np.zeros((len(df), 0))
         elif fitted_scaler is not None:
             scaled_part = fitted_scaler.transform(df[scaled_cols].values)
-        elif len(df) > 1:
-            scaler = StandardScaler()
-            scaled_part = scaler.fit_transform(df[scaled_cols].values)
-            self.node_scalers[ntype] = scaler  # only registered once actually fitted
-        else:
+        elif self._fit_artifacts is not None:
+            # Inference against a trained checkpoint that carries no scaler for
+            # this type. The old code fell through to the fit branch below and
+            # silently fitted on the EVALUATION graph's own statistics --
+            # exactly what fit_artifacts exists to prevent. It fired for real:
+            # the synthetic training graph had a single Policy node, so no
+            # Policy scaler was ever registered, and the real test graph's two
+            # Policy nodes were being z-scored on themselves.
+            #
+            # Whether that matters depends on whether the model actually
+            # consumes this node type. Types absent from the trained model
+            # (e.g. Service, which never appeared in synthetic data) are loaded
+            # but never reach the encoder, so a missing scaler there is
+            # harmless -- warn. A type the model DOES consume is a real
+            # correctness problem -- refuse rather than quietly produce an
+            # indefensible number.
+            if self._model_node_types is not None and ntype in self._model_node_types:
+                raise RuntimeError(
+                    f"No fitted scaler for node type {ntype!r}, which this model consumes, but "
+                    f"{len(scaled_cols)} scaled column(s) {scaled_cols} require one. Refusing to "
+                    f"fit on evaluation data -- retrain/re-wrap so the checkpoint carries it."
+                )
+            log.warning(
+                "No fitted scaler for %r; passing %s through UNSCALED rather than fitting on "
+                "evaluation data. (Not consumed by the model, so this does not affect results.)",
+                ntype, scaled_cols,
+            )
             scaled_part = df[scaled_cols].values
+        else:
+            # Fit unconditionally, including at len(df) == 1. The old
+            # `elif len(df) > 1` guard left the single-node case unscaled AND
+            # unregistered, which is what opened the hole above.
+            scaler = StandardScaler().fit(df[scaled_cols].values)
+            scaled_part = scaler.transform(df[scaled_cols].values)
+            self.node_scalers[ntype] = scaler
         num = np.concatenate([scaled_part, rank_part], axis=1)
 
         if cat_cols:
@@ -473,10 +540,15 @@ class PrivilegePropagationGraphLoader:
                 fitted_enc = fitted_encoders.get(f"{ntype}.{col}")
                 if fitted_enc is not None:
                     known = set(fitted_enc.classes_)
-                    safe_vals = df[col].where(df[col].isin(known), fitted_enc.classes_[0])
+                    # Same reserved-class fallback as edge_type above, rather
+                    # than aliasing unknowns onto whichever class sorts first.
+                    fallback = UNK_CATEGORY if UNK_CATEGORY in known else fitted_enc.classes_[0]
+                    safe_vals = df[col].where(df[col].isin(known), fallback)
                     cat_arrays.append(fitted_enc.transform(safe_vals).astype(float).reshape(-1, 1))
                 else:
-                    enc = LabelEncoder().fit(df[col])
+                    enc = LabelEncoder().fit(
+                        pd.concat([df[col], pd.Series([UNK_CATEGORY], dtype=str)], ignore_index=True)
+                    )
                     self.label_encoders[f"{ntype}.{col}"] = enc
                     cat_arrays.append(enc.transform(df[col]).astype(float).reshape(-1, 1))
             feats = np.concatenate([num] + cat_arrays, axis=1)
@@ -495,13 +567,20 @@ class PrivilegePropagationGraphLoader:
         num = self.edge_scaler.transform(num)
         rank_part = df[["abnormal_path_frequency_rank"]].to_numpy(dtype=float)
         num = np.concatenate([num, rank_part], axis=1)
-        # A real/held-out graph can contain edge_type values never seen
-        # while fitting edge_type_enc on the training graph -- map those to
-        # the encoder's first known class rather than letting .transform()
-        # raise, same fallback used for node categorical features above.
+        # A real/held-out graph can contain edge_type values never seen while
+        # fitting edge_type_enc on the training graph -- map those to the
+        # reserved UNK_CATEGORY class rather than letting .transform() raise.
         known = set(edge_type_enc.classes_)
-        safe_edge_type = df["edge_type"].where(df["edge_type"].isin(known), edge_type_enc.classes_[0])
-        cat = edge_type_enc.transform(safe_edge_type).astype(float).reshape(-1, 1)
+        safe_edge_type = df["edge_type"].where(df["edge_type"].isin(known), UNK_CATEGORY)
+        codes = edge_type_enc.transform(safe_edge_type)
+        # ONE-HOT, not a raw ordinal. edge_type is nominal: feeding its integer
+        # code straight in (as this did) both invents an ordering across 67
+        # unrelated AWS actions and puts a 0..66 magnitude next to z-scored
+        # features that live in ~[-3, 3], letting one arbitrary column dominate
+        # the edge vector. EdgeClassifierHead takes edge_feat_dim as a
+        # constructor argument, so widening here needs no model-side change.
+        cat = np.zeros((len(df), len(edge_type_enc.classes_)), dtype=float)
+        cat[np.arange(len(df)), codes] = 1.0
         return torch.tensor(np.concatenate([num, cat], axis=1), dtype=torch.float)
 
 

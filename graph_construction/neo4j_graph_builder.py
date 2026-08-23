@@ -109,6 +109,7 @@ Run:
 from __future__ import annotations
 
 import collections
+import os
 import re
 from dataclasses import dataclass
 
@@ -381,6 +382,19 @@ def build_graph():
             session.run(cql)
         print("Clearing existing graph …")
         session.run("MATCH (n) DETACH DELETE n")
+
+        # Provenance marker. Neo4j holds exactly ONE graph at a time, so every
+        # downstream result is silently order-dependent on which CSV was loaded
+        # last -- evaluating the test graph against the dev CSV (or vice versa)
+        # produces plausible-looking but meaningless numbers with no error.
+        # Stamping the source here lets data_loader/evaluate_session_level
+        # assert they are reading the graph they think they are.
+        # It carries no relationships and its label is outside ALL_NODE_TYPES,
+        # so neither _fetch_nodes nor _fetch_edges ever picks it up.
+        session.run(
+            "CREATE (:_GraphProvenance {source_csv: $csv, built_at: datetime()})",
+            csv=os.path.basename(CSV_PATH),
+        )
 
         print("Ingesting nodes …")
         seen_nodes = set()
