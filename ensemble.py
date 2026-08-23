@@ -26,13 +26,27 @@ Pipeline:
 
 GNN side note: blast_radius.BlastRadiusEngine only needs an in-memory
 privilege_features.PrivilegePropagationGraph -- it was already written
-to be Neo4j-independent (see that class's docstring). The existing
-Neo4j-backed path (neo4j_graph_builder.build_graph() -> Neo4j ->
-data_loader.PrivilegePropagationGraphLoader) builds the exact same
-object by round-tripping through a live Neo4j instance; build_ppg()
-below reuses the identical parsing (parse_principal/parse_target/
-node_key_for_*) and skips the round-trip, so this is not a different
-graph -- it's the same graph without the database in the middle.
+to be Neo4j-independent (see that class's docstring). Two ways to build
+one are provided here:
+  - build_ppg() -- parses the structural CSV directly (parse_principal/
+    parse_target/node_key_for_*), same logic neo4j_graph_builder.py
+    uses before it ever touches Neo4j. Zero infra required.
+  - build_ppg_from_neo4j() -- reads the SAME graph back out of a live
+    Neo4j instance that neo4j_graph_builder.build_graph() has already
+    loaded (MATCH nodes/relationships via Cypher), then feeds the
+    resulting rows through the identical PrivilegePropagationGraph.
+    build_from_rows(). This is the "real" round-tripped-through-the-
+    database path; --source neo4j selects it once Neo4j is up and
+    build_graph.py has loaded the current structural CSV into it.
+Both produce the same PrivilegePropagationGraph type, so
+BlastRadiusEngine and everything downstream of it is identical either
+way -- only how the graph's edges are sourced differs.
+
+Note this is deliberately NOT data_loader.PrivilegePropagationGraphLoader
+-- that class builds a PyTorch Geometric HeteroData for the trained
+GraphSAGE/GAT classifier, a different object for a different job
+(classification probability, not reachability). blast_radius.py has
+never needed that class.
 
 LSTM side notes (two fixes applied only in this file, not in the
 vendored temporal-analysis/ code):
@@ -116,10 +130,71 @@ def build_ppg(structural_df: pd.DataFrame, resolver: "pf.ActionAccessLevelResolv
     return ppg, principals
 
 
-def score_gnn_blast_radius(structural_df: pd.DataFrame) -> dict:
+_NEO4J_SPECIFIC_LABELS = {"User", "Role", "UnresolvedPrincipal", "Service", "Resource", "Policy"}
+DEFAULT_NEO4J_URI = "bolt://localhost:7687"
+DEFAULT_NEO4J_USER = "neo4j"
+DEFAULT_NEO4J_PASSWORD = "test1234"
+
+
+def build_ppg_from_neo4j(uri: str = DEFAULT_NEO4J_URI, user: str = DEFAULT_NEO4J_USER,
+                          password: str = DEFAULT_NEO4J_PASSWORD,
+                          resolver: "pf.ActionAccessLevelResolver | None" = None):
+    """Same PrivilegePropagationGraph as build_ppg(), sourced from a live
+    Neo4j instance that neo4j_graph_builder.build_graph() has already
+    loaded (see build_graph.py). Requires the `neo4j` driver and a
+    reachable Neo4j instance -- raises on connection failure rather than
+    silently falling back, since a caller that asked for --source neo4j
+    wants the real graph, not a quiet downgrade."""
+    from neo4j import GraphDatabase
+
+    resolver = resolver or pf.ActionAccessLevelResolver()
+    driver = GraphDatabase.driver(uri, auth=(user, password))
+    try:
+        with driver.session() as session:
+            node_label_by_key = {}
+            for record in session.run("MATCH (n) WHERE n.key IS NOT NULL RETURN labels(n) AS labels, n.key AS key"):
+                specific = [l for l in record["labels"] if l in _NEO4J_SPECIFIC_LABELS]
+                if specific:
+                    node_label_by_key[record["key"]] = specific[0]
+
+            rows_for_graph = []
+            edge_query = (
+                "MATCH (src)-[r]->(dst) "
+                "RETURN src.key AS src_key, dst.key AS dst_key, "
+                "       r.log_id AS log_id, r.edge_type AS edge_type, r.is_attack AS is_attack"
+            )
+            for record in session.run(edge_query):
+                src_key, dst_key = record["src_key"], record["dst_key"]
+                src_label = node_label_by_key.get(src_key)
+                dst_label = node_label_by_key.get(dst_key)
+                if src_label is None or dst_label is None:
+                    continue
+                rows_for_graph.append({
+                    "log_id": record["log_id"],
+                    "source_key": pf.GraphNodeKey(src_label, src_key),
+                    "target_key": pf.GraphNodeKey(dst_label, dst_key),
+                    "edge_type": record["edge_type"],
+                    "label": int(record["is_attack"]),
+                })
+    finally:
+        driver.close()
+
+    ppg = pf.PrivilegePropagationGraph(resolver).build_from_rows(rows_for_graph)
+    principals = sorted({
+        (row["source_key"].label, row["source_key"].key) for row in rows_for_graph
+    })
+    return ppg, principals
+
+
+def score_gnn_blast_radius(structural_df: pd.DataFrame, source: str = "csv") -> dict:
     """Returns {(label, key): BlastRadiusReport} for every principal observed
-    acting in this batch."""
-    ppg, principals = build_ppg(structural_df)
+    acting in this batch. source="csv" builds the graph directly from
+    structural_df (no infra); source="neo4j" reads the same graph back
+    out of a live Neo4j instance already loaded via build_graph.py."""
+    if source == "neo4j":
+        ppg, principals = build_ppg_from_neo4j()
+    else:
+        ppg, principals = build_ppg(structural_df)
     engine = br.BlastRadiusEngine(ppg)
     return {node: engine.compute(node) for node in principals}
 
@@ -175,7 +250,7 @@ def combine(blast_reports: dict, lstm_windows: pd.DataFrame,
 
 def run(input_path: str, weight_gnn: float = 0.5, weight_lstm: float = 0.5,
         agg: str = "max", out_path: "str | None" = None,
-        freeze_vocab: bool = False) -> pd.DataFrame:
+        freeze_vocab: bool = False, gnn_source: str = "csv") -> pd.DataFrame:
     if not (0.0 <= weight_gnn <= 1.0 and 0.0 <= weight_lstm <= 1.0):
         raise ValueError("weights must be in [0, 1]")
 
@@ -183,7 +258,7 @@ def run(input_path: str, weight_gnn: float = 0.5, weight_lstm: float = 0.5,
     structural_df = pd.read_csv(fe9.STRUCT_OUT)
     temporal_df = pd.read_csv(fe9.TEMPORAL_OUT)
 
-    blast_reports = score_gnn_blast_radius(structural_df)
+    blast_reports = score_gnn_blast_radius(structural_df, source=gnn_source)
     lstm_windows = score_lstm_temporal(temporal_df, fe9.EVENT_NAME_VOCAB_FILE)
 
     result = combine(blast_reports, lstm_windows, weight_gnn, weight_lstm, agg)
@@ -208,10 +283,15 @@ def main():
                          help="How to aggregate a principal's LSTM window scores into one number")
     parser.add_argument("--freeze-vocab", action="store_true",
                          help="Do not grow the shared event_name vocab on this run")
+    parser.add_argument("--source", choices=["csv", "neo4j"], default="csv",
+                         help="Where the GNN side builds its graph from: 'csv' parses the "
+                              "structural CSV directly (no infra); 'neo4j' reads the same "
+                              "graph back out of a live Neo4j instance already loaded via "
+                              "build_graph.py (bolt://localhost:7687, see build_ppg_from_neo4j)")
     args = parser.parse_args()
 
     result = run(args.input, args.weight_gnn, args.weight_lstm, args.agg,
-                 args.out, args.freeze_vocab)
+                 args.out, args.freeze_vocab, gnn_source=args.source)
     with pd.option_context("display.max_rows", 50, "display.width", 160):
         print(result.to_string(index=False))
     print(f"\n{len(result)} principals scored -> {args.out}")
