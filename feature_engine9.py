@@ -183,13 +183,23 @@ FIXED_EVENT_SOURCES = [
  ]
 
 class VocabIndex:
-    def __init__(self, fixed_tokens=None, path=None):
+    def __init__(self, fixed_tokens=None, path=None, frozen=False):
         self.path = path
         self.growable = fixed_tokens is None
+        # frozen: stop a growable vocab from accepting new tokens, without
+        # losing what it already learned. Needed when feature-engineering
+        # real evaluation data against a model already trained against this
+        # vocab's current size -- any new index appended after training
+        # would be out of bounds for that model's embedding table. A token
+        # unseen at training/freeze time falls back to UNK, same as a
+        # non-growable vocab's out-of-vocabulary handling.
+        self.frozen = frozen
         if fixed_tokens is not None:
             self.token_to_idx = {t: i for i, t in enumerate(fixed_tokens)}
         elif path and os.path.exists(path):
             self.token_to_idx = json.loads(open(path, encoding='utf-8').read())
+            if UNK_TOKEN not in self.token_to_idx:
+                self.token_to_idx[UNK_TOKEN] = len(self.token_to_idx)
         else:
             self.token_to_idx = {UNK_TOKEN: 0}
 
@@ -197,7 +207,7 @@ class VocabIndex:
         token = token or UNK_TOKEN
         if token in self.token_to_idx:
             return self.token_to_idx[token]
-        if self.growable:
+        if self.growable and not self.frozen:
             idx = len(self.token_to_idx)
             self.token_to_idx[token] = idx
             return idx
@@ -506,12 +516,12 @@ class StateTracker:
 
 class FeatureEngineer:
     def __init__(self, event_name_vocab_path=None, state_tracker_path=None, graph_state_path=None,
-                 action_prior_path=None, principal_prior_path=None):
+                 action_prior_path=None, principal_prior_path=None, freeze_vocab=False):
         self.tracker = StateTracker(path=state_tracker_path)
         self.graph_tracker = GraphNodeTracker(path=graph_state_path)
         self.principal_type_vocab = VocabIndex(fixed_tokens=FIXED_PRINCIPAL_TYPES)
         self.event_source_vocab = VocabIndex(fixed_tokens=FIXED_EVENT_SOURCES)
-        self.event_name_vocab = VocabIndex(path=event_name_vocab_path)
+        self.event_name_vocab = VocabIndex(path=event_name_vocab_path, frozen=freeze_vocab)
 
         self.action_map = {
             # --- 1. RECONNAISSANCE ---
@@ -743,6 +753,37 @@ GRAPH_NODE_STATE_FILE = os.path.join(DATA_DIR, ".graph_node_state.json")
 ACTION_PRIOR_FILE = os.path.join(DATA_DIR, ".action_risk_prior.json")
 PRINCIPAL_PRIOR_FILE = os.path.join(DATA_DIR, ".principal_risk_prior.json")
 
+
+def _derive_paths(input_path: str) -> dict:
+    """Output paths for a given --input. The default input keeps its
+    original fixed filenames (cloudtrail_structural.csv etc.) unchanged,
+    for backward compatibility with what's already been built from it.
+    Any other input gets its own filenames derived from its basename, so
+    e.g. running against real_dataset_test.csv can never silently append
+    into the same structural/temporal CSV the synthetic training set
+    already built -- previously a real risk, since those were fixed
+    constants regardless of --input.
+
+    event_name_vocab is deliberately NOT derived -- it must stay the same
+    file across every dataset evaluated against a given trained model, or
+    the same index would silently mean a different event name depending
+    on which dataset was processed most recently.
+    """
+    if os.path.abspath(input_path) == os.path.abspath(DEFAULT_INPUT):
+        return {
+            "struct_out": STRUCT_OUT, "temporal_out": TEMPORAL_OUT,
+            "state_file": STATE_FILE, "state_tracker_file": STATE_TRACKER_FILE,
+            "graph_node_state_file": GRAPH_NODE_STATE_FILE,
+        }
+    stem = os.path.splitext(os.path.basename(input_path))[0]
+    return {
+        "struct_out": os.path.join(DATA_DIR, f"{stem}_structural.csv"),
+        "temporal_out": os.path.join(DATA_DIR, f"{stem}_temporal.csv"),
+        "state_file": os.path.join(DATA_DIR, f".feature_engine9_state_{stem}.json"),
+        "state_tracker_file": os.path.join(DATA_DIR, f".state_tracker_{stem}.json"),
+        "graph_node_state_file": os.path.join(DATA_DIR, f".graph_node_state_{stem}.json"),
+    }
+
 # ── Fast-lane: defense-evasion actions that get an immediate alert ───────────
 CRITICAL_ACTIONS = {
     "StopLogging":     "CloudTrail logging disabled",
@@ -824,14 +865,25 @@ def process_batch_file(engine: FeatureEngineer, input_path: str) -> int:
         if struct_is_new:
             struct_writer.writeheader()
 
-        for row in iter_input_rows(input_path):
+        for source_row_index, row in enumerate(iter_input_rows(input_path)):
             fast_lane_alert(row)  # low-latency lane, runs before full feature computation
 
             try:
                 struct = engine.get_structural_data(row)
                 temporal = engine.get_temporal_features(row)
             except ValueError as e:
-                print(f"[SKIP] {input_path}: {e}")
+                # NOTE: log_id below is indexed by source_row_index, NOT by
+                # `count`. It previously used `count`, which is only
+                # incremented for successfully-processed rows -- so a single
+                # skip here silently shifted every subsequent log_id one row
+                # off its true position in the input CSV. Downstream,
+                # evaluate_session_level.py indexes the raw CSV by that
+                # number to recover each edge's session, so the drift would
+                # have misattributed every following edge to the wrong
+                # session with no error anywhere. No skip has occurred on the
+                # current datasets (row counts match exactly), but the
+                # coupling was silent and is now removed.
+                print(f"[SKIP] {input_path} row {source_row_index}: {e}")
                 continue
 
             # Update the adaptive priors *after* scoring this row, so its own
@@ -839,7 +891,7 @@ def process_batch_file(engine: FeatureEngineer, input_path: str) -> int:
             engine.observe_label(row)
 
             label = row.get("label", "0")
-            log_id = f"{os.path.basename(input_path)}:{count}"
+            log_id = f"{os.path.basename(input_path)}:{source_row_index}"
 
             struct_row = {
                 "log_id": log_id,
@@ -872,10 +924,18 @@ def process_batch_file(engine: FeatureEngineer, input_path: str) -> int:
     return count
 
 
-def run_batch(input_path: str) -> None:
+def run_batch(input_path: str, freeze_vocab: bool = False) -> None:
+    global STRUCT_OUT, TEMPORAL_OUT, STATE_FILE, STATE_TRACKER_FILE, GRAPH_NODE_STATE_FILE
     if not os.path.exists(input_path):
         print(f"Error: Could not find {input_path}")
         raise SystemExit(1)
+
+    paths = _derive_paths(input_path)
+    STRUCT_OUT = paths["struct_out"]
+    TEMPORAL_OUT = paths["temporal_out"]
+    STATE_FILE = paths["state_file"]
+    STATE_TRACKER_FILE = paths["state_tracker_file"]
+    GRAPH_NODE_STATE_FILE = paths["graph_node_state_file"]
 
     state = load_state()
     processed = set(state["processed_files"])
@@ -885,13 +945,17 @@ def run_batch(input_path: str) -> None:
         return
 
     engine = FeatureEngineer(
-        event_name_vocab_path=EVENT_NAME_VOCAB_FILE,
+        event_name_vocab_path=EVENT_NAME_VOCAB_FILE,  # always shared, see _derive_paths
         state_tracker_path=STATE_TRACKER_FILE,
         graph_state_path=GRAPH_NODE_STATE_FILE,
         action_prior_path=ACTION_PRIOR_FILE,
         principal_prior_path=PRINCIPAL_PRIOR_FILE,
+        freeze_vocab=freeze_vocab,
     )
     print(f"Reading logs in BATCH mode from {input_path}...")
+    print(f"  struct_out:   {STRUCT_OUT}")
+    print(f"  temporal_out: {TEMPORAL_OUT}")
+    print(f"  vocab frozen: {freeze_vocab}")
     process_batch_file(engine, input_path)
 
     processed.add(name)
@@ -1011,6 +1075,11 @@ def main():
     parser.add_argument("--watch", metavar="DIR", help="Watch DIR and process each new log file as it lands")
     parser.add_argument("--simulate", action="store_true",
                          help="With --watch, also chunk --input into small CSVs dropped into DIR periodically")
+    parser.add_argument("--freeze-vocab", action="store_true",
+                         help="Do not add new event names to the shared event_name vocab -- use when "
+                              "feature-engineering evaluation data (e.g. real_dataset_test.csv) against "
+                              "a model already trained against the current vocab size. Unseen event "
+                              "names map to <UNK> instead of growing the vocab out from under the model.")
     args = parser.parse_args()
 
     if args.watch:
@@ -1018,7 +1087,7 @@ def main():
             simulate_incoming_files(args.watch, args.input)
         watch_folder(args.watch)
     else:
-        run_batch(args.input)
+        run_batch(args.input, freeze_vocab=args.freeze_vocab)
 
 
 if __name__ == "__main__":

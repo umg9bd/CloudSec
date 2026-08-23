@@ -1,4 +1,5 @@
 {
+    "python-envs.defaultEnvManager": "ms-python.python:system",
     "files.exclude": {
         "**/.venv": true,
         "**/__pycache__": true
