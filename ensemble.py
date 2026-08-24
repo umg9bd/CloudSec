@@ -70,6 +70,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import sys
 
@@ -306,6 +307,14 @@ def run(input_path: str, weight_gnn: float = 0.5, weight_lstm: float = 0.5,
         gnn_source: str = "csv") -> pd.DataFrame:
     if not (0.0 <= weight_gnn <= 1.0 and 0.0 <= weight_lstm <= 1.0):
         raise ValueError("weights must be in [0, 1]")
+    if not math.isclose(weight_gnn + weight_lstm, 1.0, abs_tol=1e-6):
+        raise ValueError(
+            f"weight_gnn + weight_lstm must sum to 1.0 (got {weight_gnn} + {weight_lstm} = "
+            f"{weight_gnn + weight_lstm}) -- otherwise the 0-10 scale stops meaning what it "
+            f"says (e.g. two independent 1.0/1.0 weights would let both signals count in "
+            f"full, pushing everything toward the ceiling regardless of how strongly they "
+            f"actually agree)."
+        )
 
     fe9.run_batch(input_path, freeze_vocab=freeze_vocab)
     structural_df = pd.read_csv(fe9.STRUCT_OUT)
