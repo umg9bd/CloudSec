@@ -293,9 +293,12 @@ def combine_events(structural_df: pd.DataFrame, temporal_df: pd.DataFrame,
             "risk_score", "gnn_event_score", "lstm_event_score",
             "is_priv_esc_technique", "access_level", "target_sensitivity_tier", "hop_count",
             "ground_truth_label"]
-    return (merged[cols]
-            .sort_values(["username", "timestamp"])
-            .reset_index(drop=True))
+    # No sort: merge(how="left") preserves structural_df's row order, which
+    # is arrival order (log_id = "<source_file>:<row_index>"). A real
+    # deployment scores events interleaved across principals as they land
+    # (--watch mode) -- sorting by (username, timestamp) would be a batch-mode
+    # assumption that doesn't hold there, so this doesn't impose one either.
+    return merged[cols].reset_index(drop=True)
 
 
 def run(input_path: str, weight_gnn: float = 0.5, weight_lstm: float = 0.5,
