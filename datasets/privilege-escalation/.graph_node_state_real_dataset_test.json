@@ -4019,21 +4019,21 @@
     "arn:aws:iam::123837392027:user/benjamin": {
       "degree": 105,
       "first_seen": "2023-07-10T11:42:18+00:00",
-      "historical_risk": 0.10504939407222333,
+      "historical_risk": 0.027061351483654895,
       "last_seen": "2023-07-10T12:37:50+00:00",
       "privilege_tier": 0
     },
     "arn:aws:iam::123837392027:user/bert-jan": {
       "degree": 2418,
       "first_seen": "2023-07-10T11:54:33+00:00",
-      "historical_risk": 0.10000001374796974,
+      "historical_risk": 0.039152914344297025,
       "last_seen": "2023-07-10T12:34:46+00:00",
       "privilege_tier": 3
     },
     "arn:aws:iam::123837392027:user/stratus-red-team-nmfalu-gfjyeaypjt": {
       "degree": 1,
       "first_seen": "2023-07-10T12:23:15+00:00",
-      "historical_risk": 0.03,
+      "historical_risk": 0.028124999999999997,
       "last_seen": "2023-07-10T12:23:15+00:00",
       "privilege_tier": 1
     },
@@ -4047,14 +4047,14 @@
     "arn:aws:iam::261390480702:root": {
       "degree": 2,
       "first_seen": "2026-07-10T11:16:41+00:00",
-      "historical_risk": 0.051,
+      "historical_risk": 0.003077390205985231,
       "last_seen": "2026-07-10T11:21:11+00:00",
       "privilege_tier": 4
     },
     "arn:aws:iam::261390480702:user/stratus-redteam": {
       "degree": 2692,
       "first_seen": "2026-07-10T11:18:45+00:00",
-      "historical_risk": 0.10056620778680336,
+      "historical_risk": 0.019819032194310977,
       "last_seen": "2026-07-10T13:17:33+00:00",
       "privilege_tier": 3
     },
@@ -4082,14 +4082,14 @@
     "arn:aws:iam::268769775703:root": {
       "degree": 94,
       "first_seen": "2026-07-15T08:17:36+00:00",
-      "historical_risk": 0.10525891029999972,
+      "historical_risk": 0.014469631535401322,
       "last_seen": "2026-07-15T10:58:47+00:00",
       "privilege_tier": 4
     },
     "arn:aws:iam::268769775703:user/nexus-user-1": {
       "degree": 2751,
       "first_seen": "2026-07-11T13:03:09+00:00",
-      "historical_risk": 0.10000000113214466,
+      "historical_risk": 0.018777120624859367,
       "last_seen": "2026-07-15T10:58:15+00:00",
       "privilege_tier": 3
     },
@@ -4117,14 +4117,14 @@
     "arn:aws:iam::482745810921:root": {
       "degree": 105,
       "first_seen": "2026-07-08T10:03:25+00:00",
-      "historical_risk": 0.09999999999999996,
+      "historical_risk": 0.0062641277134867545,
       "last_seen": "2026-07-08T11:05:40+00:00",
       "privilege_tier": 4
     },
     "arn:aws:iam::482745810921:user/stratus-redteam1": {
       "degree": 7053,
       "first_seen": "2026-07-08T10:41:52+00:00",
-      "historical_risk": 0.10019239669238747,
+      "historical_risk": 0.008856703116385534,
       "last_seen": "2026-07-09T17:11:05+00:00",
       "privilege_tier": 3
     },
@@ -4152,14 +4152,14 @@
     "arn:aws:iam::536697249497:root": {
       "degree": 72,
       "first_seen": "2026-07-06T09:19:10+00:00",
-      "historical_risk": 0.09999999999929682,
+      "historical_risk": 0.006629777011620061,
       "last_seen": "2026-07-06T13:22:07+00:00",
       "privilege_tier": 4
     },
     "arn:aws:iam::536697249497:user/stratus-redteam": {
       "degree": 5749,
       "first_seen": "2026-07-06T09:19:10+00:00",
-      "historical_risk": 0.2136277427377387,
+      "historical_risk": 0.04354395951505529,
       "last_seen": "2026-07-15T07:48:07+00:00",
       "privilege_tier": 3
     },
@@ -6623,126 +6623,126 @@
     "arn:aws:sts::123837392027:assumed-role/AWSServiceRoleForAmazonInspector2/MandoService2842426183934887787": {
       "degree": 1,
       "first_seen": "2023-07-10T11:55:24+00:00",
-      "historical_risk": 0.06,
+      "historical_risk": 0.0016853932584269661,
       "last_seen": "2023-07-10T11:55:24+00:00",
       "privilege_tier": 0
     },
     "arn:aws:sts::123837392027:assumed-role/AWSServiceRoleForAmazonInspector2/MandoService364061179539770931": {
       "degree": 1,
       "first_seen": "2023-07-10T12:04:10+00:00",
-      "historical_risk": 0.06,
+      "historical_risk": 0.0016666666666666668,
       "last_seen": "2023-07-10T12:04:10+00:00",
       "privilege_tier": 0
     },
     "arn:aws:sts::123837392027:assumed-role/AWSServiceRoleForRDS/SLRManagement": {
       "degree": 4,
       "first_seen": "2023-07-10T12:15:59+00:00",
-      "historical_risk": 0.07599,
+      "historical_risk": 0.04628339512711864,
       "last_seen": "2023-07-10T12:32:01+00:00",
       "privilege_tier": 1
     },
     "arn:aws:sts::123837392027:assumed-role/stratus-red-team-ec2-steal-credentials-role/i-0dbc91f429e48eeed": {
       "degree": 15,
       "first_seen": "2023-07-10T11:57:16+00:00",
-      "historical_risk": 0.10053368048793568,
+      "historical_risk": 0.08231593281448873,
       "last_seen": "2023-07-10T12:07:39+00:00",
       "privilege_tier": 1
     },
     "arn:aws:sts::123837392027:assumed-role/stratus-red-team-ec2lui-role-pcccexdthk/aws-go-sdk-1688990797103471741": {
       "degree": 1,
       "first_seen": "2023-07-10T12:06:42+00:00",
-      "historical_risk": 0.03,
+      "historical_risk": 0.02045454545454545,
       "last_seen": "2023-07-10T12:06:42+00:00",
       "privilege_tier": 1
     },
     "arn:aws:sts::261390480702:assumed-role/AWSServiceRoleForResourceExplorer/resource-explorer-2": {
       "degree": 1333,
       "first_seen": "2026-07-10T14:34:11+00:00",
-      "historical_risk": 0.09999999999999999,
+      "historical_risk": 0.043575201239090935,
       "last_seen": "2026-07-16T10:54:48+00:00",
       "privilege_tier": 0
     },
     "arn:aws:sts::268769775703:assumed-role/AWSServiceRoleForResourceExplorer/resource-explorer-2": {
       "degree": 1258,
       "first_seen": "2026-07-10T20:41:29+00:00",
-      "historical_risk": 0.09999999999999999,
+      "historical_risk": 0.01962849720382892,
       "last_seen": "2026-07-15T10:59:10+00:00",
       "privilege_tier": 0
     },
     "arn:aws:sts::268769775703:assumed-role/stratus-red-team-ec2-get-password-data-role/aws-go-sdk-1784103274534969500": {
       "degree": 30,
       "first_seen": "2026-07-15T08:14:38+00:00",
-      "historical_risk": 0.09999774606597091,
+      "historical_risk": 0.9750082111848591,
       "last_seen": "2026-07-15T08:15:41+00:00",
       "privilege_tier": 0
     },
     "arn:aws:sts::268769775703:assumed-role/stratus-red-team-ec2-get-password-data-role/aws-go-sdk-1784106900130204400": {
       "degree": 30,
       "first_seen": "2026-07-15T09:15:03+00:00",
-      "historical_risk": 0.09999774606597091,
+      "historical_risk": 0.9763209106796017,
       "last_seen": "2026-07-15T09:15:13+00:00",
       "privilege_tier": 0
     },
     "arn:aws:sts::268769775703:assumed-role/stratus-red-team-ec2-get-password-data-role/aws-go-sdk-1784108512950963000": {
       "degree": 30,
       "first_seen": "2026-07-15T09:41:56+00:00",
-      "historical_risk": 0.09999774606597091,
+      "historical_risk": 0.9775024769658556,
       "last_seen": "2026-07-15T09:42:10+00:00",
       "privilege_tier": 0
     },
     "arn:aws:sts::482745810921:assumed-role/AWSServiceRoleForResourceExplorer/resource-explorer-2": {
       "degree": 347,
       "first_seen": "2026-07-08T10:02:13+00:00",
-      "historical_risk": 0.09999999999999996,
+      "historical_risk": 0.032699141835917295,
       "last_seen": "2026-07-12T03:05:36+00:00",
       "privilege_tier": 0
     },
     "arn:aws:sts::482745810921:assumed-role/stratus-red-team-ec2-get-password-data-role/aws-go-sdk-1783538072431766100": {
       "degree": 30,
       "first_seen": "2026-07-08T19:14:33+00:00",
-      "historical_risk": 0.09999774606597091,
+      "historical_risk": 0.9654202029431163,
       "last_seen": "2026-07-08T19:14:42+00:00",
       "privilege_tier": 0
     },
     "arn:aws:sts::482745810921:assumed-role/stratus-red-team-ec2-get-password-data-role/aws-go-sdk-1783616415814055300": {
       "degree": 30,
       "first_seen": "2026-07-09T17:00:17+00:00",
-      "historical_risk": 0.09999774606597091,
+      "historical_risk": 0.967884891893535,
       "last_seen": "2026-07-09T17:00:27+00:00",
       "privilege_tier": 0
     },
     "arn:aws:sts::482745810921:assumed-role/stratus-red-team-ec2-get-password-data-role/aws-go-sdk-1783616851758064900": {
       "degree": 30,
       "first_seen": "2026-07-09T17:07:32+00:00",
-      "historical_risk": 0.09999774606597091,
+      "historical_risk": 0.9700214007254362,
       "last_seen": "2026-07-09T17:07:41+00:00",
       "privilege_tier": 0
     },
     "arn:aws:sts::536697249497:assumed-role/AWSServiceRoleForResourceExplorer/resource-explorer-2": {
       "degree": 323,
       "first_seen": "2026-07-06T09:41:49+00:00",
-      "historical_risk": 0.10000000000000002,
+      "historical_risk": 0.02873019148081696,
       "last_seen": "2026-07-15T08:15:06+00:00",
       "privilege_tier": 0
     },
     "arn:aws:sts::536697249497:assumed-role/stratus-red-team-ec2-get-password-data-role/aws-go-sdk-1783333306862002800": {
       "degree": 30,
       "first_seen": "2026-07-06T10:24:29+00:00",
-      "historical_risk": 0.09999774606597091,
+      "historical_risk": 0.9625454225209098,
       "last_seen": "2026-07-06T10:24:39+00:00",
       "privilege_tier": 0
     },
     "arn:aws:sts::536697249497:assumed-role/stratus-red-team-ec2-get-password-data-role/aws-go-sdk-1784097907607294400": {
       "degree": 30,
       "first_seen": "2026-07-15T06:47:56+00:00",
-      "historical_risk": 0.09999774606597091,
+      "historical_risk": 0.971891187251148,
       "last_seen": "2026-07-15T06:48:04+00:00",
       "privilege_tier": 0
     },
     "arn:aws:sts::536697249497:assumed-role/stratus-red-team-ec2-get-password-data-role/aws-go-sdk-1784099748921602400": {
       "degree": 30,
       "first_seen": "2026-07-15T07:18:37+00:00",
-      "historical_risk": 0.09999774606597091,
+      "historical_risk": 0.9735412649648624,
       "last_seen": "2026-07-15T07:18:45+00:00",
       "privilege_tier": 0
     },
@@ -10347,7 +10347,7 @@
     "unknown_principal": {
       "degree": 5353,
       "first_seen": "2023-07-10T11:55:22+00:00",
-      "historical_risk": 0.5999999999999996,
+      "historical_risk": 0.027787362463075928,
       "last_seen": "2026-07-16T10:54:48+00:00",
       "privilege_tier": 1
     },
