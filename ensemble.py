@@ -178,17 +178,37 @@ def build_ppg_from_neo4j(uri: str = DEFAULT_NEO4J_URI, user: str = DEFAULT_NEO4J
 
 # ── GNN side: per-event structural risk (no trained model) ──────────────────
 
+# GetSecretValue is on this list too (redundant with the secretsmanager/kms
+# service check below) so the credential-access signal doesn't depend on
+# target_node parsing alone -- e.g. a request that names the secret in
+# params rather than the resource path still gets caught by action name.
+CREDENTIAL_ACCESS_ACTIONS = {
+    "GetSecretValue", "GetPasswordData", "GetParameters", "GetParameter",
+    "DescribeParameters", "ListSecrets", "BatchGetSecretValue",
+}
+CREDENTIAL_ACCESS_SERVICES = {"secretsmanager", "kms"}
+
+
 def score_gnn_events(structural_df: pd.DataFrame, source: str = "csv",
                       resolver: "pf.ActionAccessLevelResolver | None" = None) -> pd.DataFrame:
     """One row per log_id. gnn_event_score in [0,1], a weighted blend of pure
     graph-topology signals (see module docstring for why not the trained
     classifier):
-      - is_priv_esc_technique (0.30): action is on the known IAM
+      - is_priv_esc_technique (0.25): action is on the known IAM
         privilege-escalation technique list (AttachUserPolicy, PassRole, ...)
-      - access_level_rank    (0.15): action's AWS access-level severity
+      - credential_access    (0.20): action reads a secret/credential value
+        (GetSecretValue, GetPasswordData, GetParameters, ... or targets a
+        secretsmanager/kms resource) -- added after real-data validation
+        showed the original 6-component score missed 97% of real attack
+        events on real_dataset_dev.csv, almost all of them credential-theft
+        reads (GetPasswordData/GetParameters/DescribeParameters) that
+        is_priv_esc_technique and access_level systematically under-score,
+        since a Read that steals a password looks structurally identical to
+        a routine Read that doesn't.
+      - access_level_rank    (0.10): action's AWS access-level severity
         (List < Read < Tagging < Write < Permissions management)
-      - target_sensitivity   (0.20): criticality tier of the target resource
-      - hop_count            (0.15): 1.0 if this is the second leg of an
+      - target_sensitivity   (0.15): criticality tier of the target resource
+      - hop_count            (0.10): 1.0 if this is the second leg of an
         assume-role chain (privilege_features.hop_count), else 0.0
       - privilege_gain       (0.10): access-level increase over the role
         assumption that granted this edge, when defined
@@ -207,9 +227,12 @@ def score_gnn_events(structural_df: pd.DataFrame, source: str = "csv",
     sensitivity = target_infos.apply(lambda t: pf.resource_sensitivity_score(t.service, t.resource_type))
 
     rows = []
-    for log_id, edge_type, sens in zip(structural_df["log_id"], structural_df["edge_type"], sensitivity):
+    for log_id, edge_type, sens, tinfo in zip(structural_df["log_id"], structural_df["edge_type"],
+                                                sensitivity, target_infos):
         access_level = resolver.access_level(str(edge_type))
         is_priv_esc = str(edge_type) in nb.PRIVILEGE_ESCALATION_TECHNIQUES
+        is_cred_access = (str(edge_type) in CREDENTIAL_ACCESS_ACTIONS
+                           or tinfo.service in CREDENTIAL_ACCESS_SERVICES)
 
         if log_id in edge_feats.index:
             feats = edge_feats.loc[log_id]
@@ -223,16 +246,18 @@ def score_gnn_events(structural_df: pd.DataFrame, source: str = "csv",
             s_hop = s_gain = s_abnormal = 0.0
 
         s_priv_esc = 1.0 if is_priv_esc else 0.0
+        s_cred_access = 1.0 if is_cred_access else 0.0
         s_access = (pf.ACCESS_LEVEL_RANK.get(access_level, 0) / 4.0) if access_level else 0.0
         s_target = float(sens) / 3.0
 
-        score = (0.30 * s_priv_esc + 0.15 * s_access + 0.20 * s_target
-                 + 0.15 * s_hop + 0.10 * s_gain + 0.10 * s_abnormal)
+        score = (0.25 * s_priv_esc + 0.20 * s_cred_access + 0.10 * s_access + 0.15 * s_target
+                 + 0.10 * s_hop + 0.10 * s_gain + 0.10 * s_abnormal)
 
         rows.append({
             "log_id": log_id,
             "gnn_event_score": round(score, 4),
             "is_priv_esc_technique": is_priv_esc,
+            "is_credential_access": is_cred_access,
             "access_level": access_level,
             "target_sensitivity_tier": int(sens),
             "hop_count": hop_count,
@@ -292,8 +317,8 @@ def combine_events(structural_df: pd.DataFrame, temporal_df: pd.DataFrame,
 
     cols = ["log_id", "timestamp", "username", "source_node", "event_name", "target_node",
             "risk_score", "gnn_event_score", "lstm_event_score",
-            "is_priv_esc_technique", "access_level", "target_sensitivity_tier", "hop_count",
-            "ground_truth_label"]
+            "is_priv_esc_technique", "is_credential_access", "access_level",
+            "target_sensitivity_tier", "hop_count", "ground_truth_label"]
     # No sort: merge(how="left") preserves structural_df's row order, which
     # is arrival order (log_id = "<source_file>:<row_index>"). A real
     # deployment scores events interleaved across principals as they land
