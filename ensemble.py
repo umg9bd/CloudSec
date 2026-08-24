@@ -1,6 +1,13 @@
 """
 ensemble.py — single CloudTrail input in, single 0-10 risk score per
-principal out.
+EVENT out (one row per API call, not per principal).
+
+Why per-event, not per-principal: a per-principal score can't say
+anything about an attack CHAIN (which step escalated), and it wrongly
+implies risk is a static property of an identity -- in practice a
+principal's first N actions are benign and only a later action is the
+escalation. Scoring every event lets you walk one principal's timeline
+in order and see exactly where risk_score jumps.
 
 Pipeline:
 
@@ -14,39 +21,33 @@ Pipeline:
     cloudtrail_structural.csv   cloudtrail_temporal.csv
             |                      |
             v                      v
-    GNN side: blast radius     LSTM side: P_seq
-    (blast_radius.py, via a    (temporal-analysis/prod/scorer.py,
-     Neo4j-free in-memory       LSTMTransformerV5, max-pooled over
-     PrivilegePropagationGraph  each principal's 10-min/stride-2
-     -- see build_ppg() below)  windows)
+    GNN side: per-event        LSTM side: P_event
+    structural risk             (temporal-analysis's LSTMTransformerV5,
+    (graph topology only --     PER EVENT, before window max-pooling --
+     see score_gnn_events())    see score_lstm_events())
             |                      |
             +----------+-----------+
                        v
-        risk = clip(w_gnn*blast_score + w_lstm*p_seq, 0, 1) * 10
+        risk = clip(w_gnn*gnn_event_score + w_lstm*P_event, 0, 1) * 10
 
-GNN side note: blast_radius.BlastRadiusEngine only needs an in-memory
-privilege_features.PrivilegePropagationGraph -- it was already written
-to be Neo4j-independent (see that class's docstring). Two ways to build
-one are provided here:
-  - build_ppg() -- parses the structural CSV directly (parse_principal/
-    parse_target/node_key_for_*), same logic neo4j_graph_builder.py
-    uses before it ever touches Neo4j. Zero infra required.
-  - build_ppg_from_neo4j() -- reads the SAME graph back out of a live
-    Neo4j instance that neo4j_graph_builder.build_graph() has already
-    loaded (MATCH nodes/relationships via Cypher), then feeds the
-    resulting rows through the identical PrivilegePropagationGraph.
-    build_from_rows(). This is the "real" round-tripped-through-the-
-    database path; --source neo4j selects it once Neo4j is up and
-    build_graph.py has loaded the current structural CSV into it.
-Both produce the same PrivilegePropagationGraph type, so
-BlastRadiusEngine and everything downstream of it is identical either
-way -- only how the graph's edges are sourced differs.
+GNN side note -- deliberately NOT the trained classifier's edge
+probability: this project's own real-data evaluation
+(PROJECT_STATUS_REPORT.md) found GraphSAGE/GAT's per-edge predictions
+inverted on real attack data (edge-level AUC ~= 0.26 -- attack edges
+scored LOWER than benign ones; only session-level aggregation was
+verified to work). Building a per-event score on that would inherit a
+signal the project's own testing says is broken. Instead,
+score_gnn_events() computes a per-event score purely from graph
+TOPOLOGY (privilege_features.PrivilegePropagationGraph.compute_all_edge_features()
+plus known privilege-escalation action names, access-level rank, and
+target sensitivity tier) -- no trained model involved, so this can't
+inherit that unreliability.
 
-Note this is deliberately NOT data_loader.PrivilegePropagationGraphLoader
--- that class builds a PyTorch Geometric HeteroData for the trained
-GraphSAGE/GAT classifier, a different object for a different job
-(classification probability, not reachability). blast_radius.py has
-never needed that class.
+The graph itself is still built via build_ppg() / build_ppg_from_neo4j(),
+carried over unchanged from the earlier per-principal version of this
+file (both still needed to get compute_all_edge_features()). Neither
+builds data_loader.PrivilegePropagationGraphLoader's HeteroData -- that
+class is for the trained classifier, a different job entirely.
 
 LSTM side notes (two fixes applied only in this file, not in the
 vendored temporal-analysis/ code):
@@ -56,14 +57,13 @@ vendored temporal-analysis/ code):
      embedded vocab. Feeding event_name_idx straight through would
      silently score the wrong action for most events. Fixed by mapping
      event_name_idx -> event_name string via our vocab and letting the
-     scorer re-map string -> its own vocab (prod/scorer.py already
-     prefers "event_name" over "event_name_idx" when both are absent).
+     scorer re-map string -> its own vocab.
   2. pandas 3.x parses timestamp strings at microsecond resolution by
-     default, but train_lstm_transformer.py's windowing code compares
-     that against Timestamp.value (always nanoseconds) -- a 1000x unit
-     mismatch that silently produces zero-length windows on this
-     pandas version. Fixed by forcing datetime64[ns, UTC] before
-     handing the frame to the scorer.
+     default, but train_lstm_transformer.py's sequence-building code
+     compares that against Timestamp.value (always nanoseconds) -- a
+     1000x unit mismatch that silently breaks window/sequence bounds
+     on this pandas version. Fixed by forcing datetime64[ns, UTC]
+     before handing the frame to the scorer.
 """
 
 from __future__ import annotations
@@ -82,21 +82,18 @@ for p in (REPO_ROOT,
     if p not in sys.path:
         sys.path.insert(0, p)
 
-import feature_engine9 as fe9          # noqa: E402
-import neo4j_graph_builder as nb       # noqa: E402
-import privilege_features as pf        # noqa: E402
-import blast_radius as br              # noqa: E402
-import prod.scorer as lstm_scorer      # noqa: E402
+import feature_engine9 as fe9              # noqa: E402
+import neo4j_graph_builder as nb           # noqa: E402
+import privilege_features as pf            # noqa: E402
+import prod.scorer as lstm_scorer          # noqa: E402
+import train_lstm_transformer as tlt       # noqa: E402
 
 
-# ── GNN side: Neo4j-free graph build + blast radius ─────────────────────────
+# ── Graph construction (unchanged from the per-principal version) ───────────
 
 def build_ppg(structural_df: pd.DataFrame, resolver: "pf.ActionAccessLevelResolver | None" = None):
     """Builds the same PrivilegePropagationGraph neo4j_graph_builder.build_graph()
-    builds, minus the Neo4j write/read round-trip. Returns (ppg, principals),
-    where principals is every (label, key) node that appears as a source_node
-    in this batch -- i.e. every identity that was observed doing something.
-    """
+    builds, minus the Neo4j write/read round-trip."""
     resolver = resolver or pf.ActionAccessLevelResolver()
 
     principal_infos = structural_df["source_node"].apply(nb.parse_principal)
@@ -126,8 +123,7 @@ def build_ppg(structural_df: pd.DataFrame, resolver: "pf.ActionAccessLevelResolv
         )
     ]
     ppg = pf.PrivilegePropagationGraph(resolver).build_from_rows(rows_for_graph)
-    principals = sorted({(sk.label, sk.key) for sk in src_keys})
-    return ppg, principals
+    return ppg
 
 
 _NEO4J_SPECIFIC_LABELS = {"User", "Role", "UnresolvedPrincipal", "Service", "Resource", "Policy"}
@@ -141,10 +137,7 @@ def build_ppg_from_neo4j(uri: str = DEFAULT_NEO4J_URI, user: str = DEFAULT_NEO4J
                           resolver: "pf.ActionAccessLevelResolver | None" = None):
     """Same PrivilegePropagationGraph as build_ppg(), sourced from a live
     Neo4j instance that neo4j_graph_builder.build_graph() has already
-    loaded (see build_graph.py). Requires the `neo4j` driver and a
-    reachable Neo4j instance -- raises on connection failure rather than
-    silently falling back, since a caller that asked for --source neo4j
-    wants the real graph, not a quiet downgrade."""
+    loaded (see build_graph.py)."""
     from neo4j import GraphDatabase
 
     resolver = resolver or pf.ActionAccessLevelResolver()
@@ -179,85 +172,135 @@ def build_ppg_from_neo4j(uri: str = DEFAULT_NEO4J_URI, user: str = DEFAULT_NEO4J
     finally:
         driver.close()
 
-    ppg = pf.PrivilegePropagationGraph(resolver).build_from_rows(rows_for_graph)
-    principals = sorted({
-        (row["source_key"].label, row["source_key"].key) for row in rows_for_graph
-    })
-    return ppg, principals
+    return pf.PrivilegePropagationGraph(resolver).build_from_rows(rows_for_graph)
 
 
-def score_gnn_blast_radius(structural_df: pd.DataFrame, source: str = "csv") -> dict:
-    """Returns {(label, key): BlastRadiusReport} for every principal observed
-    acting in this batch. source="csv" builds the graph directly from
-    structural_df (no infra); source="neo4j" reads the same graph back
-    out of a live Neo4j instance already loaded via build_graph.py."""
-    # Built once and threaded through every compute() call below --
-    # BlastRadiusEngine.compute() defaults to constructing a fresh
-    # ActionAccessLevelResolver() per call when none is passed, and each
-    # one re-parses policy_sentry's offline IAM action database (~0.4s).
-    # Across hundreds of principals that's minutes of pure redundant
-    # JSON parsing before any real reachability work happens.
-    resolver = pf.ActionAccessLevelResolver()
+# ── GNN side: per-event structural risk (no trained model) ──────────────────
+
+def score_gnn_events(structural_df: pd.DataFrame, source: str = "csv",
+                      resolver: "pf.ActionAccessLevelResolver | None" = None) -> pd.DataFrame:
+    """One row per log_id. gnn_event_score in [0,1], a weighted blend of pure
+    graph-topology signals (see module docstring for why not the trained
+    classifier):
+      - is_priv_esc_technique (0.30): action is on the known IAM
+        privilege-escalation technique list (AttachUserPolicy, PassRole, ...)
+      - access_level_rank    (0.15): action's AWS access-level severity
+        (List < Read < Tagging < Write < Permissions management)
+      - target_sensitivity   (0.20): criticality tier of the target resource
+      - hop_count            (0.15): 1.0 if this is the second leg of an
+        assume-role chain (privilege_features.hop_count), else 0.0
+      - privilege_gain       (0.10): access-level increase over the role
+        assumption that granted this edge, when defined
+      - abnormal_path        (0.10): how structurally rare this
+        (source-type, relation, target-type) pattern is in the graph
+    Weights sum to 1.0, mirroring blast_radius.BlastRadiusConfig's convention.
+    """
+    resolver = resolver or pf.ActionAccessLevelResolver()
     if source == "neo4j":
-        ppg, principals = build_ppg_from_neo4j(resolver=resolver)
+        ppg = build_ppg_from_neo4j(resolver=resolver)
     else:
-        ppg, principals = build_ppg(structural_df, resolver=resolver)
-    engine = br.BlastRadiusEngine(ppg)
-    return {node: engine.compute(node, resolver=resolver) for node in principals}
+        ppg = build_ppg(structural_df, resolver=resolver)
+
+    edge_feats = ppg.compute_all_edge_features().set_index("log_id")
+    target_infos = structural_df["target_node"].apply(nb.parse_target)
+    sensitivity = target_infos.apply(lambda t: pf.resource_sensitivity_score(t.service, t.resource_type))
+
+    rows = []
+    for log_id, edge_type, sens in zip(structural_df["log_id"], structural_df["edge_type"], sensitivity):
+        access_level = resolver.access_level(str(edge_type))
+        is_priv_esc = str(edge_type) in nb.PRIVILEGE_ESCALATION_TECHNIQUES
+
+        if log_id in edge_feats.index:
+            feats = edge_feats.loc[log_id]
+            hop_count = int(feats["hop_count"])
+            s_hop = min(1.0, max(0.0, hop_count - 1))
+            s_gain = (min(1.0, max(0.0, float(feats["privilege_gain"]) / 4.0))
+                      if bool(feats["privilege_gain_defined"]) else 0.0)
+            s_abnormal = min(1.0, float(feats["abnormal_path_frequency"]) / 10.0)
+        else:
+            hop_count = None
+            s_hop = s_gain = s_abnormal = 0.0
+
+        s_priv_esc = 1.0 if is_priv_esc else 0.0
+        s_access = (pf.ACCESS_LEVEL_RANK.get(access_level, 0) / 4.0) if access_level else 0.0
+        s_target = float(sens) / 3.0
+
+        score = (0.30 * s_priv_esc + 0.15 * s_access + 0.20 * s_target
+                 + 0.15 * s_hop + 0.10 * s_gain + 0.10 * s_abnormal)
+
+        rows.append({
+            "log_id": log_id,
+            "gnn_event_score": round(score, 4),
+            "is_priv_esc_technique": is_priv_esc,
+            "access_level": access_level,
+            "target_sensitivity_tier": int(sens),
+            "hop_count": hop_count,
+        })
+    return pd.DataFrame(rows)
 
 
-# ── LSTM side: P_seq via the existing prod scorer ────────────────────────────
+# ── LSTM side: per-event P_event (before window max-pooling) ────────────────
 
-def score_lstm_temporal(temporal_df: pd.DataFrame, event_vocab_path: str,
-                         ckpt_path=None) -> pd.DataFrame:
-    """Returns prod/scorer.py's per-(username, window) P_seq dataframe."""
+def score_lstm_events(temporal_df: pd.DataFrame, event_vocab_path: str,
+                       ckpt_path=None) -> pd.DataFrame:
+    """One row per log_id: P_event, this single event's own probability from
+    LSTMTransformerV5 -- the per-event score the scorer computes internally
+    before max-pooling into the per-window P_seq (see prod/scorer.py's
+    score_dataframe -> train_lstm_transformer.score_events_to_windows)."""
     scorer = lstm_scorer.load_scorer(ckpt_path) if ckpt_path else lstm_scorer.load_scorer()
 
-    vocab = json.loads(open(event_vocab_path, encoding="utf-8").read())
-    inv = {v: k for k, v in vocab.items()}
+    our_vocab = json.loads(open(event_vocab_path, encoding="utf-8").read())
+    inv = {v: k for k, v in our_vocab.items()}
 
     df = temporal_df.copy()
     df["event_name"] = df["event_name_idx"].map(inv).fillna("<UNK>")
     df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True).astype("datetime64[ns, UTC]")
 
-    return lstm_scorer.score_dataframe(df, scorer)
+    feature_cols = list(scorer.ckpt["feature_cols"])
+    prepared = tlt.prepare_score_frame(df, scorer.vocab, feature_cols)
+    seqs = tlt.build_event_sequences(prepared, feature_cols)
+    if not seqs:
+        raise ValueError("No event sequences built from input (need >=1 event per user)")
+    event_df = tlt.score_seqs(scorer.model, seqs, scorer.device)
+    return event_df[["log_id", "P_event"]]
 
 
 # ── Ensemble ─────────────────────────────────────────────────────────────────
 
-def combine(blast_reports: dict, lstm_windows: pd.DataFrame,
-            weight_gnn: float = 0.5, weight_lstm: float = 0.5,
-            agg: str = "max") -> pd.DataFrame:
-    if not lstm_windows.empty:
-        lstm_agg = lstm_windows.groupby("username")["P_seq"].agg(agg)
-    else:
-        lstm_agg = pd.Series(dtype=float)
+def combine_events(structural_df: pd.DataFrame, temporal_df: pd.DataFrame,
+                    gnn_df: pd.DataFrame, lstm_df: pd.DataFrame,
+                    weight_gnn: float = 0.5, weight_lstm: float = 0.5) -> pd.DataFrame:
+    merged = structural_df[["log_id", "source_node", "target_node", "edge_type", "label"]].merge(
+        temporal_df[["log_id", "username", "timestamp"]], on="log_id", how="left"
+    )
+    merged["log_id"] = merged["log_id"].astype(str)
+    gnn_df = gnn_df.copy()
+    lstm_df = lstm_df.copy()
+    gnn_df["log_id"] = gnn_df["log_id"].astype(str)
+    lstm_df["log_id"] = lstm_df["log_id"].astype(str)
 
-    rows = []
-    for (label, key), report in blast_reports.items():
-        blast_score = float(report.score)
-        lstm_score = float(lstm_agg.get(key, 0.0))
-        combined = weight_gnn * blast_score + weight_lstm * lstm_score
-        risk = round(min(10.0, max(0.0, combined * 10)), 2)
-        rows.append({
-            "principal_type": label,
-            "principal": key,
-            "gnn_blast_score": round(blast_score, 4),
-            "lstm_p_seq_score": round(lstm_score, 4),
-            "risk_score": risk,
-            "reachable_assets": report.reachable_assets.total,
-            "critical_assets_reachable": report.critical_assets.critical_asset_count,
-            "administrator_reachable": report.privilege_reachability.administrator_reachable,
-            "cross_service_reach": report.cross_service_count,
-        })
-    return (pd.DataFrame(rows)
-            .sort_values("risk_score", ascending=False)
+    merged = merged.merge(gnn_df, on="log_id", how="left")
+    merged = merged.merge(lstm_df, on="log_id", how="left")
+    merged["gnn_event_score"] = merged["gnn_event_score"].fillna(0.0)
+    merged["P_event"] = merged["P_event"].fillna(0.0)
+
+    combined = weight_gnn * merged["gnn_event_score"] + weight_lstm * merged["P_event"]
+    merged["risk_score"] = (combined.clip(0.0, 1.0) * 10).round(2)
+    merged = merged.rename(columns={"P_event": "lstm_event_score", "edge_type": "event_name",
+                                     "label": "ground_truth_label"})
+
+    cols = ["log_id", "timestamp", "username", "source_node", "event_name", "target_node",
+            "risk_score", "gnn_event_score", "lstm_event_score",
+            "is_priv_esc_technique", "access_level", "target_sensitivity_tier", "hop_count",
+            "ground_truth_label"]
+    return (merged[cols]
+            .sort_values(["username", "timestamp"])
             .reset_index(drop=True))
 
 
 def run(input_path: str, weight_gnn: float = 0.5, weight_lstm: float = 0.5,
-        agg: str = "max", out_path: "str | None" = None,
-        freeze_vocab: bool = False, gnn_source: str = "csv") -> pd.DataFrame:
+        out_path: "str | None" = None, freeze_vocab: bool = False,
+        gnn_source: str = "csv") -> pd.DataFrame:
     if not (0.0 <= weight_gnn <= 1.0 and 0.0 <= weight_lstm <= 1.0):
         raise ValueError("weights must be in [0, 1]")
 
@@ -265,10 +308,11 @@ def run(input_path: str, weight_gnn: float = 0.5, weight_lstm: float = 0.5,
     structural_df = pd.read_csv(fe9.STRUCT_OUT)
     temporal_df = pd.read_csv(fe9.TEMPORAL_OUT)
 
-    blast_reports = score_gnn_blast_radius(structural_df, source=gnn_source)
-    lstm_windows = score_lstm_temporal(temporal_df, fe9.EVENT_NAME_VOCAB_FILE)
+    resolver = pf.ActionAccessLevelResolver()
+    gnn_df = score_gnn_events(structural_df, source=gnn_source, resolver=resolver)
+    lstm_df = score_lstm_events(temporal_df, fe9.EVENT_NAME_VOCAB_FILE)
 
-    result = combine(blast_reports, lstm_windows, weight_gnn, weight_lstm, agg)
+    result = combine_events(structural_df, temporal_df, gnn_df, lstm_df, weight_gnn, weight_lstm)
     if out_path:
         result.to_csv(out_path, index=False)
     return result
@@ -276,18 +320,17 @@ def run(input_path: str, weight_gnn: float = 0.5, weight_lstm: float = 0.5,
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Combined GNN blast-radius + LSTM temporal risk ensemble -- "
-                     "one 0-10 risk score per principal.")
+        description="Combined GNN structural + LSTM temporal risk ensemble -- "
+                     "one 0-10 risk score per EVENT (not per principal), so an "
+                     "attack chain shows up as a run of high scores in order.")
     parser.add_argument("--input", required=True,
                          help="Raw CloudTrail input (any file feature_engine9.py accepts)")
     parser.add_argument("--out", default="risk_scores.csv",
-                         help="Output CSV of per-principal risk scores")
+                         help="Output CSV of per-event risk scores")
     parser.add_argument("--weight-gnn", type=float, default=0.5,
-                         help="Weight on the blast-radius (GNN) score, default 0.5")
+                         help="Weight on the structural (GNN) score, default 0.5")
     parser.add_argument("--weight-lstm", type=float, default=0.5,
-                         help="Weight on the P_seq (LSTM) score, default 0.5")
-    parser.add_argument("--agg", choices=["max", "mean"], default="max",
-                         help="How to aggregate a principal's LSTM window scores into one number")
+                         help="Weight on the P_event (LSTM) score, default 0.5")
     parser.add_argument("--freeze-vocab", action="store_true",
                          help="Do not grow the shared event_name vocab on this run")
     parser.add_argument("--source", choices=["csv", "neo4j"], default="csv",
@@ -296,18 +339,18 @@ def main():
                               "graph back out of a live Neo4j instance already loaded via "
                               "build_graph.py (bolt://localhost:7687, see build_ppg_from_neo4j)")
     parser.add_argument("--show-table", action="store_true",
-                         help="Also print the full per-principal risk table to the terminal. "
+                         help="Also print the full per-event risk table to the terminal. "
                               "Off by default -- the run prints only feature_engine9's "
                               "[FAST-LANE ALERT] lines and a one-line summary; the full table "
                               "always goes to --out regardless of this flag.")
     args = parser.parse_args()
 
-    result = run(args.input, args.weight_gnn, args.weight_lstm, args.agg,
+    result = run(args.input, args.weight_gnn, args.weight_lstm,
                  args.out, args.freeze_vocab, gnn_source=args.source)
     if args.show_table:
-        with pd.option_context("display.max_rows", 50, "display.width", 160):
+        with pd.option_context("display.max_rows", 50, "display.width", 200):
             print(result.to_string(index=False))
-    print(f"\n{len(result)} principals scored -> {args.out}")
+    print(f"\n{len(result)} events scored -> {args.out}")
 
 
 if __name__ == "__main__":
