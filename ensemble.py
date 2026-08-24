@@ -310,11 +310,17 @@ def run(input_path: str, weight_gnn: float = 0.5, weight_lstm: float = 0.5,
     fe9.run_batch(input_path, freeze_vocab=freeze_vocab)
     structural_df = pd.read_csv(fe9.STRUCT_OUT)
     temporal_df = pd.read_csv(fe9.TEMPORAL_OUT)
+    n = len(structural_df)
 
+    print(f"[GNN]  scoring {n} events from graph structure (source={gnn_source})...", flush=True)
     resolver = pf.ActionAccessLevelResolver()
     gnn_df = score_gnn_events(structural_df, source=gnn_source, resolver=resolver)
+
+    print(f"[LSTM] scoring {n} events (LSTMTransformerV5, CPU -- this is the slow step, "
+          f"can take a couple minutes)...", flush=True)
     lstm_df = score_lstm_events(temporal_df, fe9.EVENT_NAME_VOCAB_FILE)
 
+    print("[ENSEMBLE] combining scores...", flush=True)
     result = combine_events(structural_df, temporal_df, gnn_df, lstm_df, weight_gnn, weight_lstm)
     if out_path:
         result.to_csv(out_path, index=False)
