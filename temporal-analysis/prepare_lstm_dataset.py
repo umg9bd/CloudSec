@@ -376,10 +376,27 @@ def main() -> None:
     # Dropping them here keeps the sequence track on the same footing as the
     # graph track -- train on synthetic, evaluate on held-out real -- which is
     # the project's stated design, not a new constraint.
+    # Exclude by SOURCE first, then verify by key. Source is the sound
+    # criterion: every "inv:" row is real-capture data, and the whole invictus
+    # capture went into real_dataset_combined.csv before it was split, so all
+    # 2,900 are on the held-out side of the boundary by construction.
+    #
+    # Key matching alone is not sufficient here -- it catches 2,858 of them and
+    # misses 42 whose username is the placeholder "unknown_user", which does not
+    # match the corresponding row in the split files. Those 42 were caught only
+    # by the timestamp cross-check in leakage_guard. Filtering on source removes
+    # the whole class; the key check below then proves the result.
+    is_real_capture = merged["username"].astype(str).str.startswith("inv:")
+    n_real = int(is_real_capture.sum())
+    merged = merged.loc[~is_real_capture].reset_index(drop=True)
+    print(f"  dropped {n_real} real-capture (invictus) rows -- the sequence track "
+          f"trains on synthetic only, matching the graph track")
+
     merged, n_dropped = filter_heldout(merged, "train_temporal")
-    assert_no_heldout(merged, "train_temporal")   # belt and braces
+    assert_no_heldout(merged, "train_temporal")   # proves the result, not just the intent
     if n_dropped:
-        print(f"  removed {n_dropped} held-out events; {len(merged)} rows remain")
+        print(f"  key check removed a further {n_dropped} held-out events")
+    print(f"  {len(merged)} training rows remain")
 
     prepared_path = OUT / "train_temporal.csv"
     merged.to_csv(prepared_path, index=False)

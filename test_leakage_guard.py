@@ -175,6 +175,36 @@ class TestAdaptiveRiskPriorFreeze(unittest.TestCase):
         AdaptiveRiskPrior({"X": 0.5}, path=os.path.join(self.tmp, "absent.json"), frozen=False)
 
 
+class TestResidualLeakCaughtByCrossCheck(unittest.TestCase):
+    """Key matching alone left 42 invictus rows in the training set -- their
+    username is the placeholder "unknown_user", which does not match the
+    corresponding row in the split files. Only the timestamp cross-check found
+    them. This pins that behaviour, since it is the reason the LSTM build
+    excludes by SOURCE rather than relying on key matching."""
+
+    def test_committed_train_temporal_is_still_contaminated(self):
+        """Standing reminder: the build script is fixed, but the committed data
+        file has not been regenerated yet. Delete this test once it has."""
+        path = os.path.join("temporal-analysis", "data", "lstm", "train_temporal.csv")
+        if not os.path.exists(path):
+            self.skipTest("train_temporal.csv not present")
+        hit = lg.find_heldout(pd.read_csv(path))
+        self.assertGreater(hit["total"], 0,
+                            "train_temporal.csv now looks clean -- regenerate confirmed, "
+                            "delete this test")
+
+    def test_dropping_real_capture_rows_yields_a_provably_clean_set(self):
+        path = os.path.join("temporal-analysis", "data", "lstm", "train_temporal.csv")
+        if not os.path.exists(path):
+            self.skipTest("train_temporal.csv not present")
+        df = pd.read_csv(path)
+        synthetic_only = df.loc[
+            ~df["username"].astype(str).str.startswith("inv:")
+        ].reset_index(drop=True)
+        self.assertEqual(lg.find_heldout(synthetic_only)["total"], 0)
+        lg.assert_no_heldout(synthetic_only, "synthetic_only")
+
+
 class TestCommittedArtefacts(unittest.TestCase):
     """Standing check on what is actually in the repo, so a stale contaminated
     file cannot sit there unnoticed."""
