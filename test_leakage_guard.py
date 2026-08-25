@@ -182,16 +182,17 @@ class TestResidualLeakCaughtByCrossCheck(unittest.TestCase):
     them. This pins that behaviour, since it is the reason the LSTM build
     excludes by SOURCE rather than relying on key matching."""
 
-    def test_committed_train_temporal_is_still_contaminated(self):
-        """Standing reminder: the build script is fixed, but the committed data
-        file has not been regenerated yet. Delete this test once it has."""
+    def test_committed_train_temporal_is_clean(self):
+        """The regenerated artefact must stay clean. This replaced a temporary
+        reminder that asserted the OPPOSITE while the file was still stale --
+        it fired the moment the dataset was rebuilt, which was its whole job."""
         path = os.path.join("temporal-analysis", "data", "lstm", "train_temporal.csv")
         if not os.path.exists(path):
             self.skipTest("train_temporal.csv not present")
         hit = lg.find_heldout(pd.read_csv(path))
-        self.assertGreater(hit["total"], 0,
-                            "train_temporal.csv now looks clean -- regenerate confirmed, "
-                            "delete this test")
+        self.assertEqual(hit["total"], 0,
+                          f"train_temporal.csv is contaminated again "
+                          f"({hit['dev']} dev, {hit['test']} test) -- rerun prepare_lstm_dataset.py")
 
     def test_dropping_real_capture_rows_yields_a_provably_clean_set(self):
         path = os.path.join("temporal-analysis", "data", "lstm", "train_temporal.csv")

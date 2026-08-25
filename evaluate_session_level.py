@@ -53,6 +53,72 @@ def _prf(y_true: np.ndarray, y_pred: np.ndarray):
             f1_score(y_true, y_pred, zero_division=0))
 
 
+def check_graph_provenance(source_csv, raw_basename: str) -> None:
+    """Neo4j holds exactly ONE graph at a time, and nothing used to stop this
+    script from scoring (say) the test graph against the dev CSV: the row-index
+    join below would still "work", because row indices exist in both files, and
+    would produce a plausible and entirely meaningless F1. Raises SystemExit on
+    a mismatch; warns (rather than failing) for graphs built before provenance
+    stamping existed, so old graphs still load.
+
+    Extracted from main() so it is unit-testable without a live Neo4j."""
+    expected_struct = raw_basename.replace(".csv", "_structural.csv")
+    if source_csv is None:
+        print(f"WARNING: the graph in Neo4j predates provenance stamping; cannot verify it was "
+              f"built from {expected_struct}. Rebuild with build_graph.py to enable this check.")
+        return
+    if source_csv != expected_struct:
+        raise SystemExit(
+            f"GRAPH MISMATCH: Neo4j holds a graph built from {source_csv!r}, but "
+            f"--raw-csv is {raw_basename!r} (expected {expected_struct!r}).\n"
+            f"Run:  python build_graph.py datasets/privilege-escalation/{expected_struct}"
+        )
+
+
+def parse_row_indices(log_ids, raw_basename: str, n_rows: int) -> np.ndarray:
+    """log_id is "<raw_csv_filename>:<row_index>". Recovers the row index of
+    each edge in the raw CSV, and enforces the two things the recovery silently
+    assumed before: that the edge actually came from THIS csv, and that the
+    index is in range. Indexing raw_df by a row number that originated in a
+    different file is silent corruption, not an error.
+
+    Extracted from main() so it is unit-testable without a live Neo4j."""
+    row_idx = []
+    for lid in log_ids:
+        mobj = LOG_ID_RE.match(lid)
+        if not mobj:
+            raise ValueError(f"Unparseable log_id: {lid!r}")
+        if mobj.group(1) != raw_basename:
+            raise SystemExit(
+                f"LOG_ID MISMATCH: edge log_id {lid!r} originates from {mobj.group(1)!r}, "
+                f"but --raw-csv is {raw_basename!r}. These row indices are not comparable."
+            )
+        row_idx.append(int(mobj.group(2)))
+    row_idx = np.array(row_idx, dtype=int)
+    if len(row_idx) and row_idx.max() >= n_rows:
+        raise SystemExit(
+            f"LOG_ID OUT OF RANGE: max row index {row_idx.max()} exceeds {raw_basename} "
+            f"({n_rows} rows). The structural CSV and the raw CSV are out of sync."
+        )
+    return row_idx
+
+
+def session_max_scores(row_idx: np.ndarray, probs: np.ndarray, raw_df, session_index):
+    """Session score = MAX edge probability within that session, mirroring the
+    rule baseline's "flag the session if ANY event trips a rule" exactly, so the
+    two are measured in the same unit. Sessions with zero in-schema edges score
+    0.0 (predicted benign) rather than being dropped -- dropping them would
+    quietly shrink the evaluation set.
+
+    Extracted from main() so it is unit-testable without a live Neo4j."""
+    edge_df = pd.DataFrame({
+        "session_id": raw_df["session_id"].to_numpy()[row_idx],
+        "prob": probs,
+    })
+    session_prob = edge_df.groupby("session_id")["prob"].max()
+    return session_prob.reindex(session_index).fillna(0.0).to_numpy(), session_prob
+
+
 def report_baseline_comparison(raw_df, sessions_true, y_true, y_model):
     """Computes the rule baseline on THE SAME sessions just scored, and reports
     a PAIRED bootstrap on the difference.
@@ -130,21 +196,8 @@ def main():
     )
     data, meta = loader.load()
 
-    # Neo4j holds exactly ONE graph at a time, and nothing previously stopped
-    # this script from scoring (say) the test graph against the dev CSV. The
-    # join below would still "work" -- row indices exist in both -- and produce
-    # a plausible, entirely meaningless F1. Check provenance before trusting it.
     raw_basename = os.path.basename(args.raw_csv)
-    expected_struct = raw_basename.replace(".csv", "_structural.csv")
-    if meta.get("source_csv") is None:
-        print(f"WARNING: the graph in Neo4j predates provenance stamping; cannot verify it was "
-              f"built from {expected_struct}. Rebuild with build_graph.py to enable this check.")
-    elif meta["source_csv"] != expected_struct:
-        raise SystemExit(
-            f"GRAPH MISMATCH: Neo4j holds a graph built from {meta['source_csv']!r}, but "
-            f"--raw-csv is {raw_basename!r} (expected {expected_struct!r}).\n"
-            f"Run:  python build_graph.py datasets/privilege-escalation/{expected_struct}"
-        )
+    check_graph_provenance(meta.get("source_csv"), raw_basename)
 
     trained_triples = set(tuple(t) for t in model_args["edge_types"])
     real_triples = set(data.edge_types)
@@ -166,44 +219,17 @@ def main():
         log_ids_flat.extend(data[t].log_id)
     assert len(log_ids_flat) == len(probs), f"{len(log_ids_flat)} log_ids vs {len(probs)} probs"
 
-    row_idx = []
-    for lid in log_ids_flat:
-        mobj = LOG_ID_RE.match(lid)
-        if not mobj:
-            raise ValueError(f"Unparseable log_id: {lid!r}")
-        # The prefix names the raw CSV the row came from. Asserting it here
-        # makes the "recover the originating row" claim in this module's
-        # docstring actually enforced rather than assumed -- indexing
-        # raw_df by a row number that came from a DIFFERENT file is silent
-        # corruption, not an error.
-        if mobj.group(1) != raw_basename:
-            raise SystemExit(
-                f"LOG_ID MISMATCH: edge log_id {lid!r} originates from {mobj.group(1)!r}, "
-                f"but --raw-csv is {raw_basename!r}. These row indices are not comparable."
-            )
-        row_idx.append(int(mobj.group(2)))
-    row_idx = np.array(row_idx)
-
-    if row_idx.max() >= len(raw_df):
-        raise SystemExit(
-            f"LOG_ID OUT OF RANGE: max row index {row_idx.max()} exceeds {raw_basename} "
-            f"({len(raw_df)} rows). The structural CSV and the raw CSV are out of sync."
-        )
-
-    session_id_per_edge = raw_df["session_id"].to_numpy()[row_idx]
-
-    edge_df = pd.DataFrame({"session_id": session_id_per_edge, "prob": probs})
-    session_prob = edge_df.groupby("session_id")["prob"].max()
+    row_idx = parse_row_indices(log_ids_flat, raw_basename, len(raw_df))
 
     sessions_true = raw_df.drop_duplicates("session_id").set_index("session_id")["session_label"]
+    y_prob_full, session_prob = session_max_scores(row_idx, probs, raw_df, sessions_true.index)
     scored_sessions = sessions_true.index.intersection(session_prob.index)
     unscored = sessions_true.index.difference(session_prob.index)
 
     print(f"Sessions: {len(sessions_true)} total | {len(scored_sessions)} have >=1 in-schema edge "
           f"| {len(unscored)} have ZERO in-schema edges (predicted benign by default)")
 
-    y_true = sessions_true.reindex(sessions_true.index).to_numpy()
-    y_prob_full = session_prob.reindex(sessions_true.index).fillna(0.0).to_numpy()
+    y_true = sessions_true.to_numpy()
 
     def score_at(thr):
         y_pred = (y_prob_full >= thr).astype(int)

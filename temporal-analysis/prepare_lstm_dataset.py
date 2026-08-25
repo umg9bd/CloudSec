@@ -138,9 +138,15 @@ def copy_assets() -> dict[str, str]:
         (FE_VOCAB_SRC, OUT / "event_name_vocab_fe_final.json"),
     ]
     for src, dst in pairs:
-        if src.exists():
+        if not src.exists():
+            continue
+        # INVICTUS_TEMPORAL already lives inside OUT, so this pair is a
+        # self-copy and shutil raises SameFileError -- which made the whole
+        # script unrunnable. The file is already in place when that happens,
+        # so there is nothing to do.
+        if src.resolve() != dst.resolve():
             shutil.copy2(src, dst)
-            copied[dst.name] = str(dst)
+        copied[dst.name] = str(dst)
     return copied
 
 
@@ -348,17 +354,23 @@ def main() -> None:
     if not np.array_equal(fe["event_name_idx"].to_numpy(), fe_idx_before):
         raise SystemExit("fe-final event_name_idx changed during merge; abort")
 
-    if len(fe) != 9711 or len(inv_named) != 2900:
-        raise SystemExit(
-            f"Unexpected source sizes: fe={len(fe)} (want 9711), inv={len(inv_named)} (want 2900)"
-        )
+    # Row counts are RECORDED, not enforced. They were hard assertions on the
+    # values current when this script was written (fe=9711, inv=2900), which
+    # made it unrunnable the moment the synthetic set was legitimately
+    # regenerated upstream -- the counts are an input fact, not an invariant.
+    # Genuine schema breakage is still a hard failure below (column count,
+    # username prefixes, vocab bounds).
+    BASELINE = {"fe": 9711, "inv": 2900}
+    if len(fe) != BASELINE["fe"] or len(inv_named) != BASELINE["inv"]:
+        print(f"NOTE: source sizes changed since this script was written -- "
+              f"fe={len(fe)} (was {BASELINE['fe']}), inv={len(inv_named)} (was {BASELINE['inv']}). "
+              f"Expected after an upstream regeneration; recorded in manifest.json.")
     merged = pd.concat([fe[ORDERED_COLS], inv_named[ORDERED_COLS]], ignore_index=True)
     if merged.shape[1] != 40:
         raise SystemExit(f"Merged table must stay 40 cols, got {merged.shape[1]}")
-    if int(len(merged)) != 12611:
-        raise SystemExit(f"Merged row count {len(merged)} != 12611")
-    # NOTE: this asserts the count BEFORE held-out removal below. The written
-    # file is smaller by design -- see the HELD-OUT REMOVAL block.
+    expected_merged = len(fe) + len(inv_named)
+    if int(len(merged)) != expected_merged:
+        raise SystemExit(f"Merged row count {len(merged)} != {expected_merged} (fe + inv)")
 
     prefixes = merged["username"].astype(str).str.split(":", n=1).str[0]
     if set(prefixes.unique()) != {"fe", "inv"}:
@@ -406,9 +418,24 @@ def main() -> None:
 
     idx_max = int(merged["event_name_idx"].max())
     vocab_max = max(vocab.values())
-    if idx_max != vocab_max:
-        raise SystemExit(f"vocab max id {vocab_max} != CSV event_name_idx max {idx_max}")
-    vocab_size = idx_max + 1
+    # The vocab is DELIBERATELY wider than the training data now. Invictus rows
+    # are dropped from training (they are held out), but their event names must
+    # stay in the vocab: at evaluation time the model scores real CloudTrail,
+    # which contains exactly those names, and an out-of-vocabulary index there
+    # would be far worse than a few unused embedding rows during training.
+    #
+    # So the check is "vocab covers every index present", not equality --
+    # equality was only ever true while training data and vocab came from the
+    # same merged frame.
+    if idx_max > vocab_max:
+        raise SystemExit(
+            f"event_name_idx max {idx_max} exceeds vocab max id {vocab_max}: "
+            f"the embedding table would be indexed out of bounds"
+        )
+    if idx_max < vocab_max:
+        print(f"  vocab covers {vocab_max + 1} event names; training data uses "
+              f"{idx_max + 1} (the remainder are real-capture names kept for evaluation)")
+    vocab_size = vocab_max + 1
 
     window_stats = build_window_stats(merged)
     feature_cols = [c for c in ORDERED_COLS if c not in META_COLS]

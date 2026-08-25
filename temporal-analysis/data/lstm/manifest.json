@@ -4,13 +4,13 @@
   "sources": {
     "fe_final_temporal": "data/lstm/cloudtrail_temporal.csv",
     "invictus_temporal": "data/lstm/invictus_temporal.csv",
-    "fe_final_names": "CloudSec\\datasets\\privilege-escalation\\synthetic_cloudtrail.csv",
+    "fe_final_names": "C:\\CloudSec\\cloudsec-fixes\\datasets\\privilege-escalation\\synthetic_cloudtrail.csv",
     "invictus_names": "invictus_enriched.csv"
   },
   "prepared_csv": "data\\lstm\\train_temporal.csv",
   "vocab_json": "data/lstm/event_name_vocab.json",
-  "n_rows": 12611,
-  "n_rows_fe_final": 9711,
+  "n_rows": 10033,
+  "n_rows_fe_final": 10033,
   "n_rows_invictus": 2900,
   "n_cols": 40,
   "n_features": 35,
@@ -51,11 +51,11 @@
     "has_wildcard_resource",
     "privileged_action_reach"
   ],
-  "n_pos_events": 616,
-  "n_neg_events": 11995,
-  "n_users": 583,
+  "n_pos_events": 520,
+  "n_neg_events": 9513,
+  "n_users": 649,
   "event_name_idx_min": 1,
-  "event_name_idx_max": 280,
+  "event_name_idx_max": 67,
   "vocab_size": 281,
   "fe_final_vocab_max": 67,
   "n_invictus_only_event_names": 213,
@@ -65,15 +65,15 @@
   },
   "join": {
     "fe_final": {
-      "source_csv": "C:\\Users\\nanda\\OneDrive\\Desktop\\Capstone-2027\\CloudSec\\datasets\\privilege-escalation\\synthetic_cloudtrail.csv",
+      "source_csv": "C:\\CloudSec\\cloudsec-fixes\\datasets\\privilege-escalation\\synthetic_cloudtrail.csv",
       "expected_stem": "synthetic_cloudtrail.csv",
       "join_offset": 0,
       "timestamp_match_rate": 1.0,
-      "username_match_rate": 0.9703429101019463,
+      "username_match_rate": 0.9697996611183096,
       "n_unique_event_names": 67
     },
     "invictus": {
-      "source_csv": "C:\\Users\\nanda\\OneDrive\\Desktop\\Capstone-2027\\invictus_enriched.csv",
+      "source_csv": "C:\\CloudSec\\cloudsec-fixes\\temporal-analysis\\invictus_enriched.csv",
       "expected_stem": "invictus_enriched.csv",
       "join_offset": 0,
       "timestamp_match_rate": 1.0,
@@ -86,44 +86,28 @@
   "seq_len": 128,
   "label_rule": "any(label==1)",
   "time_range": [
-    "2023-07-10T11:42:18+00:00",
-    "2024-12-28T10:21:58+00:00"
+    "2024-01-01T16:00:56+00:00",
+    "2024-12-28T15:03:26+00:00"
   ],
   "window_stats": {
-    "n_windows": 11339,
-    "n_pos_windows": 1106,
-    "n_neg_windows": 10233,
+    "n_windows": 12167,
+    "n_pos_windows": 1277,
+    "n_neg_windows": 10890,
     "raw_len_min": 1,
     "raw_len_median": 3.0,
-    "raw_len_max": 1151,
-    "n_users_with_pos_windows": 202,
+    "raw_len_max": 16,
+    "n_users_with_pos_windows": 240,
     "loao_candidates": [
-      "inv:bert-jan",
-      "fe:ezlllcsqgnr",
-      "fe:fula",
-      "fe:gddfqcnn",
-      "fe:xkdppb"
+      "fe:anhsrav",
+      "fe:beruceezopfh",
+      "fe:bmlkkj",
+      "fe:bsfxsfhtrkiu",
+      "fe:cevvoi"
     ],
     "top_pos_window_users": [
       {
-        "username": "inv:bert-jan",
-        "pos_windows": 20
-      },
-      {
-        "username": "fe:ezlllcsqgnr",
-        "pos_windows": 7
-      },
-      {
-        "username": "fe:fula",
-        "pos_windows": 7
-      },
-      {
-        "username": "fe:gddfqcnn",
-        "pos_windows": 7
-      },
-      {
-        "username": "fe:xkdppb",
-        "pos_windows": 7
+        "username": "fe:anhsrav",
+        "pos_windows": 6
       },
       {
         "username": "fe:beruceezopfh",
@@ -138,21 +122,37 @@
         "pos_windows": 6
       },
       {
-        "username": "fe:bxsws",
+        "username": "fe:cevvoi",
         "pos_windows": 6
       },
       {
-        "username": "fe:cctd",
+        "username": "fe:cnlyfhrwjz",
+        "pos_windows": 6
+      },
+      {
+        "username": "fe:cploxvz",
+        "pos_windows": 6
+      },
+      {
+        "username": "fe:dgdzrn",
+        "pos_windows": 6
+      },
+      {
+        "username": "fe:dqyjhwavgj",
+        "pos_windows": 6
+      },
+      {
+        "username": "fe:eell",
         "pos_windows": 6
       }
     ],
     "windowing": "event-covering stride grid (skip empty spans)"
   },
   "copied_files": {
-    "cloudtrail_temporal.csv": "C:\\Users\\nanda\\OneDrive\\Desktop\\Capstone-2027\\data\\lstm\\cloudtrail_temporal.csv",
-    "cloudtrail_structural.csv": "C:\\Users\\nanda\\OneDrive\\Desktop\\Capstone-2027\\data\\lstm\\cloudtrail_structural.csv",
-    "invictus_temporal.csv": "C:\\Users\\nanda\\OneDrive\\Desktop\\Capstone-2027\\data\\lstm\\invictus_temporal.csv",
-    "event_name_vocab_fe_final.json": "C:\\Users\\nanda\\OneDrive\\Desktop\\Capstone-2027\\data\\lstm\\event_name_vocab_fe_final.json"
+    "cloudtrail_temporal.csv": "C:\\CloudSec\\cloudsec-fixes\\temporal-analysis\\data\\lstm\\cloudtrail_temporal.csv",
+    "cloudtrail_structural.csv": "C:\\CloudSec\\cloudsec-fixes\\temporal-analysis\\data\\lstm\\cloudtrail_structural.csv",
+    "invictus_temporal.csv": "C:\\CloudSec\\cloudsec-fixes\\temporal-analysis\\data\\lstm\\invictus_temporal.csv",
+    "event_name_vocab_fe_final.json": "C:\\CloudSec\\cloudsec-fixes\\temporal-analysis\\data\\lstm\\event_name_vocab_fe_final.json"
   },
   "unmerged_copies": {
     "cloudtrail_temporal.csv": "data/lstm/cloudtrail_temporal.csv",
