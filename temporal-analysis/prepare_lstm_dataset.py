@@ -10,10 +10,14 @@ from __future__ import annotations
 
 import json
 import shutil
+import sys
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from leakage_guard import assert_no_heldout, filter_heldout  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent
 SRC = ROOT.parent / "datasets" / "privilege-escalation"
@@ -353,10 +357,29 @@ def main() -> None:
         raise SystemExit(f"Merged table must stay 40 cols, got {merged.shape[1]}")
     if int(len(merged)) != 12611:
         raise SystemExit(f"Merged row count {len(merged)} != 12611")
+    # NOTE: this asserts the count BEFORE held-out removal below. The written
+    # file is smaller by design -- see the HELD-OUT REMOVAL block.
 
     prefixes = merged["username"].astype(str).str.split(":", n=1).str[0]
     if set(prefixes.unique()) != {"fe", "inv"}:
         raise SystemExit(f"Username prefixes unexpected: {sorted(prefixes.unique())}")
+
+    # ── HELD-OUT REMOVAL ────────────────────────────────────────────────────
+    # The invictus capture was folded into real_dataset_combined.csv before
+    # that file was split into dev/test, so concatenating it here puts the
+    # graph model's held-out TEST events into the sequence model's TRAINING
+    # set: 2,798 test rows and 60 dev rows out of 12,611. Nothing errored,
+    # because the two tracks reach the same events through different files.
+    # Any ensemble combining the two and scored on real_dataset_test.csv would
+    # have a component that had already seen the answer.
+    #
+    # Dropping them here keeps the sequence track on the same footing as the
+    # graph track -- train on synthetic, evaluate on held-out real -- which is
+    # the project's stated design, not a new constraint.
+    merged, n_dropped = filter_heldout(merged, "train_temporal")
+    assert_no_heldout(merged, "train_temporal")   # belt and braces
+    if n_dropped:
+        print(f"  removed {n_dropped} held-out events; {len(merged)} rows remain")
 
     prepared_path = OUT / "train_temporal.csv"
     merged.to_csv(prepared_path, index=False)
