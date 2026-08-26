@@ -220,14 +220,37 @@ class VocabIndex:
 
 
 class AdaptiveRiskPrior:
-    def __init__(self, priors, default=0.1, prior_weight=15, path=None):
+    """Hand-tuned prior blended with the observed attack rate per key.
+
+    LABEL-DERIVED FEATURE. score() returns a value computed from ground-truth
+    labels, and it is consumed as a model feature (action_risk_prior and
+    principal_type_prior_risk in TEMPORAL_COLS; event_risk feeds the structural
+    graph attributes). It must therefore follow the same fit/freeze discipline
+    as every scaler in this project: FIT on the training input, FROZEN on every
+    evaluation input. Without `frozen`, running feature engineering over a
+    held-out split folds that split's own labels into the features it produces
+    -- classic target leakage, silent and unlogged."""
+
+    def __init__(self, priors, default=0.1, prior_weight=15, path=None, frozen=False):
         self.priors = priors
         self.default = default
         self.prior_weight = prior_weight
         self.path = path
+        self.frozen = frozen
         self.counts = {}  # key -> [attacks_seen, total_seen]
         if path and os.path.exists(path):
-            self.counts = json.loads(open(path, encoding='utf-8').read())
+            with open(path, encoding='utf-8') as f:
+                self.counts = json.load(f)
+        elif frozen:
+            # Frozen means "reuse the training-fitted counts". If they are not
+            # on disk, score() would silently fall back to the hand-tuned
+            # priors alone -- a different feature distribution than the model
+            # was trained on, with no error. Fail loudly instead.
+            raise FileNotFoundError(
+                f"Frozen AdaptiveRiskPrior expects training-fitted counts at {path!r}, "
+                f"which does not exist. Run feature engineering on the training input "
+                f"first so the prior is fitted, then re-run this evaluation."
+            )
 
     def score(self, key):
         prior = self.priors.get(key, self.default)
@@ -235,12 +258,23 @@ class AdaptiveRiskPrior:
         return (self.prior_weight * prior + attacks) / (self.prior_weight + total)
 
     def update(self, key, label):
+        """Folds one row's GROUND-TRUTH LABEL into the running prior.
+
+        This is target encoding: the value returned by score() is a function of
+        labels seen so far. That is legitimate while FITTING on training data,
+        and is leakage everywhere else -- so this is a no-op once frozen, in
+        exactly the same way data_loader.py's StandardScalers are fit on the
+        training graph and transform-only thereafter."""
+        if self.frozen:
+            return
         attacks, total = self.counts.get(key, (0, 0))
         attacks += 1 if str(label) == '1' else 0
         self.counts[key] = (attacks, total + 1)
 
     def save(self):
-        if self.path:
+        # A frozen prior is read-only: writing would let an evaluation run
+        # overwrite the training-fitted counts on disk.
+        if self.path and not self.frozen:
             with open(self.path, 'w', encoding='utf-8') as f:
                 json.dump(self.counts, f, indent=2, sort_keys=True)
 
@@ -516,7 +550,8 @@ class StateTracker:
 
 class FeatureEngineer:
     def __init__(self, event_name_vocab_path=None, state_tracker_path=None, graph_state_path=None,
-                 action_prior_path=None, principal_prior_path=None, freeze_vocab=False):
+                 action_prior_path=None, principal_prior_path=None, freeze_vocab=False,
+                 freeze_priors=False):
         self.tracker = StateTracker(path=state_tracker_path)
         self.graph_tracker = GraphNodeTracker(path=graph_state_path)
         self.principal_type_vocab = VocabIndex(fixed_tokens=FIXED_PRINCIPAL_TYPES)
@@ -562,11 +597,14 @@ class FeatureEngineer:
         }
         self.default_risk = 1
 
+        self.freeze_priors = freeze_priors
+
         self.action_risk_prior = AdaptiveRiskPrior(
             priors={k: v / 10.0 for k, v in self.action_map.items()},
             default=self.default_risk / 10.0,
             prior_weight=15,
             path=action_prior_path,
+            frozen=freeze_priors,
         )
 
         self.principal_risk_prior = AdaptiveRiskPrior(
@@ -577,6 +615,7 @@ class FeatureEngineer:
             default=0.3,
             prior_weight=15,
             path=principal_prior_path,
+            frozen=freeze_priors,
         )
 
     def save_state(self):
@@ -587,6 +626,13 @@ class FeatureEngineer:
         self.principal_risk_prior.save()
 
     def observe_label(self, log):
+        """Folds this row's ground-truth label into the adaptive priors.
+
+        MUST NOT be called with evaluation labels. Both priors ignore updates
+        while frozen, so this is a no-op on any non-training input; the guard
+        is kept here as well so the intent is visible at the call site."""
+        if self.freeze_priors:
+            return
         label = log.get('label', '0')
         self.action_risk_prior.update(log.get('event_name'), label)
         self.principal_risk_prior.update(log.get('principal_type', ''), label)
@@ -924,11 +970,23 @@ def process_batch_file(engine: FeatureEngineer, input_path: str) -> int:
     return count
 
 
-def run_batch(input_path: str, freeze_vocab: bool = False) -> None:
+def run_batch(input_path: str, freeze_vocab: bool = False, freeze_priors: bool = None) -> None:
+    """freeze_priors defaults to "frozen unless this IS the training input".
+
+    The adaptive risk priors are fitted from ground-truth labels, so folding a
+    held-out split's labels into them is target leakage. Defaulting the freeze
+    off the input path means the safe behaviour is automatic: only the default
+    (training) input may fit the priors, everything else reuses them read-only.
+    Pass freeze_priors explicitly to override -- e.g. False when deliberately
+    refitting on a new training set."""
     global STRUCT_OUT, TEMPORAL_OUT, STATE_FILE, STATE_TRACKER_FILE, GRAPH_NODE_STATE_FILE
     if not os.path.exists(input_path):
         print(f"Error: Could not find {input_path}")
         raise SystemExit(1)
+
+    is_training_input = os.path.abspath(input_path) == os.path.abspath(DEFAULT_INPUT)
+    if freeze_priors is None:
+        freeze_priors = not is_training_input
 
     paths = _derive_paths(input_path)
     STRUCT_OUT = paths["struct_out"]
@@ -951,11 +1009,14 @@ def run_batch(input_path: str, freeze_vocab: bool = False) -> None:
         action_prior_path=ACTION_PRIOR_FILE,
         principal_prior_path=PRINCIPAL_PRIOR_FILE,
         freeze_vocab=freeze_vocab,
+        freeze_priors=freeze_priors,
     )
     print(f"Reading logs in BATCH mode from {input_path}...")
     print(f"  struct_out:   {STRUCT_OUT}")
     print(f"  temporal_out: {TEMPORAL_OUT}")
-    print(f"  vocab frozen: {freeze_vocab}")
+    print(f"  vocab frozen:  {freeze_vocab}")
+    print(f"  priors frozen: {freeze_priors}"
+          f"{'  (label-derived features are READ-ONLY on this input)' if freeze_priors else '  (FITTING on this input)'}")
     process_batch_file(engine, input_path)
 
     processed.add(name)
@@ -1075,6 +1136,11 @@ def main():
     parser.add_argument("--watch", metavar="DIR", help="Watch DIR and process each new log file as it lands")
     parser.add_argument("--simulate", action="store_true",
                          help="With --watch, also chunk --input into small CSVs dropped into DIR periodically")
+    parser.add_argument("--fit-priors", action="store_true",
+                        help="Fit the label-derived adaptive risk priors on this input. Only "
+                             "valid for TRAINING data -- doing this on a held-out split folds "
+                             "its labels into the features. Default: priors are frozen for any "
+                             "input other than the training default.")
     parser.add_argument("--freeze-vocab", action="store_true",
                          help="Do not add new event names to the shared event_name vocab -- use when "
                               "feature-engineering evaluation data (e.g. real_dataset_test.csv) against "
@@ -1087,7 +1153,8 @@ def main():
             simulate_incoming_files(args.watch, args.input)
         watch_folder(args.watch)
     else:
-        run_batch(args.input, freeze_vocab=args.freeze_vocab)
+        run_batch(args.input, freeze_vocab=args.freeze_vocab,
+                  freeze_priors=(False if args.fit_priors else None))
 
 
 if __name__ == "__main__":
