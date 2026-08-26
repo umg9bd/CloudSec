@@ -28,8 +28,8 @@ eyeballing two separate confidence intervals.
 Getting here required diagnosing and fixing a real synthetic-to-real
 generalization gap (two structural bugs, one ruled-out hypothesis, and the
 actual fix — a rank-normalization feature transform). Full evidence trail,
-caveats, and what's still open: **`PROJECT_STATUS_REPORT.md`**. Full runnable
-commands with expected output at each step: **`DEMO_GUIDE.md`**.
+caveats, and what's still open: **`docs/PROJECT_STATUS_REPORT.md`**. Full runnable
+commands with expected output at each step: **`docs/DEMO_GUIDE.md`**.
 
 Two honest caveats up front:
 
@@ -46,7 +46,7 @@ Both were verified against controls the result survives: a permutation test
 that preserves session sizes while destroying the edge→session association
 (observed session AUC beats all 200 permutations), and within-length-strata
 AUCs of 0.998 / 0.970 / 0.872 / 0.759 where session length alone is
-uninformative. See `PROJECT_STATUS_REPORT.md` §6.17 for the full picture.
+uninformative. See `docs/PROJECT_STATUS_REPORT.md` §6.17 for the full picture.
 
 ## Architecture
 
@@ -101,9 +101,9 @@ GraphSAGE
 > The streaming path below is **the design, not the current state.** It is broken in two independent ways and must not be claimed in a paper or demo until both are fixed:
 >
 > 1. **`infer.py` feature-schema desync.** Its `_edge_features()` builds a numeric vector that no longer matches what the trained checkpoint's `edge_scaler` expects, so step 6 raises rather than running. (It fails closed, not silently — but it does not run.)
-> 2. **The incremental updater does not reproduce the batch graph.** Three `TestBatchIncrementalEquivalence` assertions fail (see `PROJECT_STATUS_REPORT.md` §6.9). Two of them are on `hop_count` and `distance_to_sensitive_resource` — both live model inputs — so step 3 would feed the model different values than the batch pipeline it was trained against.
+> 2. **The incremental updater does not reproduce the batch graph.** Three `TestBatchIncrementalEquivalence` assertions fail (see `docs/PROJECT_STATUS_REPORT.md` §6.9). Two of them are on `hop_count` and `distance_to_sensitive_resource` — both live model inputs — so step 3 would feed the model different values than the batch pipeline it was trained against.
 >
-> The batch evaluation path (`build_graph.py` → `data_loader.py` → `evaluate_session_level.py`) is unaffected, and every reported result comes from it. Fix the two defects above, or scope streaming out of the write-up, before making any real-time claim.
+> The batch evaluation path (`graph_construction/build_graph.py` → `graph_construction/data_loader.py` → `graph_construction/evaluate_session_level.py`) is unaffected, and every reported result comes from it. Fix the two defects above, or scope streaming out of the write-up, before making any real-time claim.
 
 1.  Watch incoming directory.
 2.  Feature engineer new event.
@@ -117,28 +117,29 @@ GraphSAGE
 
 ## Repository
 
--   train.py --- training (GraphSAGE and GAT)
--   infer.py --- streaming inference + checkpoint wrapping (see note below)
--   model_graphsage.py / model_gat.py --- models
--   data_loader.py --- graph loading, feature normalization
--   privilege_features.py --- node/edge identity, relation classification
+-   graph_construction/train.py --- training (GraphSAGE and GAT)
+-   graph_construction/infer.py --- streaming inference + checkpoint wrapping (see note below)
+-   graph_construction/model_graphsage.py / graph_construction/model_gat.py --- models
+-   graph_construction/data_loader.py --- graph loading, feature normalization
+-   graph_construction/privilege_features.py --- node/edge identity, relation classification
 -   graph_construction/neo4j_graph_builder.py --- batch graph construction
--   incremental_updater.py --- streaming graph updates
+-   graph_construction/incremental_updater.py --- streaming graph updates
 -   feature_engine9.py --- feature engineering (raw CloudTrail -> structural/temporal CSVs)
 -   datasets/privilege-escalation/generate_synthetic_data.py --- synthetic training data generator
--   build_graph.py --- CLI wrapper to load a structural CSV into Neo4j
--   evaluate_on_real.py --- edge-level real-data evaluation
--   evaluate_session_level.py --- session-level real-data evaluation (comparable to the rule baseline)
+-   graph_construction/build_graph.py --- CLI wrapper to load a structural CSV into Neo4j
+-   graph_construction/evaluate_on_real.py --- edge-level real-data evaluation
+-   graph_construction/evaluate_session_level.py --- session-level real-data evaluation (comparable to the rule baseline)
 -   datasets/privilege-escalation/evaluate_baselines.py --- rule-based baselines
--   blast_radius.py --- downstream reachability/impact analysis (not yet exercised)
--   explainability.py --- prediction explanations (not yet exercised)
--   PROJECT_STATUS_REPORT.md --- full evaluation history, evidence, and publication roadmap
--   DEMO_GUIDE.md --- runnable demo script with expected output at each step
+-   graph_construction/blast_radius.py --- downstream reachability/impact analysis (not yet exercised)
+-   graph_construction/explainability.py --- prediction explanations (not yet exercised)
+-   tests/run_tests.py --- one command to run the project's test suites
+-   docs/PROJECT_STATUS_REPORT.md --- full evaluation history, evidence, and publication roadmap
+-   docs/DEMO_GUIDE.md --- runnable demo script with expected output at each step
 
 ## Training
 
 ``` bash
-python train.py \
+python graph_construction/train.py \
     --model sage \
     --epochs 100 \
     --save_dir ./checkpoints
@@ -147,29 +148,29 @@ python train.py \
 ## Wrap checkpoint
 
 ``` bash
-python infer.py --wrap-checkpoint checkpoints/best_GraphSAGE.pt --wrapped-output checkpoints/best_GraphSAGE_wrapped.pt
+python graph_construction/infer.py --wrap-checkpoint checkpoints/best_GraphSAGE.pt --wrapped-output checkpoints/best_GraphSAGE_wrapped.pt
 ```
 
 ## Evaluate against real data
 
 ``` bash
-python evaluate_on_real.py --checkpoint checkpoints/best_GraphSAGE_wrapped.pt --model sage
-python evaluate_session_level.py --checkpoint checkpoints/best_GraphSAGE_wrapped.pt --model sage --raw-csv datasets/privilege-escalation/real_dataset_test.csv --threshold 0.35
+python graph_construction/evaluate_on_real.py --checkpoint checkpoints/best_GraphSAGE_wrapped.pt --model sage
+python graph_construction/evaluate_session_level.py --checkpoint checkpoints/best_GraphSAGE_wrapped.pt --model sage --raw-csv datasets/privilege-escalation/real_dataset_test.csv --threshold 0.35
 ```
 
-Full setup (Neo4j, environment variables, expected output) in `DEMO_GUIDE.md`.
+Full setup (Neo4j, environment variables, expected output) in `docs/DEMO_GUIDE.md`.
 
 ## Run live streaming inference
 
 ``` bash
-python infer.py   --checkpoint checkpoints/best_GraphSAGE_wrapped.pt   --watch incoming   --alert-dir alerts   --threshold 0.5   --seed-from-neo4j
+python graph_construction/infer.py   --checkpoint checkpoints/best_GraphSAGE_wrapped.pt   --watch incoming   --alert-dir alerts   --threshold 0.5   --seed-from-neo4j
 ```
 Insert json logs into incoming directory to get real time prediction of the action performed.
 
 **Known issue**: `infer.py`'s live single-event feature builder constructs
 edge features independently of `data_loader.py` and has not yet been
 updated for the rank-normalized feature schema behind the current best
-checkpoint (see `PROJECT_STATUS_REPORT.md` section 6.16) — it will run
+checkpoint (see `docs/PROJECT_STATUS_REPORT.md` section 6.16) — it will run
 without erroring but produce incorrect scores until this is fixed. Use the
 batch evaluation commands above for anything that needs to be trusted right
 now.
