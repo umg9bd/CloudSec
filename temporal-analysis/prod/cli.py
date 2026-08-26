@@ -18,7 +18,7 @@ def main() -> None:
         "--ckpt",
         type=Path,
         default=DEFAULT_CKPT,
-        help="Path to temporal_lstm_transformer.pt",
+        help="Path to v5 or v6 checkpoint (.pt)",
     )
     ap.add_argument(
         "--out",
