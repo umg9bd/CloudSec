@@ -10,13 +10,33 @@ from __future__ import annotations
 
 import json
 import shutil
+import sys
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from leakage_guard import assert_no_heldout, filter_heldout  # noqa: E402
+
 ROOT = Path(__file__).resolve().parent
-SRC = ROOT.parent / "datasets" / "privilege-escalation"
+REPO_ROOT = ROOT.parent
+SRC = REPO_ROOT / "datasets" / "privilege-escalation"
+
+
+def _rel(path) -> str:
+    """Path recorded relative to the REPO ROOT, with forward slashes.
+
+    manifest.json used to store absolute paths, so it churned on every run for
+    every teammate -- four people with four checkout directories produced four
+    different manifests carrying zero real difference, and every one of them
+    was a merge conflict waiting to happen. Recording repo-relative POSIX paths
+    makes the manifest reproducible across machines and platforms."""
+    path = Path(path).resolve()
+    try:
+        return path.relative_to(REPO_ROOT).as_posix()
+    except ValueError:
+        return path.as_posix()   # genuinely outside the repo; keep it absolute
 OUT = ROOT / "data" / "lstm"
 
 INVICTUS_TEMPORAL = ROOT / "data" / "lstm" / "invictus_temporal.csv"
@@ -134,9 +154,15 @@ def copy_assets() -> dict[str, str]:
         (FE_VOCAB_SRC, OUT / "event_name_vocab_fe_final.json"),
     ]
     for src, dst in pairs:
-        if src.exists():
+        if not src.exists():
+            continue
+        # INVICTUS_TEMPORAL already lives inside OUT, so this pair is a
+        # self-copy and shutil raises SameFileError -- which made the whole
+        # script unrunnable. The file is already in place when that happens,
+        # so there is nothing to do.
+        if src.resolve() != dst.resolve():
             shutil.copy2(src, dst)
-            copied[dst.name] = str(dst)
+        copied[dst.name] = _rel(dst)
     return copied
 
 
@@ -228,7 +254,7 @@ def attach_event_name(
             )
 
     info = {
-        "source_csv": str(source_csv),
+        "source_csv": _rel(source_csv),
         "expected_stem": expected_stem,
         "join_offset": int(offset),
         "timestamp_match_rate": rates[offset],
@@ -344,19 +370,61 @@ def main() -> None:
     if not np.array_equal(fe["event_name_idx"].to_numpy(), fe_idx_before):
         raise SystemExit("fe-final event_name_idx changed during merge; abort")
 
-    if len(fe) != 9711 or len(inv_named) != 2900:
-        raise SystemExit(
-            f"Unexpected source sizes: fe={len(fe)} (want 9711), inv={len(inv_named)} (want 2900)"
-        )
+    # Row counts are RECORDED, not enforced. They were hard assertions on the
+    # values current when this script was written (fe=9711, inv=2900), which
+    # made it unrunnable the moment the synthetic set was legitimately
+    # regenerated upstream -- the counts are an input fact, not an invariant.
+    # Genuine schema breakage is still a hard failure below (column count,
+    # username prefixes, vocab bounds).
+    BASELINE = {"fe": 9711, "inv": 2900}
+    if len(fe) != BASELINE["fe"] or len(inv_named) != BASELINE["inv"]:
+        print(f"NOTE: source sizes changed since this script was written -- "
+              f"fe={len(fe)} (was {BASELINE['fe']}), inv={len(inv_named)} (was {BASELINE['inv']}). "
+              f"Expected after an upstream regeneration; recorded in manifest.json.")
     merged = pd.concat([fe[ORDERED_COLS], inv_named[ORDERED_COLS]], ignore_index=True)
     if merged.shape[1] != 40:
         raise SystemExit(f"Merged table must stay 40 cols, got {merged.shape[1]}")
-    if int(len(merged)) != 12611:
-        raise SystemExit(f"Merged row count {len(merged)} != 12611")
+    expected_merged = len(fe) + len(inv_named)
+    if int(len(merged)) != expected_merged:
+        raise SystemExit(f"Merged row count {len(merged)} != {expected_merged} (fe + inv)")
 
     prefixes = merged["username"].astype(str).str.split(":", n=1).str[0]
     if set(prefixes.unique()) != {"fe", "inv"}:
         raise SystemExit(f"Username prefixes unexpected: {sorted(prefixes.unique())}")
+
+    # ── HELD-OUT REMOVAL ────────────────────────────────────────────────────
+    # The invictus capture was folded into real_dataset_combined.csv before
+    # that file was split into dev/test, so concatenating it here puts the
+    # graph model's held-out TEST events into the sequence model's TRAINING
+    # set: 2,798 test rows and 60 dev rows out of 12,611. Nothing errored,
+    # because the two tracks reach the same events through different files.
+    # Any ensemble combining the two and scored on real_dataset_test.csv would
+    # have a component that had already seen the answer.
+    #
+    # Dropping them here keeps the sequence track on the same footing as the
+    # graph track -- train on synthetic, evaluate on held-out real -- which is
+    # the project's stated design, not a new constraint.
+    # Exclude by SOURCE first, then verify by key. Source is the sound
+    # criterion: every "inv:" row is real-capture data, and the whole invictus
+    # capture went into real_dataset_combined.csv before it was split, so all
+    # 2,900 are on the held-out side of the boundary by construction.
+    #
+    # Key matching alone is not sufficient here -- it catches 2,858 of them and
+    # misses 42 whose username is the placeholder "unknown_user", which does not
+    # match the corresponding row in the split files. Those 42 were caught only
+    # by the timestamp cross-check in leakage_guard. Filtering on source removes
+    # the whole class; the key check below then proves the result.
+    is_real_capture = merged["username"].astype(str).str.startswith("inv:")
+    n_real = int(is_real_capture.sum())
+    merged = merged.loc[~is_real_capture].reset_index(drop=True)
+    print(f"  dropped {n_real} real-capture (invictus) rows -- the sequence track "
+          f"trains on synthetic only, matching the graph track")
+
+    merged, n_dropped = filter_heldout(merged, "train_temporal")
+    assert_no_heldout(merged, "train_temporal")   # proves the result, not just the intent
+    if n_dropped:
+        print(f"  key check removed a further {n_dropped} held-out events")
+    print(f"  {len(merged)} training rows remain")
 
     prepared_path = OUT / "train_temporal.csv"
     merged.to_csv(prepared_path, index=False)
@@ -366,9 +434,24 @@ def main() -> None:
 
     idx_max = int(merged["event_name_idx"].max())
     vocab_max = max(vocab.values())
-    if idx_max != vocab_max:
-        raise SystemExit(f"vocab max id {vocab_max} != CSV event_name_idx max {idx_max}")
-    vocab_size = idx_max + 1
+    # The vocab is DELIBERATELY wider than the training data now. Invictus rows
+    # are dropped from training (they are held out), but their event names must
+    # stay in the vocab: at evaluation time the model scores real CloudTrail,
+    # which contains exactly those names, and an out-of-vocabulary index there
+    # would be far worse than a few unused embedding rows during training.
+    #
+    # So the check is "vocab covers every index present", not equality --
+    # equality was only ever true while training data and vocab came from the
+    # same merged frame.
+    if idx_max > vocab_max:
+        raise SystemExit(
+            f"event_name_idx max {idx_max} exceeds vocab max id {vocab_max}: "
+            f"the embedding table would be indexed out of bounds"
+        )
+    if idx_max < vocab_max:
+        print(f"  vocab covers {vocab_max + 1} event names; training data uses "
+              f"{idx_max + 1} (the remainder are real-capture names kept for evaluation)")
+    vocab_size = vocab_max + 1
 
     window_stats = build_window_stats(merged)
     feature_cols = [c for c in ORDERED_COLS if c not in META_COLS]
@@ -379,12 +462,10 @@ def main() -> None:
         "sources": {
             "fe_final_temporal": "data/lstm/cloudtrail_temporal.csv",
             "invictus_temporal": "data/lstm/invictus_temporal.csv",
-            "fe_final_names": str(SYNTHETIC_CLOUDTRAIL.relative_to(ROOT))
-            if SYNTHETIC_CLOUDTRAIL.is_relative_to(ROOT)
-            else str(SYNTHETIC_CLOUDTRAIL),
+            "fe_final_names": _rel(SYNTHETIC_CLOUDTRAIL),
             "invictus_names": "invictus_enriched.csv",
         },
-        "prepared_csv": str(prepared_path.relative_to(ROOT)),
+        "prepared_csv": _rel(prepared_path),
         "vocab_json": "data/lstm/event_name_vocab.json",
         "n_rows": int(len(merged)),
         "n_rows_fe_final": int(len(fe)),

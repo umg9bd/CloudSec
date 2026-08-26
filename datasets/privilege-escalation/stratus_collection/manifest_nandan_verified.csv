@@ -1,0 +1,57 @@
+run_id,collector,aws_account,technique_id,tactic,rep_index,start_ts_utc,end_ts_utc,warmup_status,detonate_status,revert_status,cleanup_status,expected_events,notes,logs_confirmed,matched_event_count
+93760f76-0a86-4b22-a59a-c834f43796b1,nandan,268769775703,aws.persistence.iam-create-user-login-profile,persistence,2,2026-07-15T07:58:21.936567+00:00,2026-07-15T08:01:14.323211+00:00,ok,ok,ok,ok,CreateLoginProfile,,yes,3
+24854a09-a6cf-4b75-82a3-e231116014a3,nandan,268769775703,aws.persistence.iam-backdoor-user,persistence,2,2026-07-15T08:01:14.324469+00:00,2026-07-15T08:03:55.464071+00:00,ok,ok,ok,ok,CreateAccessKey,,yes,1
+4a536100-bd61-44c1-8429-8a7cea84415e,nandan,268769775703,aws.defense-evasion.cloudtrail-event-selectors,defense-evasion,1,2026-07-15T08:03:55.465001+00:00,2026-07-15T08:07:21.681202+00:00,ok,ok,ok,ok,PutEventSelectors,,yes,2
+e32158ce-ddf2-4b06-9aa2-fe8a4516afc2,nandan,268769775703,aws.persistence.iam-create-user-login-profile,persistence,3,2026-07-15T08:07:21.689148+00:00,2026-07-15T08:10:06.675016+00:00,ok,ok,ok,ok,CreateLoginProfile,,yes,3
+e0391bfb-c7e5-480e-a670-f6ce97b41ed0,nandan,268769775703,aws.privilege-escalation.iam-update-user-login-profile,privilege-escalation,2,2026-07-15T08:10:06.675976+00:00,2026-07-15T08:12:24.348614+00:00,ok,ok,ok,ok,UpdateLoginProfile,,yes,1
+7f21ae6a-e22e-44ef-8189-2a6983b3838d,nandan,268769775703,aws.credential-access.ec2-get-password-data,credential-access,2,2026-07-15T08:12:24.351106+00:00,2026-07-15T08:16:37.076150+00:00,ok,ok,ok,ok,AssumeRole;GetPasswordData,,yes,38
+35961bf9-8787-4fba-8118-8acc9782c1d6,nandan,268769775703,aws.defense-evasion.cloudtrail-stop,defense-evasion,3,2026-07-15T08:16:37.077091+00:00,2026-07-15T08:20:07.291033+00:00,ok,ok,ok,ok,StopLogging,,yes,1
+43235bb8-1975-4c2e-8ba8-d03f0cf7dad8,nandan,268769775703,aws.credential-access.ssm-retrieve-securestring-parameters,credential-access,2,2026-07-15T08:20:07.292419+00:00,2026-07-15T08:24:23.521665+00:00,ok,ok,ok,ok,DescribeParameters;GetParameters,,yes,216
+283b3087-4a16-4128-9e88-9308537b5c53,nandan,268769775703,aws.credential-access.secretsmanager-retrieve-secrets,credential-access,1,2026-07-15T08:24:23.529908+00:00,2026-07-15T08:28:31.030342+00:00,ok,ok,ok,ok,ListSecrets;GetSecretValue,,yes,122
+181c4411-58aa-4d04-9d91-832dfbb781f2,nandan,268769775703,aws.credential-access.secretsmanager-retrieve-secrets,credential-access,2,2026-07-15T08:28:31.032635+00:00,2026-07-15T08:32:02.237004+00:00,ok,ok,ok,ok,ListSecrets;GetSecretValue,,yes,142
+a15c5c13-7070-4b9d-bd7e-e2ed2ed76de9,nandan,268769775703,aws.persistence.iam-create-user-login-profile,persistence,1,2026-07-15T08:32:02.239643+00:00,2026-07-15T08:36:16.748135+00:00,ok,ok,ok,ok,CreateLoginProfile,,yes,1
+7275ad68-e2ce-4b3f-ac0d-99ccc7f860fa,nandan,268769775703,aws.persistence.iam-create-admin-user,persistence,3,2026-07-15T08:36:16.749931+00:00,2026-07-15T08:38:15.066281+00:00,ok,ok,ok,ok,CreateUser;AttachUserPolicy,,yes,3
+778ddb91-5863-47f6-8aa7-fcf4b23936a9,nandan,268769775703,aws.persistence.iam-create-backdoor-role,persistence,1,2026-07-15T08:38:15.070569+00:00,2026-07-15T08:40:07.324736+00:00,ok,ok,ok,ok,CreateRole;AttachRolePolicy,,yes,2
+9173780e-b866-4563-a7b0-6fba66bd269c,nandan,268769775703,aws.credential-access.secretsmanager-retrieve-secrets,credential-access,3,2026-07-15T08:40:07.326333+00:00,2026-07-15T08:43:22.116181+00:00,ok,ok,ok,ok,ListSecrets;GetSecretValue,,yes,102
+5b6e0c99-1a15-49d6-b537-2f5627fca010,nandan,268769775703,aws.defense-evasion.cloudtrail-event-selectors,defense-evasion,2,2026-07-15T08:43:22.118272+00:00,2026-07-15T08:47:09.152393+00:00,ok,ok,ok,ok,PutEventSelectors,,yes,2
+17fa92c7-0756-4b82-9d55-aeb56cc15c28,nandan,268769775703,aws.persistence.lambda-backdoor-function,persistence,1,2026-07-15T08:47:09.153689+00:00,2026-07-15T08:52:33.648661+00:00,FAILED,,,FAILED - MANUAL CHECK NEEDED,AddPermission20150331v2,"warmup: TIMEOUT after 300s: Command '['.\\stratus.EXE', 'warmup', 'aws.persistence.lambda-backdoor-function']' timed out after 300 seconds | cleanup: ----------------------------------------------+--------+
+| ID                                       | NAME                                                   | STATUS |
++------------------------------------------+--------------------------------------------------------+--------+
+| aws.persistence.lambda-backdoor-function | Backdoor Lambda Function Through Resource-Based Policy | COLD   |
++------------------------------------------+--------------------------------------------------------+--------+",NOT YET DELIVERED,0
+1cb652d7-d2f0-4579-bf02-58fcb9737aea,nandan,268769775703,aws.persistence.iam-backdoor-user,persistence,1,2026-07-15T08:52:33.650237+00:00,2026-07-15T08:58:59.218676+00:00,ok,ok,ok,FAILED - MANUAL CHECK NEEDED,CreateAccessKey,"cleanup: orp/aws""],
+  on main.tf line 9, in provider ""aws"":
+   9: provider ""aws"" {
+
+
++-----------------------------------+-------------------------------------+--------+
+| ID                                | NAME                                | STATUS |
++-----------------------------------+-------------------------------------+--------+
+| aws.persistence.iam-backdoor-user | Create an Access Key on an IAM User | WARM   |
++-----------------------------------+-------------------------------------+--------+",yes,1
+d9250b60-0348-4f3d-a9a3-28ce894e1aa1,nandan,268769775703,aws.persistence.lambda-backdoor-function,persistence,2,2026-07-15T08:58:59.220633+00:00,2026-07-15T08:59:29.826397+00:00,FAILED,,,FAILED - MANUAL CHECK NEEDED,AddPermission20150331v2,"warmup: 2026/07/15 14:28:59 Checking your authentication against AWS
+2026/07/15 14:28:59 you are not authenticated against AWS, *or* you have not set your region. 
+
+Troubleshooting:
+1. Are you authenticated against AWS?
+2. Do you have a region or default region set (whether in your AWS configuration file or in your environment)? If not, run 'export AWS_REGION=xxx' | cleanup: ----------------------------------------------+--------+
+| ID                                       | NAME                                                   | STATUS |
++------------------------------------------+--------------------------------------------------------+--------+
+| aws.persistence.lambda-backdoor-function | Backdoor Lambda Function Through Resource-Based Policy | COLD   |
++------------------------------------------+--------------------------------------------------------+--------+",yes,1
+812d3088-16cd-47fe-8e94-c5f9267774da,nandan,268769775703,aws.persistence.lambda-backdoor-function,persistence,3,2026-07-15T08:59:29.827602+00:00,2026-07-15T09:05:46.536655+00:00,ok,ok,ok,ok,AddPermission20150331v2,,yes,1
+f9dcf32e-6542-444e-a8a7-819fff202e23,nandan,268769775703,aws.credential-access.ssm-retrieve-securestring-parameters,credential-access,1,2026-07-15T09:05:46.538188+00:00,2026-07-15T09:11:41.374853+00:00,ok,ok,ok,ok,DescribeParameters;GetParameters,,yes,199
+44fa7ff7-9a2d-4399-abd0-98d9393c73a4,nandan,268769775703,aws.credential-access.ec2-get-password-data,credential-access,3,2026-07-15T09:11:41.376748+00:00,2026-07-15T09:16:03.583956+00:00,ok,ok,ok,ok,AssumeRole;GetPasswordData,,yes,40
+d8800d55-a82b-47b6-b7b3-d7ba82edb279,nandan,268769775703,aws.defense-evasion.cloudtrail-event-selectors,defense-evasion,3,2026-07-15T09:16:03.588270+00:00,2026-07-15T09:19:39.076534+00:00,ok,ok,ok,ok,PutEventSelectors,,yes,2
+4dff0343-ac77-4527-9287-c128c1b13d13,nandan,268769775703,aws.persistence.iam-create-admin-user,persistence,1,2026-07-15T09:19:39.078088+00:00,2026-07-15T09:21:26.888339+00:00,ok,ok,ok,ok,CreateUser;AttachUserPolicy,,yes,4
+d13afa40-8e96-4b60-94a5-52b5bad7e897,nandan,268769775703,aws.persistence.iam-create-admin-user,persistence,2,2026-07-15T09:21:26.889802+00:00,2026-07-15T09:22:53.823934+00:00,ok,ok,ok,ok,CreateUser;AttachUserPolicy,,yes,4
+ebe08ef8-0f1f-4fa8-ac8c-1c5bd646578d,nandan,268769775703,aws.persistence.iam-backdoor-user,persistence,3,2026-07-15T09:22:53.825374+00:00,2026-07-15T09:24:45.959827+00:00,ok,ok,ok,ok,CreateAccessKey,,yes,3
+506f4857-6b22-4ef8-a542-6f2c4e246823,nandan,268769775703,aws.defense-evasion.cloudtrail-stop,defense-evasion,1,2026-07-15T09:24:45.961333+00:00,2026-07-15T09:27:57.802158+00:00,ok,ok,ok,ok,StopLogging,,yes,1
+6f843d48-7574-481b-86f5-ad5f26786c0e,nandan,268769775703,aws.persistence.iam-create-backdoor-role,persistence,3,2026-07-15T09:27:57.803376+00:00,2026-07-15T09:29:14.663202+00:00,ok,ok,ok,ok,CreateRole;AttachRolePolicy,,yes,2
+1859a938-3205-4a30-8fa0-bd588e2e637b,nandan,268769775703,aws.credential-access.ssm-retrieve-securestring-parameters,credential-access,3,2026-07-15T09:29:14.664578+00:00,2026-07-15T09:33:03.526212+00:00,ok,ok,ok,ok,DescribeParameters;GetParameters,,yes,187
+b6ff65db-bb4a-4b60-9374-9163dbef0462,nandan,268769775703,aws.privilege-escalation.iam-update-user-login-profile,privilege-escalation,1,2026-07-15T09:33:03.527551+00:00,2026-07-15T09:36:40.570289+00:00,ok,ok,ok,ok,UpdateLoginProfile,,yes,2
+edb8249e-4836-489f-a318-4c71e219e47d,nandan,268769775703,aws.defense-evasion.cloudtrail-stop,defense-evasion,2,2026-07-15T09:36:40.571562+00:00,2026-07-15T09:40:17.001005+00:00,ok,ok,ok,ok,StopLogging,,yes,2
+406c34f4-c4ab-479c-aa59-aa8ef09c590e,nandan,268769775703,aws.credential-access.ec2-get-password-data,credential-access,1,2026-07-15T09:40:17.002496+00:00,2026-07-15T09:43:15.022178+00:00,ok,ok,ok,ok,AssumeRole;GetPasswordData,,yes,38
+4a0f5635-5a9c-467d-809d-b558db2d4527,nandan,268769775703,aws.privilege-escalation.iam-update-user-login-profile,privilege-escalation,3,2026-07-15T09:43:15.023314+00:00,2026-07-15T09:45:55.255667+00:00,ok,ok,ok,ok,UpdateLoginProfile,,yes,2
+e12ff556-32c4-48a1-9959-704c4c290b5a,nandan,268769775703,aws.persistence.iam-create-backdoor-role,persistence,2,2026-07-15T09:45:55.257241+00:00,2026-07-15T09:48:03.005694+00:00,ok,ok,ok,ok,CreateRole;AttachRolePolicy,,yes,3
+88d2c1fa-67c4-4ebf-bd7d-1d8b1d9d5050,nandan,268769775703,aws.persistence.lambda-backdoor-function,persistence,1,2026-07-15T10:54:55.836029+00:00,2026-07-15T10:58:15.733698+00:00,ok,ok,ok,ok,AddPermission20150331v2,,yes,2

@@ -1,0 +1,138 @@
+{
+  "Records": [
+    {
+      "eventVersion": "1.11",
+      "eventSource": "sts.amazonaws.com",
+      "eventName": "AssumeRole",
+      "eventTime": "2026-07-30T09:00:00Z",
+      "userIdentity": {
+        "type": "IAMUser",
+        "arn": "arn:aws:iam::261390480702:user/attacker",
+        "userName": "attacker"
+      },
+      "requestParameters": {
+        "roleArn": "arn:aws:iam::261390480702:role/AdminRole"
+      }
+    },
+    {
+      "eventVersion": "1.11",
+      "eventSource": "iam.amazonaws.com",
+      "eventName": "CreateRole",
+      "eventTime": "2026-07-30T09:00:05Z",
+      "userIdentity": {
+        "type": "AssumedRole",
+        "arn": "arn:aws:sts::261390480702:assumed-role/AdminRole/session1"
+      },
+      "requestParameters": {
+        "roleName": "BackdoorRole"
+      }
+    },
+    {
+      "eventVersion": "1.11",
+      "eventSource": "iam.amazonaws.com",
+      "eventName": "AttachRolePolicy",
+      "eventTime": "2026-07-30T09:00:10Z",
+      "userIdentity": {
+        "type": "AssumedRole",
+        "arn": "arn:aws:sts::261390480702:assumed-role/AdminRole/session1"
+      },
+      "requestParameters": {
+        "roleName": "BackdoorRole",
+        "policyArn": "arn:aws:iam::aws:policy/AdministratorAccess"
+      }
+    },
+    {
+      "eventVersion": "1.11",
+      "eventSource": "iam.amazonaws.com",
+      "eventName": "PutRolePolicy",
+      "eventTime": "2026-07-30T09:00:15Z",
+      "userIdentity": {
+        "type": "AssumedRole",
+        "arn": "arn:aws:sts::261390480702:assumed-role/AdminRole/session1"
+      },
+      "requestParameters": {
+        "roleName": "BackdoorRole"
+      }
+    },
+    {
+      "eventVersion": "1.11",
+      "eventSource": "iam.amazonaws.com",
+      "eventName": "CreatePolicyVersion",
+      "eventTime": "2026-07-30T09:00:20Z",
+      "userIdentity": {
+        "type": "AssumedRole",
+        "arn": "arn:aws:sts::261390480702:assumed-role/AdminRole/session1"
+      },
+      "requestParameters": {
+        "policyArn": "arn:aws:iam::261390480702:policy/BackdoorPolicy",
+        "setAsDefault": true
+      }
+    },
+    {
+      "eventVersion": "1.11",
+      "eventSource": "iam.amazonaws.com",
+      "eventName": "SetDefaultPolicyVersion",
+      "eventTime": "2026-07-30T09:00:25Z",
+      "userIdentity": {
+        "type": "AssumedRole",
+        "arn": "arn:aws:sts::261390480702:assumed-role/AdminRole/session1"
+      },
+      "requestParameters": {
+        "policyArn": "arn:aws:iam::261390480702:policy/BackdoorPolicy",
+        "versionId": "v2"
+      }
+    },
+    {
+      "eventVersion": "1.11",
+      "eventSource": "iam.amazonaws.com",
+      "eventName": "CreateAccessKey",
+      "eventTime": "2026-07-30T09:00:30Z",
+      "userIdentity": {
+        "type": "AssumedRole",
+        "arn": "arn:aws:sts::261390480702:assumed-role/AdminRole/session1"
+      },
+      "requestParameters": {
+        "userName": "attacker"
+      }
+    },
+    {
+      "eventVersion": "1.11",
+      "eventSource": "s3.amazonaws.com",
+      "eventName": "PutBucketPolicy",
+      "eventTime": "2026-07-30T09:00:35Z",
+      "userIdentity": {
+        "type": "AssumedRole",
+        "arn": "arn:aws:sts::261390480702:assumed-role/AdminRole/session1"
+      },
+      "requestParameters": {
+        "bucketName": "sensitive-data-bucket"
+      }
+    },
+    {
+      "eventVersion": "1.11",
+      "eventSource": "secretsmanager.amazonaws.com",
+      "eventName": "GetSecretValue",
+      "eventTime": "2026-07-30T09:00:40Z",
+      "userIdentity": {
+        "type": "AssumedRole",
+        "arn": "arn:aws:sts::261390480702:assumed-role/AdminRole/session1"
+      },
+      "requestParameters": {
+        "secretId": "prod/db/password"
+      }
+    },
+    {
+      "eventVersion": "1.11",
+      "eventSource": "cloudtrail.amazonaws.com",
+      "eventName": "StopLogging",
+      "eventTime": "2026-07-30T09:00:45Z",
+      "userIdentity": {
+        "type": "AssumedRole",
+        "arn": "arn:aws:sts::261390480702:assumed-role/AdminRole/session1"
+      },
+      "requestParameters": {
+        "name": "DefaultTrail"
+      }
+    }
+  ]
+}

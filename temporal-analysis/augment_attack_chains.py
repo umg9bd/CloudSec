@@ -8,10 +8,14 @@ Users are prefixed syn: and stay out of the bert-jan test split.
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from leakage_guard import assert_no_heldout  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent
 SRC = ROOT / "data" / "lstm" / "train_temporal.csv"
@@ -237,6 +241,10 @@ def main() -> None:
     syn = pd.DataFrame(rows)
     syn = syn[df.columns]
     out = pd.concat([df, syn], ignore_index=True)
+    # The augmented set inherits whatever the base set contained, so it needs
+    # the same guarantee -- an earlier version of this file carried 2,858
+    # held-out rows purely because train_temporal.csv did.
+    assert_no_heldout(out, "train_temporal_aug")
     out.to_csv(OUT, index=False)
     print(f"wrote {OUT}")
     print(f"base={len(df)} syn_events={len(syn)} syn_users={n_users} syn_pos={int(syn['label'].sum())} total={len(out)}")
