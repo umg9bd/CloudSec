@@ -19,6 +19,9 @@ __pycache__/
 temporal-analysis/artifacts/lstm_transformer/P_event.csv
 temporal-analysis/artifacts/lstm_transformer/P_seq.csv
 temporal-analysis/artifacts/lstm_transformer/plots/
+temporal-analysis/artifacts/lstm_transformer_v6/P_event.csv
+temporal-analysis/artifacts/lstm_transformer_v6/P_seq.csv
+temporal-analysis/artifacts/lstm_transformer_v6/plots/
 
 # Accidental placeholder paths
 graph_construction/path/

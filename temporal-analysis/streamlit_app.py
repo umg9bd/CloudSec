@@ -1,4 +1,4 @@
-"""Streamlit tester for LSTM–Transformer v5 (P_seq).
+"""Streamlit tester for LSTM–Transformer v5 / v6 (P_seq).
 
 Run from temporal-analysis/:
 
@@ -22,8 +22,30 @@ if str(ROOT) not in sys.path:
 
 from prod.scorer import SchemaError, load_scorer, score_dataframe
 
-CKPT = ROOT / "artifacts" / "lstm_transformer" / "temporal_lstm_transformer.pt"
 DATA = ROOT / "data" / "lstm"
+MODELS = {
+    "v5 — bert-jan specialist": {
+        "kind": "v5",
+        "ckpt": ROOT / "artifacts" / "lstm_transformer" / "temporal_lstm_transformer.pt",
+        "metrics": ROOT / "artifacts" / "lstm_transformer" / "test_metrics.json",
+        "caption": (
+            "LSTM–Transformer v5 — held-out bert-jan; per-event history, then "
+            "`P_seq = max(P_event)` on 10-minute / stride-2 windows"
+        ),
+        "train_hint": "python train_lstm_transformer.py",
+    },
+    "v6 — general (user-disjoint)": {
+        "kind": "v6",
+        "ckpt": ROOT / "artifacts" / "lstm_transformer_v6" / "temporal_lstm_transformer_v6.pt",
+        "metrics": ROOT / "artifacts" / "lstm_transformer_v6" / "test_metrics.json",
+        "caption": (
+            "LSTM–Transformer v6 — same architecture as v5, user-disjoint 70/15/15 "
+            "on cloudtrail_temporal_final (no bert-jan lock). "
+            "`P_seq = max(P_event)` on 10-minute / stride-2 windows"
+        ),
+        "train_hint": "python train_lstm_transformer_v6.py",
+    },
+}
 
 COLUMN_ALIASES = {
     "userName": "username",
@@ -42,6 +64,7 @@ BUILTIN = {
     "Merged train (no syn)": DATA / "train_temporal.csv",
     "Invictus (2.9k events)": DATA / "invictus_temporal.csv",
     "fe-final CloudTrail (9.7k)": DATA / "cloudtrail_temporal.csv",
+    "CloudTrail final (v6 train, deduped)": DATA / "cloudtrail_temporal_final.csv",
 }
 
 SAMPLE_CUSTOM = pd.DataFrame(
@@ -97,8 +120,45 @@ def clf_metrics(y: np.ndarray, pred: np.ndarray) -> dict[str, float]:
 
 
 @st.cache_resource
-def get_scorer():
-    return load_scorer(CKPT)
+def get_scorer(ckpt_str: str):
+    return load_scorer(ckpt_str)
+
+
+def _metric_line(block: dict) -> str:
+    auc = block.get("auc_pr", float("nan"))
+    f1 = block.get("f1", float("nan"))
+    prec = block.get("precision", float("nan"))
+    rec = block.get("recall", float("nan"))
+    n = block.get("n", "?")
+    return f"AUC-PR {auc:.3f} · F1 {f1:.3f} · P {prec:.2f} · R {rec:.2f} · n={n}"
+
+
+def render_saved_metrics(kind: str, metrics_path: Path, tm: dict) -> None:
+    if tm:
+        st.markdown("Held-out test events (from checkpoint)")
+        st.write(_metric_line(tm))
+    if not metrics_path.exists():
+        return
+    saved = json.loads(metrics_path.read_text(encoding="utf-8"))
+    if kind == "v5":
+        bj = saved.get("test_bertjan_campaign") or {}
+        if bj:
+            st.markdown("bert-jan campaign (report)")
+            st.write(
+                f"P {bj.get('precision', float('nan')):.2f} · "
+                f"R {bj.get('recall', float('nan')):.2f} · "
+                f"F1 {bj.get('f1', float('nan')):.2f} · "
+                f"AUC-PR {bj.get('auc_pr', float('nan')):.2f}"
+            )
+        return
+    te = saved.get("test_event") or {}
+    tw = saved.get("test_window") or {}
+    if te:
+        st.markdown("v6 test events (user-disjoint)")
+        st.write(_metric_line(te))
+    if tw:
+        st.markdown("v6 test windows (`P_seq`)")
+        st.write(_metric_line(tw))
 
 
 @st.cache_data
@@ -318,55 +378,39 @@ def builder_events(scorer) -> pd.DataFrame | None:
 
 
 def main() -> None:
-    st.set_page_config(page_title="P_seq tester (v5)", layout="wide")
-    st.title("P_seq tester")
-    st.caption(
-        "LSTM–Transformer v5 — per-event history, then "
-        "`P_seq = max(P_event)` on 10-minute / stride-2 windows"
-    )
+    st.set_page_config(page_title="P_seq tester", layout="wide")
 
-    if not CKPT.exists():
-        st.error(
-            f"Checkpoint not found: {CKPT}. "
-            "Run `python train_lstm_transformer.py` first."
-        )
+    with st.sidebar:
+        st.header("Model")
+        model_name = st.selectbox("Checkpoint", list(MODELS.keys()))
+
+    spec = MODELS[model_name]
+    ckpt = spec["ckpt"]
+    st.title("P_seq tester")
+    st.caption(spec["caption"])
+
+    if not ckpt.exists():
+        st.error(f"Checkpoint not found: {ckpt}. Run `{spec['train_hint']}` first.")
         st.stop()
 
+    if st.session_state.get("_loaded_ckpt") != str(ckpt):
+        st.session_state.pop("last_scored", None)
+        st.session_state.pop("last_events_n", None)
+        st.session_state["_loaded_ckpt"] = str(ckpt)
+
     try:
-        scorer = get_scorer()
+        scorer = get_scorer(str(ckpt))
     except Exception as e:
         st.error(f"Failed to load model: {e}")
         st.stop()
 
     with st.sidebar:
-        st.header("Model")
         st.write(f"**{scorer.model_id}**")
         st.write(f"schema `{scorer.schema_version}`")
         st.write(f"device `{scorer.device}` · vocab {scorer.vocab_size}")
         st.write("heads: IAM + secrets · `P_seq = max(P_event)`")
         st.write(f"default triage **{scorer.thr_triage:.2f}** · alert **{scorer.thr_alert:.2f}**")
-        tm = scorer.test_metrics or {}
-        if tm:
-            st.markdown("Held-out test events (from checkpoint)")
-            st.write(
-                f"AUC-PR {tm.get('auc_pr', float('nan')):.3f} · "
-                f"F1 {tm.get('f1', float('nan')):.3f} · "
-                f"P {tm.get('precision', float('nan')):.2f} · "
-                f"R {tm.get('recall', float('nan')):.2f} · "
-                f"n={tm.get('n', '?')}"
-            )
-        metrics_path = ROOT / "artifacts" / "lstm_transformer" / "test_metrics.json"
-        if metrics_path.exists():
-            saved = json.loads(metrics_path.read_text(encoding="utf-8"))
-            bj = saved.get("test_bertjan_campaign") or {}
-            if bj:
-                st.markdown("bert-jan campaign (report)")
-                st.write(
-                    f"P {bj.get('precision', float('nan')):.2f} · "
-                    f"R {bj.get('recall', float('nan')):.2f} · "
-                    f"F1 {bj.get('f1', float('nan')):.2f} · "
-                    f"AUC-PR {bj.get('auc_pr', float('nan')):.2f}"
-                )
+        render_saved_metrics(spec["kind"], spec["metrics"], scorer.test_metrics or {})
         st.divider()
         st.markdown(
             "Windows are **10 min / stride 2 min**, per username. "
