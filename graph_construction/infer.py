@@ -69,7 +69,7 @@ We save those alongside the state_dict in a companion sidecar:
     torch.save({"state_dict": ..., "model_args": ...}, ckpt_path)
 
 If you trained with the original train.py (which saves state_dict only),
-run `python infer.py --wrap-checkpoint <ckpt>` ONCE to generate the
+run `python graph_construction/infer.py --wrap-checkpoint <ckpt>` ONCE to generate the
 updated sidecar; the flag is described at the bottom of this file.
 
 SUBGRAPH LOADING — WHY data_loader.py IS NOT MODIFIED
@@ -107,6 +107,7 @@ import dataclasses
 import json
 import logging
 import os
+import sys
 import time
 import uuid
 from datetime import datetime, timezone
@@ -121,6 +122,10 @@ from sklearn.preprocessing import LabelEncoder, StandardScaler
 from torch_geometric.data import HeteroData
 
 # ── Your existing modules ────────────────────────────────────────────────────
+
+# feature_engine9 lives at the repo root; this file lives one level below,
+# in graph_construction/, alongside everything else it imports.
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Feature engine — structural row producer
 from feature_engine9 import (
@@ -225,7 +230,7 @@ def load_model_from_checkpoint(ckpt_path: str, device: torch.device) -> Tuple[Gr
         raise ValueError(
             f"Checkpoint at {ckpt_path!r} appears to be a bare state_dict "
             f"(no 'model_args' key). Run:\n"
-            f"  python infer.py --wrap-checkpoint {ckpt_path}\n"
+            f"  python graph_construction/infer.py --wrap-checkpoint {ckpt_path}\n"
             f"to generate a sidecar with model construction args and fit "
             f"artifacts. See the module docstring for details."
         )
@@ -1699,18 +1704,18 @@ def parse_args():
 Typical usage
 ─────────────
 # 1. Wrap an existing bare checkpoint (run once after training):
-python infer.py --wrap-checkpoint ./checkpoints/best_sage.pt \\
+python graph_construction/infer.py --wrap-checkpoint ./checkpoints/best_sage.pt \\
     --neo4j-uri bolt://localhost:7687 --neo4j-user neo4j --neo4j-pass test1234
 
 # 2. Start the watch loop:
-python infer.py \\
+python graph_construction/infer.py \\
     --checkpoint ./checkpoints/best_sage_wrapped.pt \\
     --watch ./incoming \\
     --alert-dir ./alerts \\
     --threshold 0.5
 
 # 3. Process a single file and exit:
-python infer.py \\
+python graph_construction/infer.py \\
     --checkpoint ./checkpoints/best_sage_wrapped.pt \\
     --input ./incoming/cloudtrail_20260101.json \\
     --threshold 0.5

@@ -12,12 +12,12 @@ originating row in the raw CSV, which carries session_id -- never assumed
 positional alignment with the structural CSV, since log_id already encodes
 the exact original row index.
 
-Usage:
-    python evaluate_session_level.py --checkpoint checkpoints/best_GraphSAGE_wrapped.pt \
+Usage (from the repo root):
+    python graph_construction/evaluate_session_level.py --checkpoint checkpoints/best_GraphSAGE_wrapped.pt \
         --model sage --raw-csv datasets/privilege-escalation/real_dataset_test.csv \
         --threshold 0.5
     # or sweep thresholds on the dev set:
-    python evaluate_session_level.py --checkpoint checkpoints/best_GraphSAGE_wrapped.pt \
+    python graph_construction/evaluate_session_level.py --checkpoint checkpoints/best_GraphSAGE_wrapped.pt \
         --model sage --raw-csv datasets/privilege-escalation/real_dataset_dev.csv --sweep
 """
 
@@ -38,9 +38,10 @@ from utils import evaluate
 LOG_ID_RE = re.compile(r"^(.*):(\d+)$")
 
 # Rhino/GuardDuty-style 11-rule set, imported rather than restated so it can
-# never drift from evaluate_baselines.py's definition.
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                                 "datasets", "privilege-escalation"))
+# never drift from evaluate_baselines.py's definition. This file lives in
+# graph_construction/, one level below the repo root.
+_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(_REPO_ROOT, "datasets", "privilege-escalation"))
 from evaluate_baselines import RULES  # noqa: E402
 
 GUARDDUTY = "GuardDuty-style (11 rules)"
@@ -71,7 +72,7 @@ def check_graph_provenance(source_csv, raw_basename: str) -> None:
         raise SystemExit(
             f"GRAPH MISMATCH: Neo4j holds a graph built from {source_csv!r}, but "
             f"--raw-csv is {raw_basename!r} (expected {expected_struct!r}).\n"
-            f"Run:  python build_graph.py datasets/privilege-escalation/{expected_struct}"
+            f"Run:  python graph_construction/build_graph.py datasets/privilege-escalation/{expected_struct}"
         )
 
 

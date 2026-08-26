@@ -1,10 +1,10 @@
 """
 run_tests.py
 ============
-One command to run the project's test suites.
+One command to run the project's test suites. Run from the repo root:
 
-    python run_tests.py            # fast suites only (~2s, no external deps)
-    python run_tests.py --all      # adds the slow Neo4j-dependent suite (~10 min)
+    python tests/run_tests.py            # fast suites only (~2s, no external deps)
+    python tests/run_tests.py --all      # adds the slow Neo4j-dependent suite (~10 min)
 
 WHY TWO TIERS: the fast suites need nothing but the Python environment -- no
 Neo4j, no Docker, no trained checkpoint -- so they can run on every commit and
@@ -35,11 +35,12 @@ import os
 import sys
 import unittest
 
-ROOT = os.path.dirname(os.path.abspath(__file__))
+# This file lives in tests/, one level below the repo root.
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-# graph_construction/ and the repo root both need to be importable: several
-# modules import `neo4j_graph_builder` and `privilege_features` as top-level
-# names rather than as package members.
+# The repo root (feature_engine9, leakage_guard) and graph_construction/
+# (data_loader, model_gat, ...) both need to be importable: several modules
+# import each other as top-level names rather than as package members.
 for path in (ROOT, os.path.join(ROOT, "graph_construction")):
     if path not in sys.path:
         sys.path.insert(0, path)

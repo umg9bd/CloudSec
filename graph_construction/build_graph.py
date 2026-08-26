@@ -1,25 +1,20 @@
 """
-Thin CLI wrapper around graph_construction/neo4j_graph_builder.py's
-build_graph(), which otherwise only reads a hardcoded CSV_PATH module
-constant. Lets any structural CSV be loaded into Neo4j with one clean
-command instead of an inline multi-line python -c snippet.
+Thin CLI wrapper around neo4j_graph_builder.py's build_graph(), which
+otherwise only reads a hardcoded CSV_PATH module constant. Lets any
+structural CSV be loaded into Neo4j with one clean command instead of an
+inline multi-line python -c snippet.
 
 Usage (from the repo root):
-    python build_graph.py datasets/privilege-escalation/cloudtrail_structural.csv
-    python build_graph.py datasets/privilege-escalation/real_dataset_test_structural.csv
-    python build_graph.py datasets/privilege-escalation/real_dataset_dev_structural.csv
+    python graph_construction/build_graph.py datasets/privilege-escalation/cloudtrail_structural.csv
+    python graph_construction/build_graph.py datasets/privilege-escalation/real_dataset_test_structural.csv
+    python graph_construction/build_graph.py datasets/privilege-escalation/real_dataset_dev_structural.csv
 
 WARNING: build_graph() does `MATCH (n) DETACH DELETE n` before loading --
 this replaces whatever graph is currently in Neo4j, it does not merge.
 """
 import argparse
-import os
-import sys
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "graph_construction"))
-
-import neo4j_graph_builder as nb  # noqa: E402
+import neo4j_graph_builder as nb
 
 
 def main():

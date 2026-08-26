@@ -12,7 +12,7 @@ evaluate_session_level.py for any baseline comparison; it computes the rule
 baseline on the same sessions it just scored and reports a paired bootstrap.
 
 Usage:
-    python evaluate_on_real.py --checkpoint checkpoints/best_GraphSAGE_wrapped.pt --model sage
+    python graph_construction/evaluate_on_real.py --checkpoint checkpoints/best_GraphSAGE_wrapped.pt --model sage
 """
 
 import argparse

@@ -75,7 +75,7 @@ Pick **one** — Neo4j holds one graph at a time; loading a new one replaces
 the last. For the honest-result demo (Part 4), load the real test graph:
 
 ```powershell
-python build_graph.py datasets/privilege-escalation/real_dataset_test_structural.csv
+python graph_construction/build_graph.py datasets/privilege-escalation/real_dataset_test_structural.csv
 ```
 
 **Expect** (takes ~5-8 minutes for this file's ~30,000 rows):
@@ -96,7 +96,7 @@ If instead you want to lead with the **live graph visualization** (Part 2)
 or **live training** (Part 3), load the synthetic graph instead:
 
 ```powershell
-python build_graph.py datasets/privilege-escalation/cloudtrail_structural.csv
+python graph_construction/build_graph.py datasets/privilege-escalation/cloudtrail_structural.csv
 ```
 
 **Expect** (faster, ~2-3 minutes, ~9,900 rows):
@@ -144,7 +144,7 @@ this fix, the model had never once seen a labeled example of it."
 ## 3. Live training (needs the **synthetic** graph loaded — see 0.4)
 
 ```powershell
-python train.py --model sage
+python graph_construction/train.py --model sage
 ```
 
 **Expect** (~2 minutes total, early stopping around epoch 55-70):
@@ -166,7 +166,7 @@ If you ran this live, you now need to re-wrap the checkpoint before Part 4,
 since training overwrote it:
 
 ```powershell
-python infer.py --wrap-checkpoint checkpoints/best_GraphSAGE.pt --wrapped-output checkpoints/best_GraphSAGE_wrapped.pt
+python graph_construction/infer.py --wrap-checkpoint checkpoints/best_GraphSAGE.pt --wrapped-output checkpoints/best_GraphSAGE_wrapped.pt
 ```
 
 **Expect:** ends with `Wrapped checkpoint saved to checkpoints/best_GraphSAGE_wrapped.pt`.
@@ -182,7 +182,7 @@ needed.
 ## 4. Real-data evaluation — edge-level (needs the **real test** graph loaded — see 0.4)
 
 ```powershell
-python evaluate_on_real.py --checkpoint checkpoints/best_GraphSAGE_wrapped.pt --model sage
+python graph_construction/evaluate_on_real.py --checkpoint checkpoints/best_GraphSAGE_wrapped.pt --model sage
 ```
 
 **Expect** (~1 minute):
@@ -210,7 +210,7 @@ part of the result."
 ## 5. Session-level result — the verified win
 
 ```powershell
-python evaluate_session_level.py --checkpoint checkpoints/best_GraphSAGE_wrapped.pt --model sage --raw-csv datasets/privilege-escalation/real_dataset_test.csv --threshold 0.65
+python graph_construction/evaluate_session_level.py --checkpoint checkpoints/best_GraphSAGE_wrapped.pt --model sage --raw-csv datasets/privilege-escalation/real_dataset_test.csv --threshold 0.65
 ```
 
 **Expect:**
@@ -277,9 +277,9 @@ than citing its old (worse) numbers as current.
 
 **Threshold sweep on dev data, showing how 0.35 was selected** (needs the dev
 graph loaded via
-`python build_graph.py datasets/privilege-escalation/real_dataset_dev_structural.csv`):
+`python graph_construction/build_graph.py datasets/privilege-escalation/real_dataset_dev_structural.csv`):
 ```powershell
-python evaluate_session_level.py --checkpoint checkpoints/best_GraphSAGE_wrapped.pt --model sage --raw-csv datasets/privilege-escalation/real_dataset_dev.csv --sweep
+python graph_construction/evaluate_session_level.py --checkpoint checkpoints/best_GraphSAGE_wrapped.pt --model sage --raw-csv datasets/privilege-escalation/real_dataset_dev.csv --sweep
 ```
 Shows a broad F1=0.86-0.90 plateau across thresholds 0.25-0.45 (best
 F1=0.901 at 0.35) — good material if asked "how did you pick the threshold,"
