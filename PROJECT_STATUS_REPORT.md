@@ -293,6 +293,18 @@ Threshold stability on test across 0.50–0.70: F1 = 0.845 / 0.857 / 0.882 / 0.8
 
 **Ablations.** Zeroing `is_privilege_escalation_technique` (the hand-coded Rhino action list) changed the pre-fix result by *nothing* — the model is not covertly replaying the rule baseline. Zeroing all rank-normalized node features dropped session AUC 0.912→0.808 and pushed edge AUC below chance, supporting §6.16's claim that rank-normalization is the operative mechanism.
 
+**⚠️ Architectural finding — principal nodes receive no messages at all.** Surfaced by a PyG `UserWarning` while writing the model tests, then confirmed directly against the trained checkpoint's schema:
+
+| | Node types |
+|---|---|
+| Appear as edge **source** | `User`, `Role`, `UnresolvedPrincipal` |
+| Appear as edge **destination** | `Resource`, `Policy`, `Role` |
+| **Never a destination** | **`User`, `UnresolvedPrincipal`** |
+
+The privilege-propagation graph is directed principal→target, so `User` and `UnresolvedPrincipal` are source-only. They therefore receive zero messages during aggregation: their embeddings are a linear projection of their four rank-normalized features and nothing more. For the typical scored edge `(User, READ, Resource)`, only the *destination* side carries any neighbourhood information — `h_src` involves no graph structure whatsoever, and `User` is the source of most labeled attack edges.
+
+This is a partial mechanistic explanation for weak edge-level performance, and it is the kind of thing a reviewer will ask about directly ("what is the GNN actually aggregating?"). It also points at the cheapest high-value experiment left: **add reverse edges** (PyG's `ToUndirected`, or explicit reverse relations in the loader) so principals aggregate from the resources they touch. That is a small change and would, for the first time, give the principal side of every edge an actual graph-derived representation. Untested so far.
+
 **⚠️ Open question — edge-level ranking is now strongly inverted.** Test edge AUC fell from 0.537 to **0.260** (dev: 0.399) even as session-level performance improved. Pooled over all 25,984 in-schema edges, real attack edges score *lower* than real benign edges, yet the per-session maximum separates the classes better than before. This echoes the inversion first seen in §6.15 (AUC=0.157 under log1p) and is not understood. It does not invalidate the session-level result — which survives the permutation and length-strata controls above — but it must be reported, not buried, and it rules out describing this system as an edge-level detector.
 
 ---

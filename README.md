@@ -115,6 +115,27 @@ GraphSAGE
 8.  Trigger blast radius if malicious.
 9.  Save JSON alert.
 
+## Tests
+
+```powershell
+python run_tests.py            # fast suites, ~2s, no Neo4j/Docker/checkpoint needed
+python run_tests.py --all      # adds the batch/streaming equivalence suite (~10 min)
+```
+
+| Suite | Covers |
+|---|---|
+| `test_data_loader.py` | rank normalization, node/edge feature construction, `<UNK>` fallback, one-hot encoding, scaler discipline, global edge ordering |
+| `test_evaluation_integrity.py` | edge→session join, graph/CSV provenance guard, session max-aggregation, paired baseline comparison |
+| `test_models.py` | logit/label alignment contract for GraphSAGE and GAT, untrained-triple handling, feature widths |
+| `test_incremental_updater.py` | batch vs. streaming graph equivalence (slow; **3 known failures**, see `PROJECT_STATUS_REPORT.md` §6.9) |
+
+The first three suites exist because an end-to-end audit found eight defects,
+and none of them were caught by the existing tests — every one lived in a
+module with no coverage. Each test names the specific defect it pins, so the
+failure message tells you what regressed rather than just that something did.
+The known failures in the fourth suite are real and documented; don't "fix"
+them by deleting the assertions.
+
 ## Repository
 
 -   train.py --- training (GraphSAGE and GAT)
