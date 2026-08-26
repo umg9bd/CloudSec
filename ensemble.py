@@ -64,6 +64,15 @@ vendored temporal-analysis/ code):
      1000x unit mismatch that silently breaks window/sequence bounds
      on this pandas version. Fixed by forcing datetime64[ns, UTC]
      before handing the frame to the scorer.
+
+Two modes (see main() / --watch):
+  - One-shot (default): score --input once via run(), which itself calls
+    fe9.run_batch() -- this file is the single entry point, no separate
+    feature_engine9.py invocation needed.
+  - --watch DIR: watch() runs the same pipeline continuously, re-scoring
+    the full accumulated dataset each time a new log file lands in DIR
+    (fast-lane alerts print immediately; the priors are always frozen in
+    this mode, never fit -- see the freeze_priors comment in watch()).
 """
 
 from __future__ import annotations
@@ -73,6 +82,7 @@ import json
 import math
 import os
 import sys
+import time
 
 import pandas as pd
 
@@ -280,7 +290,14 @@ def score_lstm_events(temporal_df: pd.DataFrame, event_vocab_path: str,
 
     df = temporal_df.copy()
     df["event_name"] = df["event_name_idx"].map(inv).fillna("<UNK>")
-    df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True).astype("datetime64[ns, UTC]")
+    # format="mixed": a single-source temporal_df's timestamps are all one
+    # format, but watch mode accumulates rows across different source files
+    # (e.g. ISO8601 "...T...Z" from a JSON input alongside the CSV-style
+    # "YYYY-MM-DD HH:MM:SS+0000" synthetic_cloudtrail.csv already carries)
+    # into the same shared cloudtrail_temporal.csv. pandas' vectorized
+    # to_datetime infers ONE format from the column and raises on anything
+    # that doesn't match it; format="mixed" infers per-element instead.
+    df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True, format="mixed").astype("datetime64[ns, UTC]")
 
     feature_cols = list(scorer.ckpt["feature_cols"])
     prepared = tlt.prepare_score_frame(df, scorer.vocab, feature_cols)
@@ -361,13 +378,104 @@ def run(input_path: str, weight_gnn: float = 0.5, weight_lstm: float = 0.5,
     return result
 
 
+# ── Watch mode: re-score the full pipeline as new log files land ────────────
+
+def watch(directory: str, weight_gnn: float = 0.5, weight_lstm: float = 0.5,
+          out_path: str = "risk_scores.csv", freeze_vocab: bool = False,
+          gnn_source: str = "csv") -> None:
+    """Watches `directory` for new CloudTrail log files -- same dedup/engine
+    setup as feature_engine9.watch_folder(), against the same shared
+    cloudtrail_structural.csv/cloudtrail_temporal.csv -- and after each
+    arrival, re-scores the FULL accumulated dataset through the GNN+LSTM
+    ensemble and rewrites out_path.
+
+    A full rescan, not an incremental update: score_gnn_events() rebuilds
+    the graph from the whole structural_df each call, because hop_count,
+    privilege_gain, and abnormal_path_frequency need the graph's entire
+    history to mean anything -- scoring only the newest arrival in
+    isolation would silently zero all three out for it every time."""
+    from watchdog.events import FileSystemEventHandler
+    from watchdog.observers import Observer
+
+    os.makedirs(directory, exist_ok=True)
+    engine = fe9.FeatureEngineer(
+        event_name_vocab_path=fe9.EVENT_NAME_VOCAB_FILE,
+        state_tracker_path=fe9.STATE_TRACKER_FILE,
+        graph_state_path=fe9.GRAPH_NODE_STATE_FILE,
+        action_prior_path=fe9.ACTION_PRIOR_FILE,
+        principal_prior_path=fe9.PRINCIPAL_PRIOR_FILE,
+        freeze_vocab=freeze_vocab,
+        # FeatureEngineer defaults to freeze_priors=False (unfrozen/fit-
+        # enabled) -- the auto-safety ("frozen unless this is the training
+        # input") lives only inside run_batch(), which this function
+        # bypasses by calling process_batch_file() directly. Watch mode is
+        # live/eval scoring and must never fit the label-derived priors, so
+        # this has to be passed explicitly here.
+        freeze_priors=True,
+    )
+    state = fe9.load_state()
+    processed = set(state["processed_files"])
+    resolver = pf.ActionAccessLevelResolver()
+
+    def rescore():
+        structural_df = pd.read_csv(fe9.STRUCT_OUT)
+        temporal_df = pd.read_csv(fe9.TEMPORAL_OUT)
+        n = len(structural_df)
+        print(f"[ENSEMBLE] rescoring {n} accumulated events...", flush=True)
+        gnn_df = score_gnn_events(structural_df, source=gnn_source, resolver=resolver)
+        lstm_df = score_lstm_events(temporal_df, fe9.EVENT_NAME_VOCAB_FILE)
+        result = combine_events(structural_df, temporal_df, gnn_df, lstm_df, weight_gnn, weight_lstm)
+        result.to_csv(out_path, index=False)
+        print(f"[ENSEMBLE] {len(result)} events scored -> {out_path}", flush=True)
+
+    class ArrivalHandler(FileSystemEventHandler):
+        def on_created(self, event):
+            if event.is_directory:
+                return
+            path = event.src_path
+            name = os.path.basename(path)
+            if name in processed or not name.endswith(
+                ('.csv', '.csv.gz', '.json', '.jsonl', '.ndjson', '.json.gz', '.jsonl.gz', '.ndjson.gz')
+            ):
+                return
+            if not fe9._file_is_stable(path):
+                return
+            fe9.process_batch_file(engine, path)  # prints [FAST-LANE ALERT] as it goes
+            processed.add(name)
+            state["processed_files"] = sorted(processed)
+            fe9.save_state(state)
+            rescore()
+
+    observer = Observer()
+    observer.schedule(ArrivalHandler(), directory, recursive=False)
+    observer.start()
+    print(f"Watching {directory} for new CloudTrail log files (Ctrl+C to stop)...")
+    try:
+        while True:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        print("\nStopped watching.")
+    finally:
+        observer.stop()
+        observer.join()
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Combined GNN structural + LSTM temporal risk ensemble -- "
                      "one 0-10 risk score per EVENT (not per principal), so an "
                      "attack chain shows up as a run of high scores in order.")
-    parser.add_argument("--input", required=True,
-                         help="Raw CloudTrail input (any file feature_engine9.py accepts)")
+    parser.add_argument("--input", default=fe9.DEFAULT_INPUT,
+                         help="Raw CloudTrail input (any file feature_engine9.py accepts). "
+                              "One-shot mode: scored directly. With --watch --simulate: "
+                              "chunked into the watched directory as the simulated source.")
+    parser.add_argument("--watch", metavar="DIR",
+                         help="Watch DIR and re-run the full pipeline (feature engineering "
+                              "+ GNN + LSTM + ensemble) each time a new log file lands, "
+                              "instead of scoring --input once. Ctrl+C to stop.")
+    parser.add_argument("--simulate", action="store_true",
+                         help="With --watch, also chunk --input into small CSVs dropped "
+                              "into DIR periodically (see feature_engine9.py --simulate)")
     parser.add_argument("--out", default="risk_scores.csv",
                          help="Output CSV of per-event risk scores")
     parser.add_argument("--weight-gnn", type=float, default=0.5,
@@ -385,8 +493,15 @@ def main():
                          help="Also print the full per-event risk table to the terminal. "
                               "Off by default -- the run prints only feature_engine9's "
                               "[FAST-LANE ALERT] lines and a one-line summary; the full table "
-                              "always goes to --out regardless of this flag.")
+                              "always goes to --out regardless of this flag. Ignored with --watch.")
     args = parser.parse_args()
+
+    if args.watch:
+        if args.simulate:
+            fe9.simulate_incoming_files(args.watch, args.input)
+        watch(args.watch, args.weight_gnn, args.weight_lstm, args.out,
+              args.freeze_vocab, gnn_source=args.source)
+        return
 
     result = run(args.input, args.weight_gnn, args.weight_lstm,
                  args.out, args.freeze_vocab, gnn_source=args.source)

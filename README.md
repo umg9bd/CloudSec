@@ -50,34 +50,25 @@ uninformative. See `docs/PROJECT_STATUS_REPORT.md` §6.17 for the full picture.
 
 ## Architecture
 
+The path every reported result actually comes from is batch, not streaming
+(see the note under Streaming Inference below):
+
 ``` text
-CloudTrail
+Raw CloudTrail (CSV / JSON)
     │
     ▼
-Feature Engineering
+feature_engine9.py
     │
-    ▼
-Incremental Graph Update
-(Neo4j + In-Memory Graph)
-    │
-    ▼
-K-Hop Neighbourhood Extraction
-    │
-    ▼
-PyTorch Geometric HeteroData
-    │
-    ▼
-GraphSAGE
-    │
-    ├── Benign
-    └── Malicious
-            │
-            ▼
-     Blast Radius Analysis
-            │
-            ▼
-        JSON Alert
+    ├──→ structural.csv → build_graph.py → Neo4j → data_loader.py → GraphSAGE → evaluate_session_level.py
+    │                                                                            (session-level F1, reported results)
+    └──→ temporal.csv → LSTMTransformerV5
 ```
+
+`ensemble.py` is a separate, third consumer of the same two feature CSVs: it
+combines a pure-topology GNN score (deliberately not the trained GraphSAGE
+checkpoint's edge probability — see its module docstring) with the LSTM's
+per-event probability into one `risk_score` per event. See the Ensemble
+section below.
 
 ## Why GraphSAGE?
 
@@ -86,13 +77,6 @@ GraphSAGE
 -   Streaming inference without retraining *(design goal — see the status note under Streaming Inference)*
 -   Scales to continuously growing graphs
 -   Works naturally with heterogeneous IAM graphs
-
-## Training Pipeline
- Build Neo4j graph.
- Convert to PyTorch Geometric HeteroData.
- Fit scalers and label encoders.
- Train GraphSAGE.
- Save checkpoint.
 
 ## Streaming Inference
 
@@ -105,36 +89,68 @@ GraphSAGE
 >
 > The batch evaluation path (`graph_construction/build_graph.py` → `graph_construction/data_loader.py` → `graph_construction/evaluate_session_level.py`) is unaffected, and every reported result comes from it. Fix the two defects above, or scope streaming out of the write-up, before making any real-time claim.
 
-1.  Watch incoming directory.
-2.  Feature engineer new event.
-3.  Incrementally update Neo4j.
-4.  Extract affected k-hop neighborhood.
-5.  Build HeteroData.
-6.  Apply training scalers.
-7.  Run GraphSAGE.
-8.  Trigger blast radius if malicious.
-9.  Save JSON alert.
+Design (once fixed): watch `incoming/` → feature-engineer each new event →
+incrementally update Neo4j → extract the affected k-hop neighbourhood →
+run GraphSAGE → trigger blast radius on a malicious verdict → write a JSON
+alert into `alerts/`. See the command at the bottom of this file for how
+it's invoked once operational.
 
 ## Repository
 
--   graph_construction/train.py --- training (GraphSAGE and GAT)
--   graph_construction/infer.py --- streaming inference + checkpoint wrapping (see note below)
--   graph_construction/model_graphsage.py / graph_construction/model_gat.py --- models
--   graph_construction/data_loader.py --- graph loading, feature normalization
--   graph_construction/privilege_features.py --- node/edge identity, relation classification
--   graph_construction/neo4j_graph_builder.py --- batch graph construction
--   graph_construction/incremental_updater.py --- streaming graph updates
--   feature_engine9.py --- feature engineering (raw CloudTrail -> structural/temporal CSVs)
--   datasets/privilege-escalation/generate_synthetic_data.py --- synthetic training data generator
--   graph_construction/build_graph.py --- CLI wrapper to load a structural CSV into Neo4j
--   graph_construction/evaluate_on_real.py --- edge-level real-data evaluation
--   graph_construction/evaluate_session_level.py --- session-level real-data evaluation (comparable to the rule baseline)
--   datasets/privilege-escalation/evaluate_baselines.py --- rule-based baselines
--   graph_construction/blast_radius.py --- downstream reachability/impact analysis (not yet exercised)
--   graph_construction/explainability.py --- prediction explanations (not yet exercised)
--   tests/run_tests.py --- one command to run the project's test suites
--   docs/PROJECT_STATUS_REPORT.md --- full evaluation history, evidence, and publication roadmap
--   docs/DEMO_GUIDE.md --- runnable demo script with expected output at each step
+-   `feature_engine9.py` --- feature engineering: raw CloudTrail (CSV/JSON) -> structural.csv (GNN) + temporal.csv (LSTM). Also the fast-lane alert on defense-evasion actions.
+-   `ensemble.py` --- combined GNN structural + LSTM temporal risk score, one 0-10 `risk_score` per EVENT
+-   `leakage_guard.py` --- one shared definition of "held out"; audits any file for train/test contamination across the graph and sequence tracks
+-   `datasets/privilege-escalation/generate_synthetic_data.py` --- synthetic training data generator
+-   `datasets/privilege-escalation/evaluate_baselines.py` --- rule-based baselines
+-   `graph_construction/train.py` --- training (GraphSAGE and GAT)
+-   `graph_construction/infer.py` --- streaming inference + checkpoint wrapping (see note below)
+-   `graph_construction/model_graphsage.py` / `graph_construction/model_gat.py` --- models
+-   `graph_construction/data_loader.py` --- graph loading, feature normalization
+-   `graph_construction/privilege_features.py` --- node/edge identity, relation classification
+-   `graph_construction/neo4j_graph_builder.py` --- batch graph construction
+-   `graph_construction/incremental_updater.py` --- streaming graph updates
+-   `graph_construction/build_graph.py` --- CLI wrapper to load a structural CSV into Neo4j
+-   `graph_construction/evaluate_on_real.py` --- edge-level real-data evaluation
+-   `graph_construction/evaluate_session_level.py` --- session-level real-data evaluation (comparable to the rule baseline)
+-   `graph_construction/blast_radius.py` --- downstream reachability/impact analysis (not yet exercised)
+-   `graph_construction/explainability.py` --- prediction explanations (not yet exercised)
+-   `tests/run_tests.py` --- one command to run the project's test suites
+-   `docs/PROJECT_STATUS_REPORT.md` --- full evaluation history, evidence, and publication roadmap
+-   `docs/DEMO_GUIDE.md` --- runnable demo script with expected output at each step
+
+## Setup
+
+``` bash
+pip install -r requirements.txt
+```
+Neo4j must be running (`bolt://localhost:7687` by default) for graph
+construction, training, and evaluation. Full environment setup in
+`docs/DEMO_GUIDE.md`.
+
+## Feature engineering
+
+Raw CloudTrail in, `structural.csv` (GNN) + `temporal.csv` (LSTM) out.
+Fires a `[FAST-LANE ALERT]` immediately on any defense-evasion action
+(`StopLogging`, `DeleteTrail`, `UpdateDetector`, `DeleteFlowLogs`), ahead of
+full feature computation:
+
+``` bash
+# One-shot batch, default input (datasets/privilege-escalation/synthetic_cloudtrail.csv)
+python feature_engine9.py
+
+# Any other CSV/JSON input -- always freeze the vocab on evaluation data
+python feature_engine9.py --input datasets/privilege-escalation/real_dataset_dev.csv --freeze-vocab
+
+# Watch a folder and process each new log file as it lands (Ctrl+C to stop)
+python feature_engine9.py --watch incoming
+# ...and simulate arrivals by chunking --input into it while watching
+python feature_engine9.py --watch incoming --simulate
+```
+
+`action_risk_prior` / `principal_type_prior_risk` are label-derived
+features: only the training input (`synthetic_cloudtrail.csv`) may fit
+them (`--fit-priors`); every other input is frozen automatically, and
+`--fit-priors` on a non-training input is refused outright.
 
 ## Training
 
@@ -160,29 +176,60 @@ python graph_construction/evaluate_session_level.py --checkpoint checkpoints/bes
 
 Full setup (Neo4j, environment variables, expected output) in `docs/DEMO_GUIDE.md`.
 
+## Ensemble: combined GNN + LSTM risk score
+
+Fuses the GNN's structural score (pure graph topology, not the trained
+classifier's edge probability -- see `ensemble.py`'s module docstring for
+why) with the LSTM's per-event probability into one 0-10 `risk_score` per
+EVENT, in arrival order, so an attack chain shows up as a run of rising
+scores:
+
+This file is the single entry point -- it calls `feature_engine9.py`
+internally, so you never invoke that script by hand:
+
+``` bash
+# One-shot: score one file
+python ensemble.py --input datasets/privilege-escalation/real_dataset_dev.csv --out risk_scores_dev.csv --freeze-vocab
+
+# Batch/continuous: watch a folder and re-score the full accumulated
+# dataset each time a new log file lands (Ctrl+C to stop)
+python ensemble.py --watch incoming --out risk_scores.csv --freeze-vocab
+# ...and simulate arrivals by chunking --input into it while watching
+python ensemble.py --watch incoming --simulate --input datasets/privilege-escalation/real_dataset_dev.csv --freeze-vocab
+```
+
+`--weight-gnn`/`--weight-lstm` (default 0.5/0.5, must sum to 1.0), `--source
+csv|neo4j` (build the graph from the CSV directly, or read it back from a
+live Neo4j already loaded via `build_graph.py`), `--show-table` (also print
+the scored table to the terminal, one-shot mode only). The LSTM step is the
+slow one on CPU -- budget a couple of minutes per full rescore.
+`--freeze-vocab` on non-training input, same as `feature_engine9.py`; in
+`--watch` mode the label-derived priors are always frozen, never fit.
+
+## Run tests
+
+``` bash
+python tests/run_tests.py            # fast suites only (~2s, no external deps)
+python tests/run_tests.py --all      # adds the slow batch/streaming equivalence suite (~10 min)
+```
+
+## Audit for train/test leakage
+
+Checks any file for rows that belong to the held-out dev/test split --
+before you let anything train on it:
+
+``` bash
+python leakage_guard.py temporal-analysis/data/lstm/train_temporal.csv
+```
+
 ## Run live streaming inference
 
 ``` bash
 python graph_construction/infer.py   --checkpoint checkpoints/best_GraphSAGE_wrapped.pt   --watch incoming   --alert-dir alerts   --threshold 0.5   --seed-from-neo4j
 ```
-Insert json logs into incoming directory to get real time prediction of the action performed.
+Insert json logs into the incoming directory to get a real-time prediction
+of the action performed — once the two defects flagged above are fixed
+(see `docs/PROJECT_STATUS_REPORT.md` §6.16 for the current feature-schema
+desync). Use the batch evaluation commands above for anything that needs
+to be trusted right now.
 
-**Known issue**: `infer.py`'s live single-event feature builder constructs
-edge features independently of `data_loader.py` and has not yet been
-updated for the rank-normalized feature schema behind the current best
-checkpoint (see `docs/PROJECT_STATUS_REPORT.md` section 6.16) — it will run
-without erroring but produce incorrect scores until this is fixed. Use the
-batch evaluation commands above for anything that needs to be trusted right
-now.
-
-## Outputs
-
-Alerts are written into the alerts directory as JSON.
-
-## Design Principles
-
--   Incremental graph updates
--   No retraining
--   Inductive GNN
--   Explainable blast radius
--   Consistent preprocessing between training and inference
