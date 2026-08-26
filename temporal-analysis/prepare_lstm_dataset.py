@@ -20,7 +20,23 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from leakage_guard import assert_no_heldout, filter_heldout  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent
-SRC = ROOT.parent / "datasets" / "privilege-escalation"
+REPO_ROOT = ROOT.parent
+SRC = REPO_ROOT / "datasets" / "privilege-escalation"
+
+
+def _rel(path) -> str:
+    """Path recorded relative to the REPO ROOT, with forward slashes.
+
+    manifest.json used to store absolute paths, so it churned on every run for
+    every teammate -- four people with four checkout directories produced four
+    different manifests carrying zero real difference, and every one of them
+    was a merge conflict waiting to happen. Recording repo-relative POSIX paths
+    makes the manifest reproducible across machines and platforms."""
+    path = Path(path).resolve()
+    try:
+        return path.relative_to(REPO_ROOT).as_posix()
+    except ValueError:
+        return path.as_posix()   # genuinely outside the repo; keep it absolute
 OUT = ROOT / "data" / "lstm"
 
 INVICTUS_TEMPORAL = ROOT / "data" / "lstm" / "invictus_temporal.csv"
@@ -146,7 +162,7 @@ def copy_assets() -> dict[str, str]:
         # so there is nothing to do.
         if src.resolve() != dst.resolve():
             shutil.copy2(src, dst)
-        copied[dst.name] = str(dst)
+        copied[dst.name] = _rel(dst)
     return copied
 
 
@@ -238,7 +254,7 @@ def attach_event_name(
             )
 
     info = {
-        "source_csv": str(source_csv),
+        "source_csv": _rel(source_csv),
         "expected_stem": expected_stem,
         "join_offset": int(offset),
         "timestamp_match_rate": rates[offset],
@@ -446,12 +462,10 @@ def main() -> None:
         "sources": {
             "fe_final_temporal": "data/lstm/cloudtrail_temporal.csv",
             "invictus_temporal": "data/lstm/invictus_temporal.csv",
-            "fe_final_names": str(SYNTHETIC_CLOUDTRAIL.relative_to(ROOT))
-            if SYNTHETIC_CLOUDTRAIL.is_relative_to(ROOT)
-            else str(SYNTHETIC_CLOUDTRAIL),
+            "fe_final_names": _rel(SYNTHETIC_CLOUDTRAIL),
             "invictus_names": "invictus_enriched.csv",
         },
-        "prepared_csv": str(prepared_path.relative_to(ROOT)),
+        "prepared_csv": _rel(prepared_path),
         "vocab_json": "data/lstm/event_name_vocab.json",
         "n_rows": int(len(merged)),
         "n_rows_fe_final": int(len(fe)),

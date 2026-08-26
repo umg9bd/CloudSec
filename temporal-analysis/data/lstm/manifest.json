@@ -4,10 +4,10 @@
   "sources": {
     "fe_final_temporal": "data/lstm/cloudtrail_temporal.csv",
     "invictus_temporal": "data/lstm/invictus_temporal.csv",
-    "fe_final_names": "C:\\CloudSec\\cloudsec-fixes\\datasets\\privilege-escalation\\synthetic_cloudtrail.csv",
+    "fe_final_names": "datasets/privilege-escalation/synthetic_cloudtrail.csv",
     "invictus_names": "invictus_enriched.csv"
   },
-  "prepared_csv": "data\\lstm\\train_temporal.csv",
+  "prepared_csv": "temporal-analysis/data/lstm/train_temporal.csv",
   "vocab_json": "data/lstm/event_name_vocab.json",
   "n_rows": 10033,
   "n_rows_fe_final": 10033,
@@ -65,7 +65,7 @@
   },
   "join": {
     "fe_final": {
-      "source_csv": "C:\\CloudSec\\cloudsec-fixes\\datasets\\privilege-escalation\\synthetic_cloudtrail.csv",
+      "source_csv": "datasets/privilege-escalation/synthetic_cloudtrail.csv",
       "expected_stem": "synthetic_cloudtrail.csv",
       "join_offset": 0,
       "timestamp_match_rate": 1.0,
@@ -73,7 +73,7 @@
       "n_unique_event_names": 67
     },
     "invictus": {
-      "source_csv": "C:\\CloudSec\\cloudsec-fixes\\temporal-analysis\\invictus_enriched.csv",
+      "source_csv": "temporal-analysis/invictus_enriched.csv",
       "expected_stem": "invictus_enriched.csv",
       "join_offset": 0,
       "timestamp_match_rate": 1.0,
@@ -149,10 +149,10 @@
     "windowing": "event-covering stride grid (skip empty spans)"
   },
   "copied_files": {
-    "cloudtrail_temporal.csv": "C:\\CloudSec\\cloudsec-fixes\\temporal-analysis\\data\\lstm\\cloudtrail_temporal.csv",
-    "cloudtrail_structural.csv": "C:\\CloudSec\\cloudsec-fixes\\temporal-analysis\\data\\lstm\\cloudtrail_structural.csv",
-    "invictus_temporal.csv": "C:\\CloudSec\\cloudsec-fixes\\temporal-analysis\\data\\lstm\\invictus_temporal.csv",
-    "event_name_vocab_fe_final.json": "C:\\CloudSec\\cloudsec-fixes\\temporal-analysis\\data\\lstm\\event_name_vocab_fe_final.json"
+    "cloudtrail_temporal.csv": "temporal-analysis/data/lstm/cloudtrail_temporal.csv",
+    "cloudtrail_structural.csv": "temporal-analysis/data/lstm/cloudtrail_structural.csv",
+    "invictus_temporal.csv": "temporal-analysis/data/lstm/invictus_temporal.csv",
+    "event_name_vocab_fe_final.json": "temporal-analysis/data/lstm/event_name_vocab_fe_final.json"
   },
   "unmerged_copies": {
     "cloudtrail_temporal.csv": "data/lstm/cloudtrail_temporal.csv",
