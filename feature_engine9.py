@@ -20,6 +20,7 @@ import ipaddress
 import numpy as np
 
 
+# Safely parses a JSON string (or passes through an already-decoded dict/list); returns None on failure.
 def _parse_json_text(value):
     if value is None:
         return None
@@ -36,16 +37,19 @@ def _parse_json_text(value):
     return None
 
 
+# True if input_path looks like a raw CloudTrail JSON/JSONL log (optionally gzipped) rather than a CSV.
 def _is_cloudtrail_json_path(input_path):
     lower_path = input_path.lower()
     return lower_path.endswith(('.json', '.jsonl', '.ndjson', '.json.gz', '.jsonl.gz', '.ndjson.gz'))
 
 
+# True if input_path is a CSV (optionally gzipped) CloudTrail export.
 def _is_cloudtrail_csv_path(input_path):
     lower_path = input_path.lower()
     return lower_path.endswith(('.csv', '.csv.gz'))
 
 
+# Opens input_path for text reading, transparently decompressing .gz files.
 def _open_input_text(input_path):
     if input_path.lower().endswith('.gz'):
         return gzip.open(input_path, mode='rt', encoding='utf-8')
@@ -125,6 +129,7 @@ def normalize_cloudtrail_row(row):
     return normalized
 
 
+# Streams normalized rows from a CloudTrail CSV or JSON/JSONL file (raw event dicts, {"Records": [...]}, or NDJSON), one dict per event.
 def iter_input_rows(input_path):
     with _open_input_text(input_path) as infile:
         if _is_cloudtrail_json_path(input_path):
@@ -178,17 +183,21 @@ def iter_input_rows(input_path):
 
 UNK_TOKEN = "<UNK>"
 
+# Closed vocabulary for principal_type_idx (see FeatureEngineer.principal_type_vocab); never grows past this list.
 FIXED_PRINCIPAL_TYPES = [
     UNK_TOKEN, "Root", "IAMUser", "AssumedRole", "FederatedUser",
     "AWSAccount", "AWSService", "SAMLUser", "WebIdentityUser", "Unknown",
 ]
 
+# Closed vocabulary for event_source_idx (see FeatureEngineer.event_source_vocab); never grows past this list.
 FIXED_EVENT_SOURCES = [
     UNK_TOKEN, "iam.amazonaws.com", "sts.amazonaws.com", "ec2.amazonaws.com",
     "s3.amazonaws.com", "secretsmanager.amazonaws.com", "ssm.amazonaws.com",
     "cloudtrail.amazonaws.com", "lambda.amazonaws.com", "kms.amazonaws.com",
 ]
 
+# Token<->integer index for categorical features; either a fixed closed set or an open vocab persisted to a JSON file
+# (loads from and saves to `path`, e.g. EVENT_NAME_VOCAB_FILE / .event_name_vocab.json, as {token: index}).
 class VocabIndex:
     def __init__(self, fixed_tokens=None, path=None):
         self.path = path
@@ -238,6 +247,8 @@ def _extract_statements(policy_doc):
     return statements if isinstance(statements, list) else []
 
 
+# Parses an IAM policy document (embedded as JSON text inside request_params_raw) into
+# (statement_count, has_wildcard_action, has_wildcard_resource, privileged_reach).
 def parse_policy_features(request_params_raw):
     params = _parse_json_text(request_params_raw)
     if not isinstance(params, dict):
@@ -284,6 +295,7 @@ def parse_policy_features(request_params_raw):
 DEFAULT_RESOURCE_CRITICALITY = 2
 
 
+# Scores how sensitive a target AWS resource is (1-5) based on its service and name, for the target_resource_criticality graph attribute.
 def get_resource_criticality(event_source, target_resource):
     source = (event_source or '').lower()
     target = str(target_resource or '').lower()
@@ -302,6 +314,7 @@ def get_resource_criticality(event_source, target_resource):
 
 PRIVILEGE_TIERS = {"ReadOnly": 0, "Developer": 1, "PowerUser": 2, "Admin": 3, "Root": 4}
 
+# Maps a principal's observed behavior on this event to a coarse privilege tier (0-4, see PRIVILEGE_TIERS).
 def derive_privilege_signal(principal_type, is_write_action, wildcard_action, privileged_reach):
     if principal_type == 'Root':
         return PRIVILEGE_TIERS['Root']
@@ -324,6 +337,8 @@ def _extract_account_id(arn):
     return None
 
 
+# Tracks per-node graph state (degree, privilege tier, EWMA risk, edge counts, account seen-counts) across events,
+# persisted to a JSON file (`path`, e.g. GRAPH_NODE_STATE_FILE / .graph_node_state.json) as {nodes, edge_counts, account_id_counts}.
 class GraphNodeTracker:
     EWMA_ALPHA = 0.3  # weight on the newest risk sample
     NODE_AGE_CAP_SECONDS = 86400.0  # normalize node age against 1 day
@@ -417,6 +432,7 @@ class GraphNodeTracker:
 
 # ── Shared feature engineering ─────────────────────────────────────────────
 
+# Parses a CloudTrail timestamp in either ISO-8601 ("...T...Z") or "YYYY-MM-DD HH:MM:SS+0000" form into a datetime.
 def _parse_timestamp(timestamp_str):
     if 'T' in timestamp_str:
         return datetime.fromisoformat(timestamp_str.replace('Z', '+00:00'))
@@ -424,6 +440,8 @@ def _parse_timestamp(timestamp_str):
 
 SESSION_GAP_SECONDS = 1800  # inactivity gap that starts a new session
 
+# Tracks per-principal activity (last action time, seen actions, session start/count) for velocity/session features,
+# persisted to a JSON file (`path`, e.g. STATE_TRACKER_FILE / .state_tracker.json) keyed by principal ARN.
 class StateTracker:
     def __init__(self, path=None):
         self.path = path
@@ -485,6 +503,8 @@ class StateTracker:
         return velocity, is_new_action, session_duration, events_per_minute
 
 
+# Orchestrates feature generation for one event: composes StateTracker (.state_tracker.json), GraphNodeTracker
+# (.graph_node_state.json), and the VocabIndex vocabs (event_name_vocab persisted to EVENT_NAME_VOCAB_FILE / .event_name_vocab.json).
 class FeatureEngineer:
     def __init__(self, event_name_vocab_path=None, state_tracker_path=None, graph_state_path=None):
         self.tracker = StateTracker(path=state_tracker_path)
@@ -676,6 +696,7 @@ class FeatureEngineer:
         return f
 
 
+# Column names for the temporal-branch feature vector produced by FeatureEngineer.get_temporal_features, in order.
 TEMPORAL_COLS = [
     "no_mfa", "mfa_absent", "principal_type_prior_risk", "principal_type_idx",
     "has_access_key", "action_velocity", "is_new_action",
@@ -690,24 +711,28 @@ TEMPORAL_COLS = [
     "policy_statement_count_normalized", "has_wildcard_action",
     "has_wildcard_resource", "privileged_action_reach",
 ]
+# Per-node/edge graph attribute columns produced by GraphNodeTracker.record_edge + get_resource_criticality/cross_account_flag.
 GRAPH_ATTR_FIELDS = [
     "source_node_degree", "edge_interaction_count", "source_node_age_normalized",
     "source_privilege_level", "source_historical_risk",
     "target_resource_criticality", "is_cross_account",
 ]
+# Full header for cloudtrail_structural.csv (the GNN edge-list output).
 STRUCT_FIELDS = ["log_id", "source_node", "target_node", "edge_type", "label"] + GRAPH_ATTR_FIELDS
+# Full header for cloudtrail_temporal.csv (the per-event sequence-model feature output).
 TEMP_FIELDS = ["log_id", "username", "timestamp"] + TEMPORAL_COLS + ["label"]
 
 DATA_DIR = "datasets/privilege-escalation"
-DEFAULT_INPUT = os.path.join(DATA_DIR, "synthetic_cloudtrail.csv")
-STRUCT_OUT = os.path.join(DATA_DIR, "cloudtrail_structural.csv")
-TEMPORAL_OUT = os.path.join(DATA_DIR, "cloudtrail_temporal.csv")
-STATE_FILE = os.path.join(DATA_DIR, ".feature_engine9_state.json")
-EVENT_NAME_VOCAB_FILE = os.path.join(DATA_DIR, ".event_name_vocab.json")
-STATE_TRACKER_FILE = os.path.join(DATA_DIR, ".state_tracker.json")
-GRAPH_NODE_STATE_FILE = os.path.join(DATA_DIR, ".graph_node_state.json")
+DEFAULT_INPUT = os.path.join(DATA_DIR, "synthetic_cloudtrail.csv")  # default one-shot batch input CSV
+STRUCT_OUT = os.path.join(DATA_DIR, "cloudtrail_structural.csv")  # GNN structural-branch output CSV (STRUCT_FIELDS)
+TEMPORAL_OUT = os.path.join(DATA_DIR, "cloudtrail_temporal.csv")  # sequence-branch temporal-feature output CSV (TEMP_FIELDS)
+STATE_FILE = os.path.join(DATA_DIR, ".feature_engine9_state.json")  # JSON: {"processed_files": [...]} for watch-mode dedup, see load_state/save_state
+EVENT_NAME_VOCAB_FILE = os.path.join(DATA_DIR, ".event_name_vocab.json")  # JSON: open event_name -> index vocab persisted by VocabIndex
+STATE_TRACKER_FILE = os.path.join(DATA_DIR, ".state_tracker.json")  # JSON: per-principal activity state persisted by StateTracker
+GRAPH_NODE_STATE_FILE = os.path.join(DATA_DIR, ".graph_node_state.json")  # JSON: per-node/edge graph state persisted by GraphNodeTracker
 
 # ── Fast-lane: defense-evasion actions that get an immediate alert ───────────
+# Event names that trigger an immediate print alert via fast_lane_alert, mapped to a human-readable reason.
 CRITICAL_ACTIONS = {
     "StopLogging":     "CloudTrail logging disabled",
     "DeleteTrail":     "CloudTrail trail deleted",
@@ -729,12 +754,14 @@ def fast_lane_alert(row) -> None:
 # ── State (processed-file tracking, so re-running / restarting the watcher
 #    never reprocesses a CloudTrail log file twice) ────────────────────────────
 
+# Loads the processed-files set for watch mode from STATE_FILE (.feature_engine9_state.json); defaults to empty.
 def load_state() -> dict:
     if os.path.exists(STATE_FILE):
         return json.loads(open(STATE_FILE, encoding='utf-8').read())
     return {"processed_files": []}
 
 
+# Writes the processed-files set for watch mode to STATE_FILE (.feature_engine9_state.json).
 def save_state(state: dict) -> None:
     with open(STATE_FILE, 'w', encoding='utf-8') as f:
         json.dump(state, f)
@@ -757,6 +784,7 @@ def _check_output_schema(path, expected_fields):
         )
 
 
+# Merges new_rows into TEMPORAL_OUT (cloudtrail_temporal.csv), re-sorts the whole file by (username, timestamp), and rewrites it atomically.
 def _rewrite_temporal_sorted(new_rows) -> None:
     existing_rows = []
     if os.path.exists(TEMPORAL_OUT):
@@ -834,6 +862,8 @@ def process_batch_file(engine: FeatureEngineer, input_path: str) -> int:
     return count
 
 
+# One-shot batch entry point: builds a FeatureEngineer (loading state from EVENT_NAME_VOCAB_FILE, STATE_TRACKER_FILE,
+# GRAPH_NODE_STATE_FILE) and processes input_path once via process_batch_file.
 def run_batch(input_path: str) -> None:
     if not os.path.exists(input_path):
         print(f"Error: Could not find {input_path}")
@@ -868,6 +898,8 @@ def _file_is_stable(path: str, checks: int = 2, interval: float = 0.3) -> bool:
     return True
 
 
+# Watch-mode entry point: watches `directory` for new CloudTrail log files and feeds each one through
+# process_batch_file as it arrives, tracking dedup state in STATE_FILE (.feature_engine9_state.json).
 def watch_folder(directory: str) -> None:
     from watchdog.events import FileSystemEventHandler
     from watchdog.observers import Observer
@@ -913,6 +945,7 @@ def watch_folder(directory: str) -> None:
 # ── Optional: drop mock log files into the watched folder, for demoing
 #    without a real S3 bucket / EventBridge rule ──────────────────────────────
 
+# Builds one random synthetic CloudTrail event dict (used by simulate_incoming_files for demo mode).
 def _generate_mock_log():
     import random
 
@@ -987,6 +1020,7 @@ def simulate_incoming_files(directory: str, min_rows: int = 5, max_rows: int = 2
 
 # ── CLI ────────────────────────────────────────────────────────────────────────
 
+# CLI entry point: parses --input/--watch/--simulate and dispatches to run_batch or watch_folder(+simulate_incoming_files).
 def main():
     parser = argparse.ArgumentParser(description="Micro-batch CloudTrail feature engine")
     parser.add_argument("--input", default=DEFAULT_INPUT, help="CSV to process in one-shot batch mode")

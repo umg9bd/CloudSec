@@ -12,7 +12,7 @@
       "StartInstances"
     ],
     "last_ts": "2024-11-27T14:10:22+00:00",
-    "session_event_count": 10,
+    "session_event_count": 20,
     "session_start_ts": "2024-11-27T14:00:36+00:00"
   },
   "arn:aws:iam::002076149635:user/fglcgo": {
@@ -30,7 +30,7 @@
       "RebootInstances"
     ],
     "last_ts": "2024-11-15T19:13:06+00:00",
-    "session_event_count": 12,
+    "session_event_count": 24,
     "session_start_ts": "2024-11-15T19:01:55+00:00"
   },
   "arn:aws:iam::003377935500:user/yzllgo": {
@@ -51,7 +51,7 @@
       "PutSecretValue"
     ],
     "last_ts": "2024-01-11T10:22:09+00:00",
-    "session_event_count": 20,
+    "session_event_count": 40,
     "session_start_ts": "2024-01-11T10:01:01+00:00"
   },
   "arn:aws:iam::003745682212:user/hnvqfu": {
@@ -69,7 +69,7 @@
       "StartInstances"
     ],
     "last_ts": "2024-02-27T11:06:10+00:00",
-    "session_event_count": 11,
+    "session_event_count": 22,
     "session_start_ts": "2024-02-27T11:00:13+00:00"
   },
   "arn:aws:iam::005390649639:user/yzwaksgcxzd": {
@@ -89,7 +89,7 @@
       "PutSecretValue"
     ],
     "last_ts": "2024-08-13T08:06:31+00:00",
-    "session_event_count": 14,
+    "session_event_count": 28,
     "session_start_ts": "2024-08-13T08:00:18+00:00"
   },
   "arn:aws:iam::006040026728:user/dgdzrn": {
@@ -110,7 +110,7 @@
       "RotateSecret"
     ],
     "last_ts": "2024-11-27T12:06:31+00:00",
-    "session_event_count": 14,
+    "session_event_count": 28,
     "session_start_ts": "2024-11-27T12:00:30+00:00"
   },
   "arn:aws:iam::006166531547:root": {
@@ -119,7 +119,7 @@
       "ListManagedNotificationEvents"
     ],
     "last_ts": "2024-09-28T10:46:29+00:00",
-    "session_event_count": 8,
+    "session_event_count": 16,
     "session_start_ts": "2024-09-28T10:06:15+00:00"
   },
   "arn:aws:iam::006420851957:user/uqbwie": {
@@ -132,7 +132,7 @@
       "GetSecretValue"
     ],
     "last_ts": "2024-04-23T10:07:46+00:00",
-    "session_event_count": 9,
+    "session_event_count": 18,
     "session_start_ts": "2024-04-23T10:01:42+00:00"
   },
   "arn:aws:iam::006431887792:user/ziwwrjhgpzzg": {
@@ -152,7 +152,7 @@
       "PutRolePolicy"
     ],
     "last_ts": "2024-08-25T10:05:34+00:00",
-    "session_event_count": 13,
+    "session_event_count": 26,
     "session_start_ts": "2024-08-25T10:00:14+00:00"
   },
   "arn:aws:iam::009998906845:user/gdeuzl": {
@@ -170,7 +170,7 @@
       "StopInstances"
     ],
     "last_ts": "2024-12-11T09:12:15+00:00",
-    "session_event_count": 14,
+    "session_event_count": 28,
     "session_start_ts": "2024-12-11T09:00:51+00:00"
   },
   "arn:aws:iam::010112837851:user/xrzs": {
@@ -186,7 +186,7 @@
       "RotateSecret"
     ],
     "last_ts": "2024-10-26T09:05:45+00:00",
-    "session_event_count": 9,
+    "session_event_count": 18,
     "session_start_ts": "2024-10-26T09:00:22+00:00"
   },
   "arn:aws:iam::014212599363:user/egqpkurozsk": {
@@ -204,7 +204,7 @@
       "PutRolePolicy"
     ],
     "last_ts": "2024-03-05T14:05:14+00:00",
-    "session_event_count": 11,
+    "session_event_count": 22,
     "session_start_ts": "2024-03-05T14:00:25+00:00"
   },
   "arn:aws:iam::014804785981:user/qtxogro": {
@@ -222,7 +222,7 @@
       "UpdateAssumeRolePolicy"
     ],
     "last_ts": "2024-05-13T13:06:38+00:00",
-    "session_event_count": 11,
+    "session_event_count": 22,
     "session_start_ts": "2024-05-13T13:00:28+00:00"
   },
   "arn:aws:iam::015624111999:user/ssovps": {
@@ -244,7 +244,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-09-12T18:14:35+00:00",
-    "session_event_count": 18,
+    "session_event_count": 36,
     "session_start_ts": "2024-09-12T18:01:28+00:00"
   },
   "arn:aws:iam::016438473633:user/pdwpgrln": {
@@ -261,7 +261,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-02-24T10:05:37+00:00",
-    "session_event_count": 10,
+    "session_event_count": 20,
     "session_start_ts": "2024-02-24T10:00:14+00:00"
   },
   "arn:aws:iam::017979315293:user/npeato": {
@@ -280,7 +280,7 @@
       "StopInstances"
     ],
     "last_ts": "2024-06-26T18:14:38+00:00",
-    "session_event_count": 13,
+    "session_event_count": 26,
     "session_start_ts": "2024-06-26T18:00:54+00:00"
   },
   "arn:aws:iam::018016086753:user/jsdcyq": {
@@ -302,7 +302,7 @@
       "StopInstances"
     ],
     "last_ts": "2024-08-16T07:20:12+00:00",
-    "session_event_count": 20,
+    "session_event_count": 40,
     "session_start_ts": "2024-08-16T07:00:21+00:00"
   },
   "arn:aws:iam::021317140758:user/isjcml": {
@@ -318,7 +318,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-10-22T18:13:04+00:00",
-    "session_event_count": 12,
+    "session_event_count": 24,
     "session_start_ts": "2024-10-22T18:01:25+00:00"
   },
   "arn:aws:iam::021641928754:user/wblsbd": {
@@ -338,7 +338,7 @@
       "StopInstances"
     ],
     "last_ts": "2024-07-28T17:18:10+00:00",
-    "session_event_count": 19,
+    "session_event_count": 38,
     "session_start_ts": "2024-07-28T17:00:43+00:00"
   },
   "arn:aws:iam::023741800380:user/juutxiwx": {
@@ -355,7 +355,7 @@
       "ListSecrets"
     ],
     "last_ts": "2024-06-09T10:05:16+00:00",
-    "session_event_count": 11,
+    "session_event_count": 22,
     "session_start_ts": "2024-06-09T10:00:30+00:00"
   },
   "arn:aws:iam::025091251103:user/fbohtw": {
@@ -374,7 +374,7 @@
       "RotateSecret"
     ],
     "last_ts": "2024-12-14T13:13:29+00:00",
-    "session_event_count": 13,
+    "session_event_count": 26,
     "session_start_ts": "2024-12-14T13:01:25+00:00"
   },
   "arn:aws:iam::025482041502:user/ksoghwztmvr": {
@@ -389,7 +389,7 @@
       "PutRolePolicy"
     ],
     "last_ts": "2024-11-16T09:04:04+00:00",
-    "session_event_count": 8,
+    "session_event_count": 16,
     "session_start_ts": "2024-11-16T09:00:05+00:00"
   },
   "arn:aws:iam::026162083322:user/ltrbnq": {
@@ -412,7 +412,7 @@
       "StopLogging"
     ],
     "last_ts": "2024-11-25T07:10:17+00:00",
-    "session_event_count": 17,
+    "session_event_count": 34,
     "session_start_ts": "2024-11-25T07:00:22+00:00"
   },
   "arn:aws:iam::027097415475:user/sbxdbt": {
@@ -429,7 +429,7 @@
       "StopInstances"
     ],
     "last_ts": "2024-05-01T13:11:43+00:00",
-    "session_event_count": 11,
+    "session_event_count": 22,
     "session_start_ts": "2024-05-01T13:00:15+00:00"
   },
   "arn:aws:iam::027149808056:user/lkll": {
@@ -445,7 +445,7 @@
       "PutRolePolicy"
     ],
     "last_ts": "2024-06-09T19:04:12+00:00",
-    "session_event_count": 10,
+    "session_event_count": 20,
     "session_start_ts": "2024-06-09T19:00:05+00:00"
   },
   "arn:aws:iam::028138872727:user/cejlwb": {
@@ -466,7 +466,7 @@
       "StopInstances"
     ],
     "last_ts": "2024-09-07T18:15:18+00:00",
-    "session_event_count": 17,
+    "session_event_count": 34,
     "session_start_ts": "2024-09-07T18:01:33+00:00"
   },
   "arn:aws:iam::031174414435:user/zcxkjii": {
@@ -484,7 +484,7 @@
       "UpdateAssumeRolePolicy"
     ],
     "last_ts": "2024-10-24T12:03:37+00:00",
-    "session_event_count": 12,
+    "session_event_count": 24,
     "session_start_ts": "2024-10-24T12:00:03+00:00"
   },
   "arn:aws:iam::031292921623:user/jdfqcjlu": {
@@ -503,7 +503,7 @@
       "PutRolePolicy"
     ],
     "last_ts": "2024-12-25T08:06:38+00:00",
-    "session_event_count": 12,
+    "session_event_count": 24,
     "session_start_ts": "2024-12-25T08:00:19+00:00"
   },
   "arn:aws:iam::032163357411:user/yewuxj": {
@@ -523,7 +523,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-05-08T19:09:35+00:00",
-    "session_event_count": 17,
+    "session_event_count": 34,
     "session_start_ts": "2024-05-08T19:00:26+00:00"
   },
   "arn:aws:iam::034158586010:user/oigr": {
@@ -539,7 +539,7 @@
       "SetDefaultPolicyVersion"
     ],
     "last_ts": "2024-01-12T13:04:49+00:00",
-    "session_event_count": 11,
+    "session_event_count": 22,
     "session_start_ts": "2024-01-12T13:00:06+00:00"
   },
   "arn:aws:iam::034579490257:user/vcwad": {
@@ -558,7 +558,7 @@
       "SetDefaultPolicyVersion"
     ],
     "last_ts": "2024-02-28T09:05:25+00:00",
-    "session_event_count": 12,
+    "session_event_count": 24,
     "session_start_ts": "2024-02-28T09:00:07+00:00"
   },
   "arn:aws:iam::036749111322:user/aglgzis": {
@@ -576,7 +576,7 @@
       "PutRolePolicy"
     ],
     "last_ts": "2024-06-23T14:06:56+00:00",
-    "session_event_count": 11,
+    "session_event_count": 22,
     "session_start_ts": "2024-06-23T14:00:11+00:00"
   },
   "arn:aws:iam::038724781666:user/qtuikpjkzx": {
@@ -591,7 +591,7 @@
       "UpdateAssumeRolePolicy"
     ],
     "last_ts": "2024-12-17T14:04:16+00:00",
-    "session_event_count": 8,
+    "session_event_count": 16,
     "session_start_ts": "2024-12-17T14:00:23+00:00"
   },
   "arn:aws:iam::038734460807:user/netlwr": {
@@ -611,7 +611,7 @@
       "RebootInstances"
     ],
     "last_ts": "2024-06-17T15:17:41+00:00",
-    "session_event_count": 17,
+    "session_event_count": 34,
     "session_start_ts": "2024-06-17T15:01:02+00:00"
   },
   "arn:aws:iam::038957557919:user/noatfw": {
@@ -627,7 +627,7 @@
       "StartInstances"
     ],
     "last_ts": "2024-11-10T12:17:19+00:00",
-    "session_event_count": 14,
+    "session_event_count": 28,
     "session_start_ts": "2024-11-10T12:00:08+00:00"
   },
   "arn:aws:iam::039912246558:user/qvtbto": {
@@ -648,7 +648,7 @@
       "StartInstances"
     ],
     "last_ts": "2024-02-18T09:22:28+00:00",
-    "session_event_count": 20,
+    "session_event_count": 40,
     "session_start_ts": "2024-02-18T09:01:02+00:00"
   },
   "arn:aws:iam::043789971434:user/qreupm": {
@@ -664,7 +664,7 @@
       "ListFunctions"
     ],
     "last_ts": "2024-11-11T17:12:16+00:00",
-    "session_event_count": 11,
+    "session_event_count": 22,
     "session_start_ts": "2024-11-11T17:01:24+00:00"
   },
   "arn:aws:iam::048535819094:user/ksvineku": {
@@ -683,7 +683,7 @@
       "SetDefaultPolicyVersion"
     ],
     "last_ts": "2024-12-22T10:05:02+00:00",
-    "session_event_count": 12,
+    "session_event_count": 24,
     "session_start_ts": "2024-12-22T10:00:04+00:00"
   },
   "arn:aws:iam::049529776994:user/srejgc": {
@@ -701,7 +701,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-08-21T17:19:50+00:00",
-    "session_event_count": 16,
+    "session_event_count": 32,
     "session_start_ts": "2024-08-21T17:01:56+00:00"
   },
   "arn:aws:iam::050207634539:user/ijvrpieuujmw": {
@@ -719,7 +719,7 @@
       "PutParameter"
     ],
     "last_ts": "2024-09-10T18:05:16+00:00",
-    "session_event_count": 11,
+    "session_event_count": 22,
     "session_start_ts": "2024-09-10T18:00:18+00:00"
   },
   "arn:aws:iam::051141793191:user/mjyczsdgi": {
@@ -740,7 +740,7 @@
       "PutRolePolicy"
     ],
     "last_ts": "2024-06-02T07:07:10+00:00",
-    "session_event_count": 14,
+    "session_event_count": 28,
     "session_start_ts": "2024-06-02T07:00:12+00:00"
   },
   "arn:aws:iam::055951713920:root": {
@@ -752,7 +752,7 @@
       "ListManagedNotificationEvents"
     ],
     "last_ts": "2024-11-06T20:05:19+00:00",
-    "session_event_count": 10,
+    "session_event_count": 20,
     "session_start_ts": "2024-11-06T19:07:14+00:00"
   },
   "arn:aws:iam::057575892844:user/lnxyef": {
@@ -766,7 +766,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-07-22T07:06:40+00:00",
-    "session_event_count": 8,
+    "session_event_count": 16,
     "session_start_ts": "2024-07-22T07:00:50+00:00"
   },
   "arn:aws:iam::057771084667:user/ffbzztsgtwtx": {
@@ -783,7 +783,7 @@
       "UpdateAssumeRolePolicy"
     ],
     "last_ts": "2024-03-12T07:03:59+00:00",
-    "session_event_count": 10,
+    "session_event_count": 20,
     "session_start_ts": "2024-03-12T07:00:21+00:00"
   },
   "arn:aws:iam::058371429011:user/ygtcil": {
@@ -804,7 +804,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-10-06T13:14:20+00:00",
-    "session_event_count": 19,
+    "session_event_count": 38,
     "session_start_ts": "2024-10-06T13:00:37+00:00"
   },
   "arn:aws:iam::060831493479:user/gagmpb": {
@@ -819,7 +819,7 @@
       "ListFunctions"
     ],
     "last_ts": "2024-02-12T18:14:54+00:00",
-    "session_event_count": 12,
+    "session_event_count": 24,
     "session_start_ts": "2024-02-12T18:01:32+00:00"
   },
   "arn:aws:iam::064863226127:user/nfqdylmxkj": {
@@ -838,7 +838,7 @@
       "ListUsers"
     ],
     "last_ts": "2024-07-09T08:06:29+00:00",
-    "session_event_count": 13,
+    "session_event_count": 26,
     "session_start_ts": "2024-07-09T08:00:16+00:00"
   },
   "arn:aws:iam::066690832409:user/ixsmkg": {
@@ -853,7 +853,7 @@
       "StartInstances"
     ],
     "last_ts": "2024-05-20T07:10:03+00:00",
-    "session_event_count": 10,
+    "session_event_count": 20,
     "session_start_ts": "2024-05-20T07:01:52+00:00"
   },
   "arn:aws:iam::068463623184:user/mshovm": {
@@ -872,7 +872,7 @@
       "PutSecretValue"
     ],
     "last_ts": "2024-01-16T09:13:52+00:00",
-    "session_event_count": 13,
+    "session_event_count": 26,
     "session_start_ts": "2024-01-16T09:01:26+00:00"
   },
   "arn:aws:iam::070457449944:user/upaaxd": {
@@ -892,7 +892,7 @@
       "StopInstances"
     ],
     "last_ts": "2024-07-19T16:20:45+00:00",
-    "session_event_count": 17,
+    "session_event_count": 34,
     "session_start_ts": "2024-07-19T16:01:34+00:00"
   },
   "arn:aws:iam::072817143298:user/ckyzad": {
@@ -908,7 +908,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-06-03T15:12:23+00:00",
-    "session_event_count": 12,
+    "session_event_count": 24,
     "session_start_ts": "2024-06-03T15:01:43+00:00"
   },
   "arn:aws:iam::073024321150:user/dpjire": {
@@ -930,7 +930,7 @@
       "RotateSecret"
     ],
     "last_ts": "2024-12-03T14:14:36+00:00",
-    "session_event_count": 17,
+    "session_event_count": 34,
     "session_start_ts": "2024-12-03T14:01:59+00:00"
   },
   "arn:aws:iam::073613418418:user/hskfbzqlr": {
@@ -948,7 +948,7 @@
       "PutParameter"
     ],
     "last_ts": "2024-01-07T17:06:57+00:00",
-    "session_event_count": 12,
+    "session_event_count": 24,
     "session_start_ts": "2024-01-07T17:00:22+00:00"
   },
   "arn:aws:iam::074534899590:user/dnuysp": {
@@ -965,7 +965,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-04-18T13:13:33+00:00",
-    "session_event_count": 12,
+    "session_event_count": 24,
     "session_start_ts": "2024-04-18T13:00:58+00:00"
   },
   "arn:aws:iam::074775264153:user/jlytdk": {
@@ -987,7 +987,7 @@
       "PutSecretValue"
     ],
     "last_ts": "2024-01-24T11:14:22+00:00",
-    "session_event_count": 19,
+    "session_event_count": 38,
     "session_start_ts": "2024-01-24T11:00:56+00:00"
   },
   "arn:aws:iam::076943884436:user/goyoxx": {
@@ -1005,7 +1005,7 @@
       "PutSecretValue"
     ],
     "last_ts": "2024-05-04T08:14:13+00:00",
-    "session_event_count": 15,
+    "session_event_count": 30,
     "session_start_ts": "2024-05-04T08:00:52+00:00"
   },
   "arn:aws:iam::077532145403:user/blnolw": {
@@ -1025,7 +1025,7 @@
       "StopInstances"
     ],
     "last_ts": "2024-02-06T18:13:06+00:00",
-    "session_event_count": 15,
+    "session_event_count": 30,
     "session_start_ts": "2024-02-06T18:00:30+00:00"
   },
   "arn:aws:iam::077801593191:user/ztzvdk": {
@@ -1039,7 +1039,7 @@
       "StartInstances"
     ],
     "last_ts": "2024-04-09T18:06:46+00:00",
-    "session_event_count": 8,
+    "session_event_count": 16,
     "session_start_ts": "2024-04-09T18:00:46+00:00"
   },
   "arn:aws:iam::078254029839:user/psffcx": {
@@ -1053,7 +1053,7 @@
       "PutSecretValue"
     ],
     "last_ts": "2024-12-17T16:07:08+00:00",
-    "session_event_count": 8,
+    "session_event_count": 16,
     "session_start_ts": "2024-12-17T16:00:44+00:00"
   },
   "arn:aws:iam::083934990767:root": {
@@ -1063,7 +1063,7 @@
       "ListManagedNotificationEvents"
     ],
     "last_ts": "2024-09-15T16:36:00+00:00",
-    "session_event_count": 7,
+    "session_event_count": 14,
     "session_start_ts": "2024-09-15T16:03:32+00:00"
   },
   "arn:aws:iam::084028634899:user/luuakh": {
@@ -1079,7 +1079,7 @@
       "StartInstances"
     ],
     "last_ts": "2024-08-03T10:11:52+00:00",
-    "session_event_count": 10,
+    "session_event_count": 20,
     "session_start_ts": "2024-08-03T10:01:08+00:00"
   },
   "arn:aws:iam::094606445358:user/gxzjbrxjig": {
@@ -1100,7 +1100,7 @@
       "PutParameter"
     ],
     "last_ts": "2024-06-01T14:07:42+00:00",
-    "session_event_count": 14,
+    "session_event_count": 28,
     "session_start_ts": "2024-06-01T14:00:29+00:00"
   },
   "arn:aws:iam::096151391970:user/vzmmnl": {
@@ -1116,7 +1116,7 @@
       "StopInstances"
     ],
     "last_ts": "2024-08-04T17:13:09+00:00",
-    "session_event_count": 12,
+    "session_event_count": 24,
     "session_start_ts": "2024-08-04T17:01:20+00:00"
   },
   "arn:aws:iam::097113149572:user/cyegzf": {
@@ -1138,7 +1138,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-05-26T10:18:29+00:00",
-    "session_event_count": 17,
+    "session_event_count": 34,
     "session_start_ts": "2024-05-26T10:00:41+00:00"
   },
   "arn:aws:iam::097624956667:user/hhpxzwqzc": {
@@ -1154,7 +1154,7 @@
       "PutRolePolicy"
     ],
     "last_ts": "2024-11-19T18:04:15+00:00",
-    "session_event_count": 10,
+    "session_event_count": 20,
     "session_start_ts": "2024-11-19T18:00:09+00:00"
   },
   "arn:aws:iam::101013921927:user/wujsvmrypx": {
@@ -1174,7 +1174,7 @@
       "ListSecrets"
     ],
     "last_ts": "2024-11-24T16:05:54+00:00",
-    "session_event_count": 13,
+    "session_event_count": 26,
     "session_start_ts": "2024-11-24T16:00:09+00:00"
   },
   "arn:aws:iam::102590524245:user/vjraslln": {
@@ -1190,7 +1190,7 @@
       "StartInstances"
     ],
     "last_ts": "2024-10-23T18:04:45+00:00",
-    "session_event_count": 9,
+    "session_event_count": 18,
     "session_start_ts": "2024-10-23T18:00:25+00:00"
   },
   "arn:aws:iam::104942119546:user/imtmgqny": {
@@ -1207,7 +1207,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-07-05T16:06:23+00:00",
-    "session_event_count": 11,
+    "session_event_count": 22,
     "session_start_ts": "2024-07-05T16:00:13+00:00"
   },
   "arn:aws:iam::105510084995:user/ifakgx": {
@@ -1225,7 +1225,7 @@
       "StopInstances"
     ],
     "last_ts": "2024-09-15T08:16:31+00:00",
-    "session_event_count": 14,
+    "session_event_count": 28,
     "session_start_ts": "2024-09-15T08:01:59+00:00"
   },
   "arn:aws:iam::106613935285:user/hyqbex": {
@@ -1241,7 +1241,7 @@
       "StopInstances"
     ],
     "last_ts": "2024-11-27T07:12:50+00:00",
-    "session_event_count": 11,
+    "session_event_count": 22,
     "session_start_ts": "2024-11-27T07:01:07+00:00"
   },
   "arn:aws:iam::107588702021:user/etmdrf": {
@@ -1264,7 +1264,7 @@
       "StopInstances"
     ],
     "last_ts": "2024-12-03T08:19:04+00:00",
-    "session_event_count": 19,
+    "session_event_count": 38,
     "session_start_ts": "2024-12-03T08:01:31+00:00"
   },
   "arn:aws:iam::109551462365:user/dclgsb": {
@@ -1282,7 +1282,7 @@
       "ListKeys"
     ],
     "last_ts": "2024-01-06T08:16:37+00:00",
-    "session_event_count": 13,
+    "session_event_count": 26,
     "session_start_ts": "2024-01-06T08:01:13+00:00"
   },
   "arn:aws:iam::112406029561:user/ohokn": {
@@ -1301,7 +1301,7 @@
       "UpdateAssumeRolePolicy"
     ],
     "last_ts": "2024-12-07T13:06:07+00:00",
-    "session_event_count": 12,
+    "session_event_count": 24,
     "session_start_ts": "2024-12-07T13:00:09+00:00"
   },
   "arn:aws:iam::116003343887:user/wvuxei": {
@@ -1318,7 +1318,7 @@
       "StopInstances"
     ],
     "last_ts": "2024-01-05T13:11:32+00:00",
-    "session_event_count": 12,
+    "session_event_count": 24,
     "session_start_ts": "2024-01-05T13:00:55+00:00"
   },
   "arn:aws:iam::118027680529:user/zfqnoc": {
@@ -1335,7 +1335,7 @@
       "StopInstances"
     ],
     "last_ts": "2024-07-12T12:12:59+00:00",
-    "session_event_count": 14,
+    "session_event_count": 28,
     "session_start_ts": "2024-07-12T12:00:38+00:00"
   },
   "arn:aws:iam::120542825406:user/ilgnpt": {
@@ -1348,7 +1348,7 @@
       "RotateSecret"
     ],
     "last_ts": "2024-08-21T18:07:24+00:00",
-    "session_event_count": 8,
+    "session_event_count": 16,
     "session_start_ts": "2024-08-21T18:01:25+00:00"
   },
   "arn:aws:iam::121244746504:user/kjdvwg": {
@@ -1363,7 +1363,7 @@
       "GetRole"
     ],
     "last_ts": "2024-10-27T10:11:07+00:00",
-    "session_event_count": 12,
+    "session_event_count": 24,
     "session_start_ts": "2024-10-27T10:01:20+00:00"
   },
   "arn:aws:iam::124947145506:user/cqgbjm": {
@@ -1378,7 +1378,7 @@
       "ListRolePolicies"
     ],
     "last_ts": "2024-02-08T07:11:06+00:00",
-    "session_event_count": 9,
+    "session_event_count": 18,
     "session_start_ts": "2024-02-08T07:01:14+00:00"
   },
   "arn:aws:iam::125044285222:user/pnklyt": {
@@ -1398,7 +1398,7 @@
       "ListRolePolicies"
     ],
     "last_ts": "2024-02-03T08:20:43+00:00",
-    "session_event_count": 17,
+    "session_event_count": 34,
     "session_start_ts": "2024-02-03T08:01:11+00:00"
   },
   "arn:aws:iam::125773565176:user/lkybr": {
@@ -1416,7 +1416,7 @@
       "PutRolePolicy"
     ],
     "last_ts": "2024-09-04T12:06:01+00:00",
-    "session_event_count": 12,
+    "session_event_count": 24,
     "session_start_ts": "2024-09-04T12:00:11+00:00"
   },
   "arn:aws:iam::127512114573:user/izgfzr": {
@@ -1436,7 +1436,7 @@
       "StopInstances"
     ],
     "last_ts": "2024-11-15T12:18:43+00:00",
-    "session_event_count": 17,
+    "session_event_count": 34,
     "session_start_ts": "2024-11-15T12:00:59+00:00"
   },
   "arn:aws:iam::127527776559:user/muczovbkg": {
@@ -1455,7 +1455,7 @@
       "ListUsers"
     ],
     "last_ts": "2024-05-13T15:05:57+00:00",
-    "session_event_count": 12,
+    "session_event_count": 24,
     "session_start_ts": "2024-05-13T15:00:15+00:00"
   },
   "arn:aws:iam::133164228671:root": {
@@ -1465,7 +1465,7 @@
       "ListManagedNotificationEvents"
     ],
     "last_ts": "2024-01-05T01:36:43+00:00",
-    "session_event_count": 6,
+    "session_event_count": 12,
     "session_start_ts": "2024-01-05T01:04:59+00:00"
   },
   "arn:aws:iam::134568297786:user/cqucvb": {
@@ -1483,7 +1483,7 @@
       "PutSecretValue"
     ],
     "last_ts": "2024-05-19T15:12:57+00:00",
-    "session_event_count": 12,
+    "session_event_count": 24,
     "session_start_ts": "2024-05-19T15:00:46+00:00"
   },
   "arn:aws:iam::134807084110:user/droonp": {
@@ -1504,7 +1504,7 @@
       "StartInstances"
     ],
     "last_ts": "2024-08-11T12:12:51+00:00",
-    "session_event_count": 16,
+    "session_event_count": 32,
     "session_start_ts": "2024-08-11T12:00:32+00:00"
   },
   "arn:aws:iam::135917732373:user/mipqxordqt": {
@@ -1523,7 +1523,7 @@
       "PutRolePolicy"
     ],
     "last_ts": "2024-07-21T13:04:50+00:00",
-    "session_event_count": 12,
+    "session_event_count": 24,
     "session_start_ts": "2024-07-21T13:00:22+00:00"
   },
   "arn:aws:iam::137656215333:user/jnttmq": {
@@ -1543,7 +1543,7 @@
       "StartInstances"
     ],
     "last_ts": "2024-11-15T09:15:33+00:00",
-    "session_event_count": 18,
+    "session_event_count": 36,
     "session_start_ts": "2024-11-15T09:00:36+00:00"
   },
   "arn:aws:iam::139195326796:user/porhmm": {
@@ -1558,7 +1558,7 @@
       "StopInstances"
     ],
     "last_ts": "2024-06-13T07:13:34+00:00",
-    "session_event_count": 11,
+    "session_event_count": 22,
     "session_start_ts": "2024-06-13T07:00:10+00:00"
   },
   "arn:aws:iam::141153177120:user/kpidcl": {
@@ -1576,7 +1576,7 @@
       "StopInstances"
     ],
     "last_ts": "2024-10-21T09:18:11+00:00",
-    "session_event_count": 17,
+    "session_event_count": 34,
     "session_start_ts": "2024-10-21T09:00:52+00:00"
   },
   "arn:aws:iam::144035832200:user/dblww": {
@@ -1596,7 +1596,7 @@
       "UpdateAssumeRolePolicy"
     ],
     "last_ts": "2024-04-28T11:05:59+00:00",
-    "session_event_count": 13,
+    "session_event_count": 26,
     "session_start_ts": "2024-04-28T11:00:18+00:00"
   },
   "arn:aws:iam::144800031018:user/phzlec": {
@@ -1612,7 +1612,7 @@
       "RotateSecret"
     ],
     "last_ts": "2024-07-04T10:11:31+00:00",
-    "session_event_count": 10,
+    "session_event_count": 20,
     "session_start_ts": "2024-07-04T10:01:13+00:00"
   },
   "arn:aws:iam::144872442041:user/tmvgxhs": {
@@ -1628,7 +1628,7 @@
       "RebootInstances"
     ],
     "last_ts": "2024-01-23T09:02:39+00:00",
-    "session_event_count": 9,
+    "session_event_count": 18,
     "session_start_ts": "2024-01-23T09:00:29+00:00"
   },
   "arn:aws:iam::147897190034:user/mgowrec": {
@@ -1650,7 +1650,7 @@
       "StopLogging"
     ],
     "last_ts": "2024-09-13T18:07:54+00:00",
-    "session_event_count": 16,
+    "session_event_count": 32,
     "session_start_ts": "2024-09-13T18:00:13+00:00"
   },
   "arn:aws:iam::149606015339:user/hchdfn": {
@@ -1669,7 +1669,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-02-23T16:22:20+00:00",
-    "session_event_count": 17,
+    "session_event_count": 34,
     "session_start_ts": "2024-02-23T16:00:37+00:00"
   },
   "arn:aws:iam::153491342596:user/ckcyfw": {
@@ -1687,7 +1687,7 @@
       "RotateSecret"
     ],
     "last_ts": "2024-06-10T08:07:36+00:00",
-    "session_event_count": 11,
+    "session_event_count": 22,
     "session_start_ts": "2024-06-10T08:00:40+00:00"
   },
   "arn:aws:iam::154962964208:user/lgfylkpxk": {
@@ -1699,7 +1699,7 @@
       "PutRolePolicy"
     ],
     "last_ts": "2024-06-04T10:03:54+00:00",
-    "session_event_count": 6,
+    "session_event_count": 12,
     "session_start_ts": "2024-06-04T10:00:10+00:00"
   },
   "arn:aws:iam::155811459950:user/xedexh": {
@@ -1721,7 +1721,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-12-18T19:21:16+00:00",
-    "session_event_count": 17,
+    "session_event_count": 34,
     "session_start_ts": "2024-12-18T19:01:41+00:00"
   },
   "arn:aws:iam::156558470128:user/frmfsx": {
@@ -1743,7 +1743,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-03-19T12:16:59+00:00",
-    "session_event_count": 19,
+    "session_event_count": 38,
     "session_start_ts": "2024-03-19T12:01:54+00:00"
   },
   "arn:aws:iam::162790372712:user/vcybywndqx": {
@@ -1756,7 +1756,7 @@
       "StopInstances"
     ],
     "last_ts": "2024-04-19T09:02:30+00:00",
-    "session_event_count": 6,
+    "session_event_count": 12,
     "session_start_ts": "2024-04-19T09:00:06+00:00"
   },
   "arn:aws:iam::164301571637:user/kqdye": {
@@ -1778,7 +1778,7 @@
       "RotateSecret"
     ],
     "last_ts": "2024-04-13T09:06:53+00:00",
-    "session_event_count": 15,
+    "session_event_count": 30,
     "session_start_ts": "2024-04-13T09:00:24+00:00"
   },
   "arn:aws:iam::169513061895:user/lekluh": {
@@ -1799,7 +1799,7 @@
       "StopInstances"
     ],
     "last_ts": "2024-01-12T12:16:57+00:00",
-    "session_event_count": 19,
+    "session_event_count": 38,
     "session_start_ts": "2024-01-12T12:00:24+00:00"
   },
   "arn:aws:iam::170396085100:user/nvsqqe": {
@@ -1818,7 +1818,7 @@
       "RotateSecret"
     ],
     "last_ts": "2024-06-05T13:04:18+00:00",
-    "session_event_count": 12,
+    "session_event_count": 24,
     "session_start_ts": "2024-06-05T13:00:24+00:00"
   },
   "arn:aws:iam::172840188872:user/odwae": {
@@ -1836,7 +1836,7 @@
       "PutSecretValue"
     ],
     "last_ts": "2024-08-24T11:06:49+00:00",
-    "session_event_count": 12,
+    "session_event_count": 24,
     "session_start_ts": "2024-08-24T11:00:04+00:00"
   },
   "arn:aws:iam::175843790154:user/uetmev": {
@@ -1852,7 +1852,7 @@
       "StopInstances"
     ],
     "last_ts": "2024-06-26T07:11:59+00:00",
-    "session_event_count": 10,
+    "session_event_count": 20,
     "session_start_ts": "2024-06-26T07:00:43+00:00"
   },
   "arn:aws:iam::176897603556:user/sniwaj": {
@@ -1870,7 +1870,7 @@
       "StopInstances"
     ],
     "last_ts": "2024-12-17T17:16:59+00:00",
-    "session_event_count": 15,
+    "session_event_count": 30,
     "session_start_ts": "2024-12-17T17:01:37+00:00"
   },
   "arn:aws:iam::179276660278:user/opyffa": {
@@ -1889,7 +1889,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-02-14T12:15:13+00:00",
-    "session_event_count": 17,
+    "session_event_count": 34,
     "session_start_ts": "2024-02-14T12:00:46+00:00"
   },
   "arn:aws:iam::179916633688:user/nqbdgs": {
@@ -1908,7 +1908,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-08-22T10:16:18+00:00",
-    "session_event_count": 16,
+    "session_event_count": 32,
     "session_start_ts": "2024-08-22T10:00:54+00:00"
   },
   "arn:aws:iam::182305535032:user/akbmam": {
@@ -1929,7 +1929,7 @@
       "StopInstances"
     ],
     "last_ts": "2024-09-18T08:18:09+00:00",
-    "session_event_count": 17,
+    "session_event_count": 34,
     "session_start_ts": "2024-09-18T08:00:16+00:00"
   },
   "arn:aws:iam::183831152545:user/kwfsxr": {
@@ -1943,7 +1943,7 @@
       "ListKeys"
     ],
     "last_ts": "2024-03-11T13:08:09+00:00",
-    "session_event_count": 8,
+    "session_event_count": 16,
     "session_start_ts": "2024-03-11T13:01:06+00:00"
   },
   "arn:aws:iam::183965004280:user/phvdxf": {
@@ -1963,7 +1963,7 @@
       "RebootInstances"
     ],
     "last_ts": "2024-01-25T12:19:20+00:00",
-    "session_event_count": 16,
+    "session_event_count": 32,
     "session_start_ts": "2024-01-25T12:01:37+00:00"
   },
   "arn:aws:iam::185419630848:root": {
@@ -1973,7 +1973,7 @@
       "ListManagedNotificationEvents"
     ],
     "last_ts": "2024-04-18T05:30:10+00:00",
-    "session_event_count": 7,
+    "session_event_count": 14,
     "session_start_ts": "2024-04-18T05:03:28+00:00"
   },
   "arn:aws:iam::187999304819:user/cfzwiw": {
@@ -1992,7 +1992,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-02-05T18:13:31+00:00",
-    "session_event_count": 14,
+    "session_event_count": 28,
     "session_start_ts": "2024-02-05T18:01:22+00:00"
   },
   "arn:aws:iam::189031374315:user/nsfugm": {
@@ -2007,7 +2007,7 @@
       "RotateSecret"
     ],
     "last_ts": "2024-10-12T15:11:01+00:00",
-    "session_event_count": 10,
+    "session_event_count": 20,
     "session_start_ts": "2024-10-12T15:01:06+00:00"
   },
   "arn:aws:iam::190808916403:user/tkgmxy": {
@@ -2022,7 +2022,7 @@
       "ListRolePolicies"
     ],
     "last_ts": "2024-05-22T13:12:29+00:00",
-    "session_event_count": 10,
+    "session_event_count": 20,
     "session_start_ts": "2024-05-22T13:01:54+00:00"
   },
   "arn:aws:iam::191051033060:user/gbfcvs": {
@@ -2044,7 +2044,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-03-14T15:14:37+00:00",
-    "session_event_count": 20,
+    "session_event_count": 40,
     "session_start_ts": "2024-03-14T15:00:24+00:00"
   },
   "arn:aws:iam::194641913773:user/tgelou": {
@@ -2062,7 +2062,7 @@
       "StopInstances"
     ],
     "last_ts": "2024-06-23T08:13:28+00:00",
-    "session_event_count": 13,
+    "session_event_count": 26,
     "session_start_ts": "2024-06-23T08:01:37+00:00"
   },
   "arn:aws:iam::194989925900:user/bdbyjt": {
@@ -2077,7 +2077,7 @@
       "StopInstances"
     ],
     "last_ts": "2024-11-09T14:11:43+00:00",
-    "session_event_count": 8,
+    "session_event_count": 16,
     "session_start_ts": "2024-11-09T14:01:39+00:00"
   },
   "arn:aws:iam::197122111926:user/isyuuv": {
@@ -2099,7 +2099,7 @@
       "StartInstances"
     ],
     "last_ts": "2024-04-11T08:19:21+00:00",
-    "session_event_count": 19,
+    "session_event_count": 38,
     "session_start_ts": "2024-04-11T08:01:18+00:00"
   },
   "arn:aws:iam::197406045352:user/emobux": {
@@ -2116,7 +2116,7 @@
       "PutParameter"
     ],
     "last_ts": "2024-02-12T19:11:14+00:00",
-    "session_event_count": 11,
+    "session_event_count": 22,
     "session_start_ts": "2024-02-12T19:00:34+00:00"
   },
   "arn:aws:iam::197669950431:user/duxnki": {
@@ -2139,7 +2139,7 @@
       "StartInstances"
     ],
     "last_ts": "2024-09-06T18:19:58+00:00",
-    "session_event_count": 18,
+    "session_event_count": 36,
     "session_start_ts": "2024-09-06T18:01:40+00:00"
   },
   "arn:aws:iam::197838559214:user/hyjfdl": {
@@ -2153,7 +2153,7 @@
       "ListKeys"
     ],
     "last_ts": "2024-02-27T08:07:43+00:00",
-    "session_event_count": 9,
+    "session_event_count": 18,
     "session_start_ts": "2024-02-27T08:00:31+00:00"
   },
   "arn:aws:iam::199454602612:user/zlhlwn": {
@@ -2166,7 +2166,7 @@
       "ListKeys"
     ],
     "last_ts": "2024-05-09T12:07:43+00:00",
-    "session_event_count": 8,
+    "session_event_count": 16,
     "session_start_ts": "2024-05-09T12:00:28+00:00"
   },
   "arn:aws:iam::201431602170:user/pmtjzn": {
@@ -2183,7 +2183,7 @@
       "StopInstances"
     ],
     "last_ts": "2024-01-01T18:11:57+00:00",
-    "session_event_count": 12,
+    "session_event_count": 24,
     "session_start_ts": "2024-01-01T18:00:24+00:00"
   },
   "arn:aws:iam::201646250608:user/uxhoek": {
@@ -2198,7 +2198,7 @@
       "PutSecretValue"
     ],
     "last_ts": "2024-01-27T13:12:45+00:00",
-    "session_event_count": 11,
+    "session_event_count": 22,
     "session_start_ts": "2024-01-27T13:00:36+00:00"
   },
   "arn:aws:iam::203442749188:user/fxejefdbvnri": {
@@ -2216,7 +2216,7 @@
       "ListSecrets"
     ],
     "last_ts": "2024-11-01T17:07:05+00:00",
-    "session_event_count": 11,
+    "session_event_count": 22,
     "session_start_ts": "2024-11-01T17:00:15+00:00"
   },
   "arn:aws:iam::205382004550:user/easocy": {
@@ -2235,7 +2235,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-12-12T11:15:03+00:00",
-    "session_event_count": 15,
+    "session_event_count": 30,
     "session_start_ts": "2024-12-12T11:01:43+00:00"
   },
   "arn:aws:iam::208899563480:user/sxufzh": {
@@ -2251,7 +2251,7 @@
       "RotateSecret"
     ],
     "last_ts": "2024-02-01T17:14:00+00:00",
-    "session_event_count": 15,
+    "session_event_count": 30,
     "session_start_ts": "2024-02-01T17:00:40+00:00"
   },
   "arn:aws:iam::208939099991:user/uhlvrt": {
@@ -2266,7 +2266,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-05-20T07:10:18+00:00",
-    "session_event_count": 10,
+    "session_event_count": 20,
     "session_start_ts": "2024-05-20T07:01:24+00:00"
   },
   "arn:aws:iam::209037943564:user/cdetfytpqgfo": {
@@ -2287,7 +2287,7 @@
       "SetDefaultPolicyVersion"
     ],
     "last_ts": "2024-08-12T14:05:59+00:00",
-    "session_event_count": 14,
+    "session_event_count": 28,
     "session_start_ts": "2024-08-12T14:00:12+00:00"
   },
   "arn:aws:iam::210463225647:user/pbrpuk": {
@@ -2310,7 +2310,7 @@
       "StopInstances"
     ],
     "last_ts": "2024-09-18T18:26:59+00:00",
-    "session_event_count": 20,
+    "session_event_count": 40,
     "session_start_ts": "2024-09-18T18:00:41+00:00"
   },
   "arn:aws:iam::210927362396:user/uagexz": {
@@ -2332,7 +2332,7 @@
       "RebootInstances"
     ],
     "last_ts": "2024-12-25T14:18:42+00:00",
-    "session_event_count": 20,
+    "session_event_count": 40,
     "session_start_ts": "2024-12-25T14:01:54+00:00"
   },
   "arn:aws:iam::212723659446:user/uuvwfle": {
@@ -2351,7 +2351,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-03-24T19:05:22+00:00",
-    "session_event_count": 13,
+    "session_event_count": 26,
     "session_start_ts": "2024-03-24T19:00:15+00:00"
   },
   "arn:aws:iam::218021931672:user/raqejh": {
@@ -2366,7 +2366,7 @@
       "ModifyInstanceAttribute"
     ],
     "last_ts": "2024-09-14T12:14:59+00:00",
-    "session_event_count": 12,
+    "session_event_count": 24,
     "session_start_ts": "2024-09-14T12:01:37+00:00"
   },
   "arn:aws:iam::219167251473:user/dqyjhwavgj": {
@@ -2385,7 +2385,7 @@
       "SetDefaultPolicyVersion"
     ],
     "last_ts": "2024-03-27T14:06:51+00:00",
-    "session_event_count": 12,
+    "session_event_count": 24,
     "session_start_ts": "2024-03-27T14:00:04+00:00"
   },
   "arn:aws:iam::219167904195:user/bwfbru": {
@@ -2405,7 +2405,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-06-25T12:19:01+00:00",
-    "session_event_count": 15,
+    "session_event_count": 30,
     "session_start_ts": "2024-06-25T12:01:53+00:00"
   },
   "arn:aws:iam::221153627945:user/oscuyw": {
@@ -2418,7 +2418,7 @@
       "StartInstances"
     ],
     "last_ts": "2024-01-28T13:06:35+00:00",
-    "session_event_count": 8,
+    "session_event_count": 16,
     "session_start_ts": "2024-01-28T13:00:58+00:00"
   },
   "arn:aws:iam::221323592277:user/yepjza": {
@@ -2436,7 +2436,7 @@
       "StartInstances"
     ],
     "last_ts": "2024-02-11T16:12:16+00:00",
-    "session_event_count": 13,
+    "session_event_count": 26,
     "session_start_ts": "2024-02-11T16:00:34+00:00"
   },
   "arn:aws:iam::223776163212:user/hpxrnj": {
@@ -2452,7 +2452,7 @@
       "ModifyInstanceAttribute"
     ],
     "last_ts": "2024-04-12T11:08:37+00:00",
-    "session_event_count": 11,
+    "session_event_count": 22,
     "session_start_ts": "2024-04-12T11:00:08+00:00"
   },
   "arn:aws:iam::224919272761:user/gfusrz": {
@@ -2468,7 +2468,7 @@
       "StopInstances"
     ],
     "last_ts": "2024-05-23T13:11:58+00:00",
-    "session_event_count": 10,
+    "session_event_count": 20,
     "session_start_ts": "2024-05-23T13:00:43+00:00"
   },
   "arn:aws:iam::226978507149:user/heqgd": {
@@ -2485,7 +2485,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-10-02T12:04:49+00:00",
-    "session_event_count": 10,
+    "session_event_count": 20,
     "session_start_ts": "2024-10-02T12:00:03+00:00"
   },
   "arn:aws:iam::228060739638:user/cfiwzz": {
@@ -2502,7 +2502,7 @@
       "StopInstances"
     ],
     "last_ts": "2024-06-06T13:14:49+00:00",
-    "session_event_count": 14,
+    "session_event_count": 28,
     "session_start_ts": "2024-06-06T13:01:02+00:00"
   },
   "arn:aws:iam::230690064844:user/telroh": {
@@ -2518,7 +2518,7 @@
       "StartInstances"
     ],
     "last_ts": "2024-04-19T13:11:16+00:00",
-    "session_event_count": 11,
+    "session_event_count": 22,
     "session_start_ts": "2024-04-19T13:01:11+00:00"
   },
   "arn:aws:iam::234474304277:user/orbmmirntqe": {
@@ -2536,7 +2536,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-03-12T16:06:38+00:00",
-    "session_event_count": 11,
+    "session_event_count": 22,
     "session_start_ts": "2024-03-12T16:00:06+00:00"
   },
   "arn:aws:iam::234514306191:user/yazrhcdontzk": {
@@ -2556,7 +2556,7 @@
       "StopInstances"
     ],
     "last_ts": "2024-12-06T16:06:04+00:00",
-    "session_event_count": 13,
+    "session_event_count": 26,
     "session_start_ts": "2024-12-06T16:00:15+00:00"
   },
   "arn:aws:iam::235148617573:user/ahzjtr": {
@@ -2576,7 +2576,7 @@
       "StartInstances"
     ],
     "last_ts": "2024-08-01T18:11:57+00:00",
-    "session_event_count": 14,
+    "session_event_count": 28,
     "session_start_ts": "2024-08-01T18:00:27+00:00"
   },
   "arn:aws:iam::236181901188:user/ietwblovnoos": {
@@ -2595,7 +2595,7 @@
       "ListPolicies"
     ],
     "last_ts": "2024-07-19T10:06:44+00:00",
-    "session_event_count": 13,
+    "session_event_count": 26,
     "session_start_ts": "2024-07-19T10:00:21+00:00"
   },
   "arn:aws:iam::239281115203:user/vzlkxb": {
@@ -2611,7 +2611,7 @@
       "PutSecretValue"
     ],
     "last_ts": "2024-05-28T19:06:12+00:00",
-    "session_event_count": 9,
+    "session_event_count": 18,
     "session_start_ts": "2024-05-28T19:01:14+00:00"
   },
   "arn:aws:iam::240797932124:user/ahmfsl": {
@@ -2632,7 +2632,7 @@
       "StopInstances"
     ],
     "last_ts": "2024-06-12T17:19:07+00:00",
-    "session_event_count": 20,
+    "session_event_count": 40,
     "session_start_ts": "2024-06-12T17:01:24+00:00"
   },
   "arn:aws:iam::244005317593:user/wbswdv": {
@@ -2648,7 +2648,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-02-10T09:09:29+00:00",
-    "session_event_count": 9,
+    "session_event_count": 18,
     "session_start_ts": "2024-02-10T09:00:31+00:00"
   },
   "arn:aws:iam::248197059707:user/ofozba": {
@@ -2663,7 +2663,7 @@
       "RotateSecret"
     ],
     "last_ts": "2024-04-03T11:13:00+00:00",
-    "session_event_count": 10,
+    "session_event_count": 20,
     "session_start_ts": "2024-04-03T11:01:41+00:00"
   },
   "arn:aws:iam::250347462019:user/wkjwrm": {
@@ -2678,7 +2678,7 @@
       "RotateSecret"
     ],
     "last_ts": "2024-09-17T12:08:07+00:00",
-    "session_event_count": 9,
+    "session_event_count": 18,
     "session_start_ts": "2024-09-17T12:00:23+00:00"
   },
   "arn:aws:iam::251449577199:user/vteeimj": {
@@ -2696,7 +2696,7 @@
       "ListSecrets"
     ],
     "last_ts": "2024-10-14T17:05:59+00:00",
-    "session_event_count": 12,
+    "session_event_count": 24,
     "session_start_ts": "2024-10-14T17:00:29+00:00"
   },
   "arn:aws:iam::253106651822:user/fylxjy": {
@@ -2716,7 +2716,7 @@
       "StopInstances"
     ],
     "last_ts": "2024-11-22T15:20:46+00:00",
-    "session_event_count": 20,
+    "session_event_count": 40,
     "session_start_ts": "2024-11-22T15:01:24+00:00"
   },
   "arn:aws:iam::253191070756:user/hmincp": {
@@ -2736,7 +2736,7 @@
       "StartInstances"
     ],
     "last_ts": "2024-02-08T17:17:05+00:00",
-    "session_event_count": 14,
+    "session_event_count": 28,
     "session_start_ts": "2024-02-08T17:01:26+00:00"
   },
   "arn:aws:iam::254556290469:user/knrmtv": {
@@ -2751,7 +2751,7 @@
       "ModifyDBInstance"
     ],
     "last_ts": "2024-03-05T10:07:09+00:00",
-    "session_event_count": 9,
+    "session_event_count": 18,
     "session_start_ts": "2024-03-05T10:00:49+00:00"
   },
   "arn:aws:iam::255723680313:user/cvftlw": {
@@ -2770,7 +2770,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-03-01T14:05:58+00:00",
-    "session_event_count": 12,
+    "session_event_count": 24,
     "session_start_ts": "2024-03-01T14:00:13+00:00"
   },
   "arn:aws:iam::255898950278:user/juukey": {
@@ -2786,7 +2786,7 @@
       "StartInstances"
     ],
     "last_ts": "2024-10-05T11:11:53+00:00",
-    "session_event_count": 11,
+    "session_event_count": 22,
     "session_start_ts": "2024-10-05T11:01:23+00:00"
   },
   "arn:aws:iam::256235140834:user/cylebmnof": {
@@ -2801,7 +2801,7 @@
       "ListAttachedUserPolicies"
     ],
     "last_ts": "2024-06-08T12:03:46+00:00",
-    "session_event_count": 8,
+    "session_event_count": 16,
     "session_start_ts": "2024-06-08T12:00:07+00:00"
   },
   "arn:aws:iam::260871802720:user/vkkjhqv": {
@@ -2822,7 +2822,7 @@
       "StopLogging"
     ],
     "last_ts": "2024-05-20T13:10:32+00:00",
-    "session_event_count": 16,
+    "session_event_count": 32,
     "session_start_ts": "2024-05-20T13:00:19+00:00"
   },
   "arn:aws:iam::261526319669:user/sipdlc": {
@@ -2842,7 +2842,7 @@
       "StopInstances"
     ],
     "last_ts": "2024-11-21T18:21:50+00:00",
-    "session_event_count": 19,
+    "session_event_count": 38,
     "session_start_ts": "2024-11-21T18:01:58+00:00"
   },
   "arn:aws:iam::263139351978:user/svboaa": {
@@ -2860,7 +2860,7 @@
       "RotateSecret"
     ],
     "last_ts": "2024-05-25T16:16:20+00:00",
-    "session_event_count": 16,
+    "session_event_count": 32,
     "session_start_ts": "2024-05-25T16:00:13+00:00"
   },
   "arn:aws:iam::263330873026:user/csiluwlrfy": {
@@ -2879,7 +2879,7 @@
       "RotateSecret"
     ],
     "last_ts": "2024-07-11T14:05:47+00:00",
-    "session_event_count": 12,
+    "session_event_count": 24,
     "session_start_ts": "2024-07-11T14:00:19+00:00"
   },
   "arn:aws:iam::263815742736:user/qkwkpm": {
@@ -2896,7 +2896,7 @@
       "StartInstances"
     ],
     "last_ts": "2024-06-03T11:12:34+00:00",
-    "session_event_count": 12,
+    "session_event_count": 24,
     "session_start_ts": "2024-06-03T11:00:24+00:00"
   },
   "arn:aws:iam::267620910431:user/wrzfqg": {
@@ -2918,7 +2918,7 @@
       "StopInstances"
     ],
     "last_ts": "2024-12-03T09:14:58+00:00",
-    "session_event_count": 17,
+    "session_event_count": 34,
     "session_start_ts": "2024-12-03T09:00:18+00:00"
   },
   "arn:aws:iam::267650338535:user/nisnmv": {
@@ -2937,7 +2937,7 @@
       "RotateSecret"
     ],
     "last_ts": "2024-07-09T15:16:40+00:00",
-    "session_event_count": 17,
+    "session_event_count": 34,
     "session_start_ts": "2024-07-09T15:01:49+00:00"
   },
   "arn:aws:iam::269242091950:user/aaecez": {
@@ -2955,7 +2955,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-07-09T11:16:16+00:00",
-    "session_event_count": 13,
+    "session_event_count": 26,
     "session_start_ts": "2024-07-09T11:01:33+00:00"
   },
   "arn:aws:iam::269259025366:user/bhplcj": {
@@ -2974,7 +2974,7 @@
       "PutSecretValue"
     ],
     "last_ts": "2024-05-20T15:15:36+00:00",
-    "session_event_count": 16,
+    "session_event_count": 32,
     "session_start_ts": "2024-05-20T15:01:50+00:00"
   },
   "arn:aws:iam::269432866778:user/evofck": {
@@ -2992,7 +2992,7 @@
       "StartInstances"
     ],
     "last_ts": "2024-10-03T12:13:57+00:00",
-    "session_event_count": 12,
+    "session_event_count": 24,
     "session_start_ts": "2024-10-03T12:00:18+00:00"
   },
   "arn:aws:iam::275815841280:user/pfoouq": {
@@ -3009,7 +3009,7 @@
       "RotateSecret"
     ],
     "last_ts": "2024-09-13T15:14:54+00:00",
-    "session_event_count": 16,
+    "session_event_count": 32,
     "session_start_ts": "2024-09-13T15:00:55+00:00"
   },
   "arn:aws:iam::278845680149:user/mslqll": {
@@ -3028,7 +3028,7 @@
       "StopInstances"
     ],
     "last_ts": "2024-10-03T11:13:35+00:00",
-    "session_event_count": 15,
+    "session_event_count": 30,
     "session_start_ts": "2024-10-03T11:01:08+00:00"
   },
   "arn:aws:iam::280542489025:user/qjdtbs": {
@@ -3049,7 +3049,7 @@
       "StopInstances"
     ],
     "last_ts": "2024-10-06T19:18:53+00:00",
-    "session_event_count": 17,
+    "session_event_count": 34,
     "session_start_ts": "2024-10-06T19:01:56+00:00"
   },
   "arn:aws:iam::281137881769:user/ygmhtbg": {
@@ -3066,7 +3066,7 @@
       "ListRoles"
     ],
     "last_ts": "2024-07-23T07:05:33+00:00",
-    "session_event_count": 12,
+    "session_event_count": 24,
     "session_start_ts": "2024-07-23T07:00:11+00:00"
   },
   "arn:aws:iam::283638066573:user/fuznzmvafvya": {
@@ -3082,7 +3082,7 @@
       "SetDefaultPolicyVersion"
     ],
     "last_ts": "2024-04-11T09:05:00+00:00",
-    "session_event_count": 9,
+    "session_event_count": 18,
     "session_start_ts": "2024-04-11T09:00:06+00:00"
   },
   "arn:aws:iam::284605954946:user/bmlkkj": {
@@ -3104,7 +3104,7 @@
       "ListRoles"
     ],
     "last_ts": "2024-10-26T10:07:26+00:00",
-    "session_event_count": 16,
+    "session_event_count": 32,
     "session_start_ts": "2024-10-26T10:00:16+00:00"
   },
   "arn:aws:iam::285239279659:user/ahofqj": {
@@ -3122,7 +3122,7 @@
       "StartInstances"
     ],
     "last_ts": "2024-08-06T08:18:24+00:00",
-    "session_event_count": 19,
+    "session_event_count": 38,
     "session_start_ts": "2024-08-06T08:00:06+00:00"
   },
   "arn:aws:iam::296366104231:user/djxmlj": {
@@ -3138,7 +3138,7 @@
       "RotateSecret"
     ],
     "last_ts": "2024-03-06T16:11:39+00:00",
-    "session_event_count": 10,
+    "session_event_count": 20,
     "session_start_ts": "2024-03-06T16:01:07+00:00"
   },
   "arn:aws:iam::298794292778:user/qkkxhs": {
@@ -3155,7 +3155,7 @@
       "StartInstances"
     ],
     "last_ts": "2024-11-26T08:15:04+00:00",
-    "session_event_count": 12,
+    "session_event_count": 24,
     "session_start_ts": "2024-11-26T08:01:44+00:00"
   },
   "arn:aws:iam::302646101710:user/ulbquv": {
@@ -3171,7 +3171,7 @@
       "StartInstances"
     ],
     "last_ts": "2024-10-05T18:12:44+00:00",
-    "session_event_count": 13,
+    "session_event_count": 26,
     "session_start_ts": "2024-10-05T18:01:03+00:00"
   },
   "arn:aws:iam::303079589773:user/qsidhc": {
@@ -3191,7 +3191,7 @@
       "RotateSecret"
     ],
     "last_ts": "2024-06-27T18:20:56+00:00",
-    "session_event_count": 16,
+    "session_event_count": 32,
     "session_start_ts": "2024-06-27T18:01:37+00:00"
   },
   "arn:aws:iam::303654085793:user/vpuuej": {
@@ -3205,7 +3205,7 @@
       "PutParameter"
     ],
     "last_ts": "2024-12-21T19:09:06+00:00",
-    "session_event_count": 9,
+    "session_event_count": 18,
     "session_start_ts": "2024-12-21T19:00:19+00:00"
   },
   "arn:aws:iam::308257981477:user/ojgqth": {
@@ -3228,7 +3228,7 @@
       "StopLogging"
     ],
     "last_ts": "2024-01-18T18:08:01+00:00",
-    "session_event_count": 16,
+    "session_event_count": 32,
     "session_start_ts": "2024-01-18T18:00:17+00:00"
   },
   "arn:aws:iam::309483762812:user/dcyntc": {
@@ -3246,7 +3246,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-09-15T14:10:39+00:00",
-    "session_event_count": 12,
+    "session_event_count": 24,
     "session_start_ts": "2024-09-15T14:00:40+00:00"
   },
   "arn:aws:iam::311513299043:user/moqdso": {
@@ -3263,7 +3263,7 @@
       "RotateSecret"
     ],
     "last_ts": "2024-09-11T14:11:15+00:00",
-    "session_event_count": 12,
+    "session_event_count": 24,
     "session_start_ts": "2024-09-11T14:00:26+00:00"
   },
   "arn:aws:iam::311525144005:user/habsmvp": {
@@ -3278,7 +3278,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-07-10T16:03:20+00:00",
-    "session_event_count": 8,
+    "session_event_count": 16,
     "session_start_ts": "2024-07-10T16:00:24+00:00"
   },
   "arn:aws:iam::312361885486:user/jlrduh": {
@@ -3297,7 +3297,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-10-21T17:13:43+00:00",
-    "session_event_count": 16,
+    "session_event_count": 32,
     "session_start_ts": "2024-10-21T17:00:53+00:00"
   },
   "arn:aws:iam::323451329406:user/xvdgj": {
@@ -3310,7 +3310,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-03-03T14:03:23+00:00",
-    "session_event_count": 7,
+    "session_event_count": 14,
     "session_start_ts": "2024-03-03T14:00:12+00:00"
   },
   "arn:aws:iam::323548567343:user/cgdxnz": {
@@ -3329,7 +3329,7 @@
       "StartInstances"
     ],
     "last_ts": "2024-01-04T12:18:03+00:00",
-    "session_event_count": 17,
+    "session_event_count": 34,
     "session_start_ts": "2024-01-04T12:00:37+00:00"
   },
   "arn:aws:iam::324823232930:user/elucgx": {
@@ -3348,7 +3348,7 @@
       "StartInstances"
     ],
     "last_ts": "2024-09-10T17:15:25+00:00",
-    "session_event_count": 16,
+    "session_event_count": 32,
     "session_start_ts": "2024-09-10T17:00:23+00:00"
   },
   "arn:aws:iam::325967135271:user/qzctcpicnutc": {
@@ -3366,7 +3366,7 @@
       "UpdateAssumeRolePolicy"
     ],
     "last_ts": "2024-01-01T08:06:50+00:00",
-    "session_event_count": 11,
+    "session_event_count": 22,
     "session_start_ts": "2024-01-01T08:00:07+00:00"
   },
   "arn:aws:iam::328102517908:user/xbozxtgjgo": {
@@ -3385,7 +3385,7 @@
       "ListSecrets"
     ],
     "last_ts": "2024-04-20T08:04:14+00:00",
-    "session_event_count": 12,
+    "session_event_count": 24,
     "session_start_ts": "2024-04-20T08:00:03+00:00"
   },
   "arn:aws:iam::330316356843:user/ziwfxt": {
@@ -3406,7 +3406,7 @@
       "StopInstances"
     ],
     "last_ts": "2024-12-14T12:20:08+00:00",
-    "session_event_count": 20,
+    "session_event_count": 40,
     "session_start_ts": "2024-12-14T12:00:56+00:00"
   },
   "arn:aws:iam::334626425007:user/icclcu": {
@@ -3427,7 +3427,7 @@
       "StopInstances"
     ],
     "last_ts": "2024-04-06T13:15:36+00:00",
-    "session_event_count": 16,
+    "session_event_count": 32,
     "session_start_ts": "2024-04-06T13:00:09+00:00"
   },
   "arn:aws:iam::339367328502:user/pjuim": {
@@ -3444,7 +3444,7 @@
       "PutRolePolicy"
     ],
     "last_ts": "2024-04-23T08:03:48+00:00",
-    "session_event_count": 10,
+    "session_event_count": 20,
     "session_start_ts": "2024-04-23T08:00:23+00:00"
   },
   "arn:aws:iam::342001430137:user/ugtqzs": {
@@ -3461,7 +3461,7 @@
       "RebootInstances"
     ],
     "last_ts": "2024-08-23T10:16:54+00:00",
-    "session_event_count": 13,
+    "session_event_count": 26,
     "session_start_ts": "2024-08-23T10:01:49+00:00"
   },
   "arn:aws:iam::342444356917:user/gddfqcnn": {
@@ -3482,7 +3482,7 @@
       "StopLogging"
     ],
     "last_ts": "2024-07-08T15:09:47+00:00",
-    "session_event_count": 15,
+    "session_event_count": 30,
     "session_start_ts": "2024-07-08T15:00:25+00:00"
   },
   "arn:aws:iam::342994232995:user/sxfjvc": {
@@ -3504,7 +3504,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-09-24T09:19:32+00:00",
-    "session_event_count": 17,
+    "session_event_count": 34,
     "session_start_ts": "2024-09-24T09:01:50+00:00"
   },
   "arn:aws:iam::345842318968:user/swqxqj": {
@@ -3523,7 +3523,7 @@
       "StopInstances"
     ],
     "last_ts": "2024-08-04T11:15:04+00:00",
-    "session_event_count": 17,
+    "session_event_count": 34,
     "session_start_ts": "2024-08-04T11:00:16+00:00"
   },
   "arn:aws:iam::348194135763:user/wxlvxd": {
@@ -3542,7 +3542,7 @@
       "StopInstances"
     ],
     "last_ts": "2024-10-19T13:14:43+00:00",
-    "session_event_count": 16,
+    "session_event_count": 32,
     "session_start_ts": "2024-10-19T13:02:00+00:00"
   },
   "arn:aws:iam::349611209714:user/yqinyi": {
@@ -3560,7 +3560,7 @@
       "ModifyInstanceAttribute"
     ],
     "last_ts": "2024-04-28T08:20:37+00:00",
-    "session_event_count": 18,
+    "session_event_count": 36,
     "session_start_ts": "2024-04-28T08:00:18+00:00"
   },
   "arn:aws:iam::351096210473:user/wxtsfykbfvks": {
@@ -3578,7 +3578,7 @@
       "StartInstances"
     ],
     "last_ts": "2024-03-02T18:06:11+00:00",
-    "session_event_count": 12,
+    "session_event_count": 24,
     "session_start_ts": "2024-03-02T18:00:07+00:00"
   },
   "arn:aws:iam::355356043272:user/wbmaiy": {
@@ -3597,7 +3597,7 @@
       "StartInstances"
     ],
     "last_ts": "2024-03-21T15:13:57+00:00",
-    "session_event_count": 17,
+    "session_event_count": 34,
     "session_start_ts": "2024-03-21T15:00:21+00:00"
   },
   "arn:aws:iam::355861919774:user/xvokye": {
@@ -3618,7 +3618,7 @@
       "StopInstances"
     ],
     "last_ts": "2024-09-18T10:19:51+00:00",
-    "session_event_count": 18,
+    "session_event_count": 36,
     "session_start_ts": "2024-09-18T10:01:05+00:00"
   },
   "arn:aws:iam::356237543428:user/pxfrce": {
@@ -3636,7 +3636,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-09-05T09:18:53+00:00",
-    "session_event_count": 17,
+    "session_event_count": 34,
     "session_start_ts": "2024-09-05T09:00:08+00:00"
   },
   "arn:aws:iam::362075955284:user/vfqfcf": {
@@ -3653,7 +3653,7 @@
       "PutRolePolicy"
     ],
     "last_ts": "2024-03-13T13:05:29+00:00",
-    "session_event_count": 12,
+    "session_event_count": 24,
     "session_start_ts": "2024-03-13T13:00:30+00:00"
   },
   "arn:aws:iam::362352557091:user/lpol": {
@@ -3671,7 +3671,7 @@
       "StopInstances"
     ],
     "last_ts": "2024-12-04T15:03:46+00:00",
-    "session_event_count": 11,
+    "session_event_count": 22,
     "session_start_ts": "2024-12-04T15:00:03+00:00"
   },
   "arn:aws:iam::368181204530:root": {
@@ -3682,7 +3682,7 @@
       "ListManagedNotificationEvents"
     ],
     "last_ts": "2024-03-25T18:31:54+00:00",
-    "session_event_count": 7,
+    "session_event_count": 14,
     "session_start_ts": "2024-03-25T18:05:14+00:00"
   },
   "arn:aws:iam::369536098425:user/iaiklonczqy": {
@@ -3701,7 +3701,7 @@
       "RebootInstances"
     ],
     "last_ts": "2024-05-04T16:06:04+00:00",
-    "session_event_count": 13,
+    "session_event_count": 26,
     "session_start_ts": "2024-05-04T16:00:14+00:00"
   },
   "arn:aws:iam::379135464848:root": {
@@ -3710,7 +3710,7 @@
       "ListManagedNotificationEvents"
     ],
     "last_ts": "2024-04-07T12:31:38+00:00",
-    "session_event_count": 6,
+    "session_event_count": 12,
     "session_start_ts": "2024-04-07T12:08:44+00:00"
   },
   "arn:aws:iam::380972738387:user/iopfwu": {
@@ -3729,7 +3729,7 @@
       "SetDefaultPolicyVersion"
     ],
     "last_ts": "2024-07-12T14:05:58+00:00",
-    "session_event_count": 13,
+    "session_event_count": 26,
     "session_start_ts": "2024-07-12T14:00:13+00:00"
   },
   "arn:aws:iam::381173286598:user/usqxjuggfle": {
@@ -3748,7 +3748,7 @@
       "PutParameter"
     ],
     "last_ts": "2024-09-09T10:04:27+00:00",
-    "session_event_count": 12,
+    "session_event_count": 24,
     "session_start_ts": "2024-09-09T10:00:21+00:00"
   },
   "arn:aws:iam::381765380710:user/fsmjih": {
@@ -3765,7 +3765,7 @@
       "StopInstances"
     ],
     "last_ts": "2024-01-16T07:10:18+00:00",
-    "session_event_count": 10,
+    "session_event_count": 20,
     "session_start_ts": "2024-01-16T07:00:57+00:00"
   },
   "arn:aws:iam::382911238358:user/nxyvr": {
@@ -3784,7 +3784,7 @@
       "StopInstances"
     ],
     "last_ts": "2024-01-18T12:04:23+00:00",
-    "session_event_count": 12,
+    "session_event_count": 24,
     "session_start_ts": "2024-01-18T12:00:13+00:00"
   },
   "arn:aws:iam::383369428499:user/kopsmg": {
@@ -3801,7 +3801,7 @@
       "StartInstances"
     ],
     "last_ts": "2024-02-11T19:14:37+00:00",
-    "session_event_count": 12,
+    "session_event_count": 24,
     "session_start_ts": "2024-02-11T19:02:00+00:00"
   },
   "arn:aws:iam::384193565985:user/vsxiiqdodlq": {
@@ -3818,7 +3818,7 @@
       "PutSecretValue"
     ],
     "last_ts": "2024-12-21T07:04:50+00:00",
-    "session_event_count": 10,
+    "session_event_count": 20,
     "session_start_ts": "2024-12-21T07:00:19+00:00"
   },
   "arn:aws:iam::385191156585:user/rstr": {
@@ -3840,7 +3840,7 @@
       "PutRolePolicy"
     ],
     "last_ts": "2024-12-07T10:08:30+00:00",
-    "session_event_count": 15,
+    "session_event_count": 30,
     "session_start_ts": "2024-12-07T10:00:09+00:00"
   },
   "arn:aws:iam::385432486455:user/pdkcl": {
@@ -3854,7 +3854,7 @@
       "PutRolePolicy"
     ],
     "last_ts": "2024-12-15T07:03:53+00:00",
-    "session_event_count": 7,
+    "session_event_count": 14,
     "session_start_ts": "2024-12-15T07:00:29+00:00"
   },
   "arn:aws:iam::387438689486:user/ugwtan": {
@@ -3875,7 +3875,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-01-12T14:17:49+00:00",
-    "session_event_count": 17,
+    "session_event_count": 34,
     "session_start_ts": "2024-01-12T14:00:49+00:00"
   },
   "arn:aws:iam::388294393777:user/siidrp": {
@@ -3893,7 +3893,7 @@
       "StopInstances"
     ],
     "last_ts": "2024-09-22T07:15:37+00:00",
-    "session_event_count": 13,
+    "session_event_count": 26,
     "session_start_ts": "2024-09-22T07:01:30+00:00"
   },
   "arn:aws:iam::389336241419:user/dxzrfz": {
@@ -3912,7 +3912,7 @@
       "StopInstances"
     ],
     "last_ts": "2024-05-11T15:14:16+00:00",
-    "session_event_count": 15,
+    "session_event_count": 30,
     "session_start_ts": "2024-05-11T15:00:16+00:00"
   },
   "arn:aws:iam::390236014033:user/fnbf": {
@@ -3932,7 +3932,7 @@
       "UpdateAssumeRolePolicy"
     ],
     "last_ts": "2024-02-11T11:05:37+00:00",
-    "session_event_count": 13,
+    "session_event_count": 26,
     "session_start_ts": "2024-02-11T11:00:11+00:00"
   },
   "arn:aws:iam::390820510736:user/nezwftp": {
@@ -3946,7 +3946,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-07-02T16:02:38+00:00",
-    "session_event_count": 7,
+    "session_event_count": 14,
     "session_start_ts": "2024-07-02T16:00:10+00:00"
   },
   "arn:aws:iam::391606334960:user/rglrnd": {
@@ -3968,7 +3968,7 @@
       "StartInstances"
     ],
     "last_ts": "2024-01-12T16:17:16+00:00",
-    "session_event_count": 18,
+    "session_event_count": 36,
     "session_start_ts": "2024-01-12T16:01:39+00:00"
   },
   "arn:aws:iam::392355342901:user/ukmkkh": {
@@ -3988,7 +3988,7 @@
       "StartInstances"
     ],
     "last_ts": "2024-06-03T11:17:17+00:00",
-    "session_event_count": 14,
+    "session_event_count": 28,
     "session_start_ts": "2024-06-03T11:00:13+00:00"
   },
   "arn:aws:iam::393205330796:user/hbnrpi": {
@@ -4006,7 +4006,7 @@
       "StartInstances"
     ],
     "last_ts": "2024-07-16T18:17:49+00:00",
-    "session_event_count": 12,
+    "session_event_count": 24,
     "session_start_ts": "2024-07-16T18:01:16+00:00"
   },
   "arn:aws:iam::395530883709:user/sodagpqa": {
@@ -4025,7 +4025,7 @@
       "ListUsers"
     ],
     "last_ts": "2024-09-20T10:05:54+00:00",
-    "session_event_count": 12,
+    "session_event_count": 24,
     "session_start_ts": "2024-09-20T10:00:11+00:00"
   },
   "arn:aws:iam::395988519718:user/yezubi": {
@@ -4040,7 +4040,7 @@
       "StopInstances"
     ],
     "last_ts": "2024-08-02T18:08:48+00:00",
-    "session_event_count": 8,
+    "session_event_count": 16,
     "session_start_ts": "2024-08-02T18:01:48+00:00"
   },
   "arn:aws:iam::399646628703:user/bnmwov": {
@@ -4060,7 +4060,7 @@
       "StopInstances"
     ],
     "last_ts": "2024-09-23T19:16:48+00:00",
-    "session_event_count": 16,
+    "session_event_count": 32,
     "session_start_ts": "2024-09-23T19:01:26+00:00"
   },
   "arn:aws:iam::403267583261:user/pcpldhftry": {
@@ -4081,7 +4081,7 @@
       "StartInstances"
     ],
     "last_ts": "2024-02-20T07:05:09+00:00",
-    "session_event_count": 15,
+    "session_event_count": 30,
     "session_start_ts": "2024-02-20T07:00:17+00:00"
   },
   "arn:aws:iam::406768013383:user/tsesks": {
@@ -4096,7 +4096,7 @@
       "PutParameter"
     ],
     "last_ts": "2024-03-20T08:06:28+00:00",
-    "session_event_count": 8,
+    "session_event_count": 16,
     "session_start_ts": "2024-03-20T08:00:45+00:00"
   },
   "arn:aws:iam::408335814996:user/krjkcdb": {
@@ -4116,7 +4116,7 @@
       "PutRolePolicy"
     ],
     "last_ts": "2024-09-22T16:06:21+00:00",
-    "session_event_count": 13,
+    "session_event_count": 26,
     "session_start_ts": "2024-09-22T16:00:11+00:00"
   },
   "arn:aws:iam::408872013552:user/ndswlg": {
@@ -4134,7 +4134,7 @@
       "StopInstances"
     ],
     "last_ts": "2024-11-23T10:14:13+00:00",
-    "session_event_count": 12,
+    "session_event_count": 24,
     "session_start_ts": "2024-11-23T10:01:24+00:00"
   },
   "arn:aws:iam::410016270038:user/xwhesc": {
@@ -4150,7 +4150,7 @@
       "RotateSecret"
     ],
     "last_ts": "2024-04-27T17:04:21+00:00",
-    "session_event_count": 9,
+    "session_event_count": 18,
     "session_start_ts": "2024-04-27T17:00:28+00:00"
   },
   "arn:aws:iam::415710957784:user/qqyleh": {
@@ -4173,7 +4173,7 @@
       "StartInstances"
     ],
     "last_ts": "2024-12-24T16:21:56+00:00",
-    "session_event_count": 20,
+    "session_event_count": 40,
     "session_start_ts": "2024-12-24T16:01:00+00:00"
   },
   "arn:aws:iam::417010027677:user/hrgfnp": {
@@ -4192,7 +4192,7 @@
       "StopInstances"
     ],
     "last_ts": "2024-12-07T08:15:07+00:00",
-    "session_event_count": 15,
+    "session_event_count": 30,
     "session_start_ts": "2024-12-07T08:01:35+00:00"
   },
   "arn:aws:iam::417781101322:user/jjcocx": {
@@ -4211,7 +4211,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-04-03T09:16:55+00:00",
-    "session_event_count": 15,
+    "session_event_count": 30,
     "session_start_ts": "2024-04-03T09:01:02+00:00"
   },
   "arn:aws:iam::420075488474:user/nvlkilsapx": {
@@ -4229,7 +4229,7 @@
       "StopLogging"
     ],
     "last_ts": "2024-05-23T15:07:07+00:00",
-    "session_event_count": 12,
+    "session_event_count": 24,
     "session_start_ts": "2024-05-23T15:00:05+00:00"
   },
   "arn:aws:iam::420190396703:user/aupxrs": {
@@ -4249,7 +4249,7 @@
       "StopInstances"
     ],
     "last_ts": "2024-05-24T12:19:54+00:00",
-    "session_event_count": 19,
+    "session_event_count": 38,
     "session_start_ts": "2024-05-24T12:01:01+00:00"
   },
   "arn:aws:iam::424812800447:user/muvw": {
@@ -4263,7 +4263,7 @@
       "ListBuckets"
     ],
     "last_ts": "2024-09-13T18:03:40+00:00",
-    "session_event_count": 8,
+    "session_event_count": 16,
     "session_start_ts": "2024-09-13T18:00:23+00:00"
   },
   "arn:aws:iam::430097629684:user/mlyebk": {
@@ -4279,7 +4279,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-12-12T12:14:10+00:00",
-    "session_event_count": 16,
+    "session_event_count": 32,
     "session_start_ts": "2024-12-12T12:00:42+00:00"
   },
   "arn:aws:iam::436034086122:user/rnepvn": {
@@ -4298,7 +4298,7 @@
       "StartInstances"
     ],
     "last_ts": "2024-04-24T08:13:22+00:00",
-    "session_event_count": 12,
+    "session_event_count": 24,
     "session_start_ts": "2024-04-24T08:01:37+00:00"
   },
   "arn:aws:iam::437097646290:user/bxsws": {
@@ -4317,7 +4317,7 @@
       "StopLogging"
     ],
     "last_ts": "2024-05-11T14:07:03+00:00",
-    "session_event_count": 12,
+    "session_event_count": 24,
     "session_start_ts": "2024-05-11T14:00:20+00:00"
   },
   "arn:aws:iam::437364220672:user/ffpuix": {
@@ -4338,7 +4338,7 @@
       "StopInstances"
     ],
     "last_ts": "2024-11-15T07:19:08+00:00",
-    "session_event_count": 20,
+    "session_event_count": 40,
     "session_start_ts": "2024-11-15T07:00:58+00:00"
   },
   "arn:aws:iam::438259090629:user/bsfxsfhtrkiu": {
@@ -4355,7 +4355,7 @@
       "SetDefaultPolicyVersion"
     ],
     "last_ts": "2024-07-06T12:04:13+00:00",
-    "session_event_count": 10,
+    "session_event_count": 20,
     "session_start_ts": "2024-07-06T12:00:30+00:00"
   },
   "arn:aws:iam::438739596681:user/lxkvmh": {
@@ -4370,7 +4370,7 @@
       "StopInstances"
     ],
     "last_ts": "2024-11-25T12:08:52+00:00",
-    "session_event_count": 8,
+    "session_event_count": 16,
     "session_start_ts": "2024-11-25T12:01:20+00:00"
   },
   "arn:aws:iam::439309101820:user/zbukaz": {
@@ -4392,7 +4392,7 @@
       "StartInstances"
     ],
     "last_ts": "2024-11-28T12:16:22+00:00",
-    "session_event_count": 16,
+    "session_event_count": 32,
     "session_start_ts": "2024-11-28T12:01:48+00:00"
   },
   "arn:aws:iam::440726759433:user/viudyanrdnqb": {
@@ -4413,7 +4413,7 @@
       "UpdateAssumeRolePolicy"
     ],
     "last_ts": "2024-06-09T11:06:23+00:00",
-    "session_event_count": 14,
+    "session_event_count": 28,
     "session_start_ts": "2024-06-09T11:00:03+00:00"
   },
   "arn:aws:iam::442842482945:user/emzbw": {
@@ -4432,7 +4432,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-08-24T14:06:10+00:00",
-    "session_event_count": 13,
+    "session_event_count": 26,
     "session_start_ts": "2024-08-24T14:00:29+00:00"
   },
   "arn:aws:iam::443792061871:user/nbfgan": {
@@ -4449,7 +4449,7 @@
       "RotateSecret"
     ],
     "last_ts": "2024-08-02T13:11:20+00:00",
-    "session_event_count": 12,
+    "session_event_count": 24,
     "session_start_ts": "2024-08-02T13:01:29+00:00"
   },
   "arn:aws:iam::446116835805:user/xqandy": {
@@ -4468,7 +4468,7 @@
       "StopInstances"
     ],
     "last_ts": "2024-12-15T08:16:49+00:00",
-    "session_event_count": 14,
+    "session_event_count": 28,
     "session_start_ts": "2024-12-15T08:01:21+00:00"
   },
   "arn:aws:iam::449748162459:user/qrfjprhgps": {
@@ -4482,7 +4482,7 @@
       "UpdateAssumeRolePolicy"
     ],
     "last_ts": "2024-08-12T12:03:24+00:00",
-    "session_event_count": 7,
+    "session_event_count": 14,
     "session_start_ts": "2024-08-12T12:00:28+00:00"
   },
   "arn:aws:iam::450327650019:user/mevuag": {
@@ -4501,7 +4501,7 @@
       "StartInstances"
     ],
     "last_ts": "2024-01-18T16:18:23+00:00",
-    "session_event_count": 20,
+    "session_event_count": 40,
     "session_start_ts": "2024-01-18T16:01:28+00:00"
   },
   "arn:aws:iam::451546831048:user/rhumrvaxkrhp": {
@@ -4519,7 +4519,7 @@
       "RotateSecret"
     ],
     "last_ts": "2024-01-09T12:03:46+00:00",
-    "session_event_count": 11,
+    "session_event_count": 22,
     "session_start_ts": "2024-01-09T12:00:06+00:00"
   },
   "arn:aws:iam::456376527968:user/tgbyc": {
@@ -4537,7 +4537,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-01-28T13:05:17+00:00",
-    "session_event_count": 11,
+    "session_event_count": 22,
     "session_start_ts": "2024-01-28T13:00:13+00:00"
   },
   "arn:aws:iam::458123476631:user/xommey": {
@@ -4556,7 +4556,7 @@
       "PutSecretValue"
     ],
     "last_ts": "2024-05-04T08:17:55+00:00",
-    "session_event_count": 15,
+    "session_event_count": 30,
     "session_start_ts": "2024-05-04T08:01:59+00:00"
   },
   "arn:aws:iam::459013907206:user/vuvpxs": {
@@ -4576,7 +4576,7 @@
       "StopInstances"
     ],
     "last_ts": "2024-07-26T14:19:26+00:00",
-    "session_event_count": 18,
+    "session_event_count": 36,
     "session_start_ts": "2024-07-26T14:01:00+00:00"
   },
   "arn:aws:iam::465469796348:user/ixlxlv": {
@@ -4590,7 +4590,7 @@
       "StopInstances"
     ],
     "last_ts": "2024-01-15T13:09:42+00:00",
-    "session_event_count": 9,
+    "session_event_count": 18,
     "session_start_ts": "2024-01-15T13:00:19+00:00"
   },
   "arn:aws:iam::468226632700:user/vtafmk": {
@@ -4611,7 +4611,7 @@
       "StartInstances"
     ],
     "last_ts": "2024-09-08T08:16:04+00:00",
-    "session_event_count": 16,
+    "session_event_count": 32,
     "session_start_ts": "2024-09-08T08:00:50+00:00"
   },
   "arn:aws:iam::469622760303:user/pqwkmg": {
@@ -4630,7 +4630,7 @@
       "StopInstances"
     ],
     "last_ts": "2024-12-16T13:15:09+00:00",
-    "session_event_count": 17,
+    "session_event_count": 34,
     "session_start_ts": "2024-12-16T13:00:19+00:00"
   },
   "arn:aws:iam::471051290654:user/bqpyxw": {
@@ -4647,7 +4647,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-12-27T14:12:13+00:00",
-    "session_event_count": 11,
+    "session_event_count": 22,
     "session_start_ts": "2024-12-27T14:01:31+00:00"
   },
   "arn:aws:iam::474031214153:user/wkzg": {
@@ -4667,7 +4667,7 @@
       "UpdateAssumeRolePolicy"
     ],
     "last_ts": "2024-05-09T07:06:41+00:00",
-    "session_event_count": 14,
+    "session_event_count": 28,
     "session_start_ts": "2024-05-09T07:00:24+00:00"
   },
   "arn:aws:iam::477705376842:user/ubtuze": {
@@ -4690,7 +4690,7 @@
       "StartInstances"
     ],
     "last_ts": "2024-11-07T16:20:20+00:00",
-    "session_event_count": 19,
+    "session_event_count": 38,
     "session_start_ts": "2024-11-07T16:00:32+00:00"
   },
   "arn:aws:iam::478209906636:user/qdiwiy": {
@@ -4705,7 +4705,7 @@
       "ModifyDBInstance"
     ],
     "last_ts": "2024-06-03T11:11:50+00:00",
-    "session_event_count": 11,
+    "session_event_count": 22,
     "session_start_ts": "2024-06-03T11:01:00+00:00"
   },
   "arn:aws:iam::478581777762:user/orfg": {
@@ -4718,7 +4718,7 @@
       "ListSecrets"
     ],
     "last_ts": "2024-02-09T10:02:52+00:00",
-    "session_event_count": 6,
+    "session_event_count": 12,
     "session_start_ts": "2024-02-09T10:00:11+00:00"
   },
   "arn:aws:iam::484064419720:user/xhmlrj": {
@@ -4738,7 +4738,7 @@
       "StopInstances"
     ],
     "last_ts": "2024-10-18T11:20:33+00:00",
-    "session_event_count": 18,
+    "session_event_count": 36,
     "session_start_ts": "2024-10-18T11:01:03+00:00"
   },
   "arn:aws:iam::485865699065:user/rqgbfvcifs": {
@@ -4760,7 +4760,7 @@
       "StopLogging"
     ],
     "last_ts": "2024-09-05T10:08:26+00:00",
-    "session_event_count": 17,
+    "session_event_count": 34,
     "session_start_ts": "2024-09-05T10:00:16+00:00"
   },
   "arn:aws:iam::486193595851:user/mkynxpq": {
@@ -4781,7 +4781,7 @@
       "PutParameter"
     ],
     "last_ts": "2024-04-27T11:07:27+00:00",
-    "session_event_count": 14,
+    "session_event_count": 28,
     "session_start_ts": "2024-04-27T11:00:13+00:00"
   },
   "arn:aws:iam::487908367678:user/qnsgmfxjsahc": {
@@ -4799,7 +4799,7 @@
       "StopLogging"
     ],
     "last_ts": "2024-10-09T12:05:30+00:00",
-    "session_event_count": 12,
+    "session_event_count": 24,
     "session_start_ts": "2024-10-09T12:00:20+00:00"
   },
   "arn:aws:iam::489345595189:user/wobebo": {
@@ -4814,7 +4814,7 @@
       "PutSecretValue"
     ],
     "last_ts": "2024-07-21T12:09:44+00:00",
-    "session_event_count": 9,
+    "session_event_count": 18,
     "session_start_ts": "2024-07-21T12:00:49+00:00"
   },
   "arn:aws:iam::490059133532:user/rvgykc": {
@@ -4834,7 +4834,7 @@
       "StopInstances"
     ],
     "last_ts": "2024-10-19T12:19:41+00:00",
-    "session_event_count": 19,
+    "session_event_count": 38,
     "session_start_ts": "2024-10-19T12:00:16+00:00"
   },
   "arn:aws:iam::491251755374:user/ftrgej": {
@@ -4851,7 +4851,7 @@
       "PutSecretValue"
     ],
     "last_ts": "2024-03-19T18:13:44+00:00",
-    "session_event_count": 15,
+    "session_event_count": 30,
     "session_start_ts": "2024-03-19T18:01:50+00:00"
   },
   "arn:aws:iam::492175152299:user/hxumxa": {
@@ -4873,7 +4873,7 @@
       "StopInstances"
     ],
     "last_ts": "2024-10-07T09:08:39+00:00",
-    "session_event_count": 15,
+    "session_event_count": 30,
     "session_start_ts": "2024-10-07T09:00:12+00:00"
   },
   "arn:aws:iam::492273354254:user/silq": {
@@ -4888,7 +4888,7 @@
       "ListFunctions"
     ],
     "last_ts": "2024-11-06T19:03:42+00:00",
-    "session_event_count": 8,
+    "session_event_count": 16,
     "session_start_ts": "2024-11-06T19:00:26+00:00"
   },
   "arn:aws:iam::493883649653:user/tbfeyz": {
@@ -4902,7 +4902,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-01-03T16:10:31+00:00",
-    "session_event_count": 8,
+    "session_event_count": 16,
     "session_start_ts": "2024-01-03T16:01:59+00:00"
   },
   "arn:aws:iam::497065932023:user/raxqzj": {
@@ -4918,7 +4918,7 @@
       "StartInstances"
     ],
     "last_ts": "2024-04-10T10:19:27+00:00",
-    "session_event_count": 14,
+    "session_event_count": 28,
     "session_start_ts": "2024-04-10T10:00:43+00:00"
   },
   "arn:aws:iam::497273717992:user/yldx": {
@@ -4934,7 +4934,7 @@
       "PutRolePolicy"
     ],
     "last_ts": "2024-06-10T16:07:02+00:00",
-    "session_event_count": 10,
+    "session_event_count": 20,
     "session_start_ts": "2024-06-10T16:00:24+00:00"
   },
   "arn:aws:iam::498510075336:user/pyvstl": {
@@ -4951,7 +4951,7 @@
       "StopInstances"
     ],
     "last_ts": "2024-02-28T15:10:48+00:00",
-    "session_event_count": 12,
+    "session_event_count": 24,
     "session_start_ts": "2024-02-28T15:00:14+00:00"
   },
   "arn:aws:iam::498865355933:user/pkbtldcxxp": {
@@ -4967,7 +4967,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-06-09T12:05:13+00:00",
-    "session_event_count": 9,
+    "session_event_count": 18,
     "session_start_ts": "2024-06-09T12:00:20+00:00"
   },
   "arn:aws:iam::504231718834:user/oakgob": {
@@ -4986,7 +4986,7 @@
       "StopInstances"
     ],
     "last_ts": "2024-12-14T16:14:48+00:00",
-    "session_event_count": 15,
+    "session_event_count": 30,
     "session_start_ts": "2024-12-14T16:00:12+00:00"
   },
   "arn:aws:iam::505373190076:user/csoere": {
@@ -5002,7 +5002,7 @@
       "PutParameter"
     ],
     "last_ts": "2024-01-21T09:06:30+00:00",
-    "session_event_count": 9,
+    "session_event_count": 18,
     "session_start_ts": "2024-01-21T09:01:12+00:00"
   },
   "arn:aws:iam::508183329042:user/fdijigt": {
@@ -5017,7 +5017,7 @@
       "SetDefaultPolicyVersion"
     ],
     "last_ts": "2024-05-06T10:05:17+00:00",
-    "session_event_count": 9,
+    "session_event_count": 18,
     "session_start_ts": "2024-05-06T10:00:16+00:00"
   },
   "arn:aws:iam::509885002057:user/gnkfsn": {
@@ -5036,7 +5036,7 @@
       "StartInstances"
     ],
     "last_ts": "2024-03-04T12:11:29+00:00",
-    "session_event_count": 14,
+    "session_event_count": 28,
     "session_start_ts": "2024-03-04T12:01:13+00:00"
   },
   "arn:aws:iam::510016996651:user/ykyjgp": {
@@ -5052,7 +5052,7 @@
       "RotateSecret"
     ],
     "last_ts": "2024-02-21T17:10:25+00:00",
-    "session_event_count": 12,
+    "session_event_count": 24,
     "session_start_ts": "2024-02-21T17:01:44+00:00"
   },
   "arn:aws:iam::513914680405:user/hnpmmj": {
@@ -5067,7 +5067,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-06-22T16:09:30+00:00",
-    "session_event_count": 8,
+    "session_event_count": 16,
     "session_start_ts": "2024-06-22T16:01:45+00:00"
   },
   "arn:aws:iam::514513409667:user/lyjizk": {
@@ -5083,7 +5083,7 @@
       "ModifyInstanceAttribute"
     ],
     "last_ts": "2024-03-02T13:15:42+00:00",
-    "session_event_count": 13,
+    "session_event_count": 26,
     "session_start_ts": "2024-03-02T13:02:00+00:00"
   },
   "arn:aws:iam::515373511390:user/nlyucf": {
@@ -5097,7 +5097,7 @@
       "ModifyDBInstance"
     ],
     "last_ts": "2024-09-02T13:07:13+00:00",
-    "session_event_count": 8,
+    "session_event_count": 16,
     "session_start_ts": "2024-09-02T13:01:02+00:00"
   },
   "arn:aws:iam::518965076111:user/hdnvck": {
@@ -5113,7 +5113,7 @@
       "ListSecrets"
     ],
     "last_ts": "2024-05-07T12:04:40+00:00",
-    "session_event_count": 9,
+    "session_event_count": 18,
     "session_start_ts": "2024-05-07T12:00:26+00:00"
   },
   "arn:aws:iam::522012100521:user/yyjhak": {
@@ -5129,7 +5129,7 @@
       "StartInstances"
     ],
     "last_ts": "2024-10-04T17:13:23+00:00",
-    "session_event_count": 12,
+    "session_event_count": 24,
     "session_start_ts": "2024-10-04T17:01:50+00:00"
   },
   "arn:aws:iam::522938978691:user/bgqdjl": {
@@ -5150,7 +5150,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-07-20T08:17:36+00:00",
-    "session_event_count": 17,
+    "session_event_count": 34,
     "session_start_ts": "2024-07-20T08:01:14+00:00"
   },
   "arn:aws:iam::524310018708:user/pswxxrt": {
@@ -5173,7 +5173,7 @@
       "StopLogging"
     ],
     "last_ts": "2024-04-12T09:08:24+00:00",
-    "session_event_count": 17,
+    "session_event_count": 34,
     "session_start_ts": "2024-04-12T09:00:15+00:00"
   },
   "arn:aws:iam::525284281728:user/enuxwcgf": {
@@ -5189,7 +5189,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-05-07T18:05:08+00:00",
-    "session_event_count": 9,
+    "session_event_count": 18,
     "session_start_ts": "2024-05-07T18:00:03+00:00"
   },
   "arn:aws:iam::526991765421:user/axwk": {
@@ -5204,7 +5204,7 @@
       "PutRolePolicy"
     ],
     "last_ts": "2024-01-12T08:03:38+00:00",
-    "session_event_count": 8,
+    "session_event_count": 16,
     "session_start_ts": "2024-01-12T08:00:28+00:00"
   },
   "arn:aws:iam::533623916021:user/kezycp": {
@@ -5227,7 +5227,7 @@
       "StopLogging"
     ],
     "last_ts": "2024-03-15T14:08:34+00:00",
-    "session_event_count": 16,
+    "session_event_count": 32,
     "session_start_ts": "2024-03-15T14:00:30+00:00"
   },
   "arn:aws:iam::534804890642:user/kvyerj": {
@@ -5247,7 +5247,7 @@
       "ModifyInstanceAttribute"
     ],
     "last_ts": "2024-10-10T14:19:59+00:00",
-    "session_event_count": 20,
+    "session_event_count": 40,
     "session_start_ts": "2024-10-10T14:00:12+00:00"
   },
   "arn:aws:iam::536230583627:user/ilmeji": {
@@ -5266,7 +5266,7 @@
       "PutSecretValue"
     ],
     "last_ts": "2024-05-03T19:11:32+00:00",
-    "session_event_count": 13,
+    "session_event_count": 26,
     "session_start_ts": "2024-05-03T19:00:46+00:00"
   },
   "arn:aws:iam::536789762941:user/ffdqkz": {
@@ -5288,7 +5288,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-12-25T18:16:40+00:00",
-    "session_event_count": 20,
+    "session_event_count": 40,
     "session_start_ts": "2024-12-25T18:00:40+00:00"
   },
   "arn:aws:iam::539584500267:user/remmje": {
@@ -5305,7 +5305,7 @@
       "StopInstances"
     ],
     "last_ts": "2024-09-22T16:12:41+00:00",
-    "session_event_count": 14,
+    "session_event_count": 28,
     "session_start_ts": "2024-09-22T16:01:04+00:00"
   },
   "arn:aws:iam::542049803925:user/avsq": {
@@ -5325,7 +5325,7 @@
       "StopInstances"
     ],
     "last_ts": "2024-11-12T16:09:03+00:00",
-    "session_event_count": 13,
+    "session_event_count": 26,
     "session_start_ts": "2024-11-12T16:00:13+00:00"
   },
   "arn:aws:iam::544993850141:user/ruenry": {
@@ -5339,7 +5339,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-07-19T10:08:18+00:00",
-    "session_event_count": 9,
+    "session_event_count": 18,
     "session_start_ts": "2024-07-19T10:01:31+00:00"
   },
   "arn:aws:iam::548926142243:user/ogupmizgnxav": {
@@ -5356,7 +5356,7 @@
       "UpdateAssumeRolePolicy"
     ],
     "last_ts": "2024-05-26T14:05:21+00:00",
-    "session_event_count": 10,
+    "session_event_count": 20,
     "session_start_ts": "2024-05-26T14:00:05+00:00"
   },
   "arn:aws:iam::550453301447:user/hmpwak": {
@@ -5376,7 +5376,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-10-27T07:12:56+00:00",
-    "session_event_count": 15,
+    "session_event_count": 30,
     "session_start_ts": "2024-10-27T07:01:14+00:00"
   },
   "arn:aws:iam::557097372746:user/nquajvohqfup": {
@@ -5398,7 +5398,7 @@
       "RotateSecret"
     ],
     "last_ts": "2024-10-03T11:08:20+00:00",
-    "session_event_count": 16,
+    "session_event_count": 32,
     "session_start_ts": "2024-10-03T11:00:09+00:00"
   },
   "arn:aws:iam::560140860678:user/pjbjyn": {
@@ -5418,7 +5418,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-03-09T09:14:35+00:00",
-    "session_event_count": 15,
+    "session_event_count": 30,
     "session_start_ts": "2024-03-09T09:01:53+00:00"
   },
   "arn:aws:iam::561249440062:user/bzajhi": {
@@ -5435,7 +5435,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-04-11T10:08:39+00:00",
-    "session_event_count": 10,
+    "session_event_count": 20,
     "session_start_ts": "2024-04-11T10:01:00+00:00"
   },
   "arn:aws:iam::561405703734:user/uqzafjra": {
@@ -5449,7 +5449,7 @@
       "StartInstances"
     ],
     "last_ts": "2024-04-28T14:03:19+00:00",
-    "session_event_count": 7,
+    "session_event_count": 14,
     "session_start_ts": "2024-04-28T14:00:04+00:00"
   },
   "arn:aws:iam::567183823409:user/thslly": {
@@ -5471,7 +5471,7 @@
       "StopLogging"
     ],
     "last_ts": "2024-07-04T15:07:20+00:00",
-    "session_event_count": 15,
+    "session_event_count": 30,
     "session_start_ts": "2024-07-04T15:00:07+00:00"
   },
   "arn:aws:iam::567380261473:user/wjmoqa": {
@@ -5487,7 +5487,7 @@
       "StopInstances"
     ],
     "last_ts": "2024-01-09T12:08:39+00:00",
-    "session_event_count": 11,
+    "session_event_count": 22,
     "session_start_ts": "2024-01-09T12:01:06+00:00"
   },
   "arn:aws:iam::567581099062:user/vhnapx": {
@@ -5503,7 +5503,7 @@
       "PutParameter"
     ],
     "last_ts": "2024-04-27T17:10:32+00:00",
-    "session_event_count": 11,
+    "session_event_count": 22,
     "session_start_ts": "2024-04-27T17:01:02+00:00"
   },
   "arn:aws:iam::567808126515:root": {
@@ -5514,7 +5514,7 @@
       "ListManagedNotificationEvents"
     ],
     "last_ts": "2024-10-15T20:29:14+00:00",
-    "session_event_count": 8,
+    "session_event_count": 16,
     "session_start_ts": "2024-10-15T20:01:44+00:00"
   },
   "arn:aws:iam::570067382539:user/fzhohp": {
@@ -5534,7 +5534,7 @@
       "StartInstances"
     ],
     "last_ts": "2024-11-26T12:17:15+00:00",
-    "session_event_count": 18,
+    "session_event_count": 36,
     "session_start_ts": "2024-11-26T12:01:47+00:00"
   },
   "arn:aws:iam::571863735532:user/rwripe": {
@@ -5553,7 +5553,7 @@
       "StopInstances"
     ],
     "last_ts": "2024-01-19T17:05:43+00:00",
-    "session_event_count": 12,
+    "session_event_count": 24,
     "session_start_ts": "2024-01-19T17:00:09+00:00"
   },
   "arn:aws:iam::573922875625:user/dqchoq": {
@@ -5578,7 +5578,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-12-15T16:21:33+00:00",
-    "session_event_count": 19,
+    "session_event_count": 38,
     "session_start_ts": "2024-12-15T16:01:11+00:00"
   },
   "arn:aws:iam::573993945127:user/yuwvcphzqmoz": {
@@ -5597,7 +5597,7 @@
       "ListRolePolicies"
     ],
     "last_ts": "2024-06-18T07:05:43+00:00",
-    "session_event_count": 12,
+    "session_event_count": 24,
     "session_start_ts": "2024-06-18T07:00:19+00:00"
   },
   "arn:aws:iam::576343236104:user/tzbad": {
@@ -5618,7 +5618,7 @@
       "PutParameter"
     ],
     "last_ts": "2024-03-15T11:06:50+00:00",
-    "session_event_count": 14,
+    "session_event_count": 28,
     "session_start_ts": "2024-03-15T11:00:24+00:00"
   },
   "arn:aws:iam::578298817422:user/lprnso": {
@@ -5631,7 +5631,7 @@
       "ModifyInstanceAttribute"
     ],
     "last_ts": "2024-07-17T16:07:37+00:00",
-    "session_event_count": 8,
+    "session_event_count": 16,
     "session_start_ts": "2024-07-17T16:01:08+00:00"
   },
   "arn:aws:iam::584569825203:user/kwjnoz": {
@@ -5650,7 +5650,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-10-12T16:14:21+00:00",
-    "session_event_count": 15,
+    "session_event_count": 30,
     "session_start_ts": "2024-10-12T16:00:37+00:00"
   },
   "arn:aws:iam::584699044036:user/npdvmf": {
@@ -5666,7 +5666,7 @@
       "PutSecretValue"
     ],
     "last_ts": "2024-10-18T09:09:58+00:00",
-    "session_event_count": 10,
+    "session_event_count": 20,
     "session_start_ts": "2024-10-18T09:01:35+00:00"
   },
   "arn:aws:iam::586567942712:user/uivwy": {
@@ -5683,7 +5683,7 @@
       "StopLogging"
     ],
     "last_ts": "2024-11-18T13:05:56+00:00",
-    "session_event_count": 11,
+    "session_event_count": 22,
     "session_start_ts": "2024-11-18T13:00:30+00:00"
   },
   "arn:aws:iam::589214980675:user/adtjzwys": {
@@ -5700,7 +5700,7 @@
       "ListSecrets"
     ],
     "last_ts": "2024-05-08T19:06:07+00:00",
-    "session_event_count": 12,
+    "session_event_count": 24,
     "session_start_ts": "2024-05-08T19:00:30+00:00"
   },
   "arn:aws:iam::593759784691:user/kexchg": {
@@ -5718,7 +5718,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-05-18T17:20:38+00:00",
-    "session_event_count": 16,
+    "session_event_count": 32,
     "session_start_ts": "2024-05-18T17:01:47+00:00"
   },
   "arn:aws:iam::594441670285:user/wvslws": {
@@ -5738,7 +5738,7 @@
       "SetDefaultPolicyVersion"
     ],
     "last_ts": "2024-11-17T15:04:31+00:00",
-    "session_event_count": 13,
+    "session_event_count": 26,
     "session_start_ts": "2024-11-17T15:00:14+00:00"
   },
   "arn:aws:iam::595213222917:user/yuvxiz": {
@@ -5753,7 +5753,7 @@
       "StopInstances"
     ],
     "last_ts": "2024-11-27T17:08:07+00:00",
-    "session_event_count": 9,
+    "session_event_count": 18,
     "session_start_ts": "2024-11-27T17:00:41+00:00"
   },
   "arn:aws:iam::595963223685:user/twslhu": {
@@ -5769,7 +5769,7 @@
       "PutSecretValue"
     ],
     "last_ts": "2024-01-01T16:07:46+00:00",
-    "session_event_count": 11,
+    "session_event_count": 22,
     "session_start_ts": "2024-01-01T16:00:56+00:00"
   },
   "arn:aws:iam::597483658785:user/lrudsja": {
@@ -5790,7 +5790,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-11-26T18:04:52+00:00",
-    "session_event_count": 14,
+    "session_event_count": 28,
     "session_start_ts": "2024-11-26T18:00:15+00:00"
   },
   "arn:aws:iam::603429096116:user/odkrnfchevk": {
@@ -5808,7 +5808,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-11-25T08:06:04+00:00",
-    "session_event_count": 11,
+    "session_event_count": 22,
     "session_start_ts": "2024-11-25T08:00:03+00:00"
   },
   "arn:aws:iam::607678378868:user/qfmdda": {
@@ -5828,7 +5828,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-02-21T12:18:29+00:00",
-    "session_event_count": 14,
+    "session_event_count": 28,
     "session_start_ts": "2024-02-21T12:01:58+00:00"
   },
   "arn:aws:iam::607692811471:user/iekuww": {
@@ -5848,7 +5848,7 @@
       "StartInstances"
     ],
     "last_ts": "2024-04-23T15:16:42+00:00",
-    "session_event_count": 19,
+    "session_event_count": 38,
     "session_start_ts": "2024-04-23T15:00:06+00:00"
   },
   "arn:aws:iam::608605339177:user/eyfzrx": {
@@ -5867,7 +5867,7 @@
       "StartInstances"
     ],
     "last_ts": "2024-03-10T11:17:14+00:00",
-    "session_event_count": 14,
+    "session_event_count": 28,
     "session_start_ts": "2024-03-10T11:01:44+00:00"
   },
   "arn:aws:iam::609843006153:user/ttjirr": {
@@ -5885,7 +5885,7 @@
       "RotateSecret"
     ],
     "last_ts": "2024-09-18T19:14:23+00:00",
-    "session_event_count": 14,
+    "session_event_count": 28,
     "session_start_ts": "2024-09-18T19:01:08+00:00"
   },
   "arn:aws:iam::611228138144:user/oafgaz": {
@@ -5904,7 +5904,7 @@
       "StartInstances"
     ],
     "last_ts": "2024-11-05T16:20:20+00:00",
-    "session_event_count": 18,
+    "session_event_count": 36,
     "session_start_ts": "2024-11-05T16:01:59+00:00"
   },
   "arn:aws:iam::612485481223:user/zlpegp": {
@@ -5921,7 +5921,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-07-15T17:15:03+00:00",
-    "session_event_count": 13,
+    "session_event_count": 26,
     "session_start_ts": "2024-07-15T17:01:50+00:00"
   },
   "arn:aws:iam::614464370786:user/psfkuo": {
@@ -5941,7 +5941,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-10-07T17:16:57+00:00",
-    "session_event_count": 16,
+    "session_event_count": 32,
     "session_start_ts": "2024-10-07T17:00:11+00:00"
   },
   "arn:aws:iam::615458803422:user/bueoldtbh": {
@@ -5958,7 +5958,7 @@
       "SetDefaultPolicyVersion"
     ],
     "last_ts": "2024-11-01T18:05:18+00:00",
-    "session_event_count": 10,
+    "session_event_count": 20,
     "session_start_ts": "2024-11-01T18:00:13+00:00"
   },
   "arn:aws:iam::615941915334:user/ydhazy": {
@@ -5979,7 +5979,7 @@
       "StopInstances"
     ],
     "last_ts": "2024-11-07T19:17:33+00:00",
-    "session_event_count": 15,
+    "session_event_count": 30,
     "session_start_ts": "2024-11-07T19:00:55+00:00"
   },
   "arn:aws:iam::616331073977:user/fyxuvx": {
@@ -5994,7 +5994,7 @@
       "RotateSecret"
     ],
     "last_ts": "2024-10-14T19:08:53+00:00",
-    "session_event_count": 10,
+    "session_event_count": 20,
     "session_start_ts": "2024-10-14T19:01:23+00:00"
   },
   "arn:aws:iam::623618529660:user/ctozdr": {
@@ -6014,7 +6014,7 @@
       "StopInstances"
     ],
     "last_ts": "2024-01-03T11:19:09+00:00",
-    "session_event_count": 17,
+    "session_event_count": 34,
     "session_start_ts": "2024-01-03T11:01:16+00:00"
   },
   "arn:aws:iam::624021159907:user/jxpwkfan": {
@@ -6031,7 +6031,7 @@
       "UpdateAssumeRolePolicy"
     ],
     "last_ts": "2024-07-14T14:04:50+00:00",
-    "session_event_count": 10,
+    "session_event_count": 20,
     "session_start_ts": "2024-07-14T14:00:11+00:00"
   },
   "arn:aws:iam::625192819178:user/ngoztu": {
@@ -6050,7 +6050,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-05-09T09:14:19+00:00",
-    "session_event_count": 16,
+    "session_event_count": 32,
     "session_start_ts": "2024-05-09T09:01:33+00:00"
   },
   "arn:aws:iam::627761741379:user/jppbhk": {
@@ -6068,7 +6068,7 @@
       "StartInstances"
     ],
     "last_ts": "2024-04-05T14:11:55+00:00",
-    "session_event_count": 11,
+    "session_event_count": 22,
     "session_start_ts": "2024-04-05T14:01:43+00:00"
   },
   "arn:aws:iam::628029603838:user/hdugoo": {
@@ -6087,7 +6087,7 @@
       "StartInstances"
     ],
     "last_ts": "2024-01-17T08:20:31+00:00",
-    "session_event_count": 20,
+    "session_event_count": 40,
     "session_start_ts": "2024-01-17T08:01:47+00:00"
   },
   "arn:aws:iam::628807082925:user/mhsdsc": {
@@ -6108,7 +6108,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-10-11T12:22:11+00:00",
-    "session_event_count": 20,
+    "session_event_count": 40,
     "session_start_ts": "2024-10-11T12:00:59+00:00"
   },
   "arn:aws:iam::630313163882:user/tmrhcjeof": {
@@ -6123,7 +6123,7 @@
       "UpdateAssumeRolePolicy"
     ],
     "last_ts": "2024-02-13T09:05:06+00:00",
-    "session_event_count": 8,
+    "session_event_count": 16,
     "session_start_ts": "2024-02-13T09:00:26+00:00"
   },
   "arn:aws:iam::630581593007:user/lpzal": {
@@ -6140,7 +6140,7 @@
       "PutRolePolicy"
     ],
     "last_ts": "2024-08-02T15:05:31+00:00",
-    "session_event_count": 11,
+    "session_event_count": 22,
     "session_start_ts": "2024-08-02T15:00:28+00:00"
   },
   "arn:aws:iam::633214157636:user/dpmnou": {
@@ -6160,7 +6160,7 @@
       "StopInstances"
     ],
     "last_ts": "2024-11-03T08:20:23+00:00",
-    "session_event_count": 16,
+    "session_event_count": 32,
     "session_start_ts": "2024-11-03T08:01:20+00:00"
   },
   "arn:aws:iam::636100365051:user/ncfbdwcizdq": {
@@ -6177,7 +6177,7 @@
       "UpdateAssumeRolePolicy"
     ],
     "last_ts": "2024-03-24T09:04:55+00:00",
-    "session_event_count": 11,
+    "session_event_count": 22,
     "session_start_ts": "2024-03-24T09:00:19+00:00"
   },
   "arn:aws:iam::637055245868:user/uuzesc": {
@@ -6196,7 +6196,7 @@
       "PutSecretValue"
     ],
     "last_ts": "2024-08-17T09:20:27+00:00",
-    "session_event_count": 19,
+    "session_event_count": 38,
     "session_start_ts": "2024-08-17T09:01:48+00:00"
   },
   "arn:aws:iam::638744538207:user/yrjnmwo": {
@@ -6211,7 +6211,7 @@
       "ListPolicies"
     ],
     "last_ts": "2024-03-25T13:03:49+00:00",
-    "session_event_count": 8,
+    "session_event_count": 16,
     "session_start_ts": "2024-03-25T13:00:08+00:00"
   },
   "arn:aws:iam::640871393720:user/omqqiqra": {
@@ -6226,7 +6226,7 @@
       "UpdateAssumeRolePolicy"
     ],
     "last_ts": "2024-09-13T14:03:12+00:00",
-    "session_event_count": 8,
+    "session_event_count": 16,
     "session_start_ts": "2024-09-13T14:00:28+00:00"
   },
   "arn:aws:iam::641271815212:user/jmmuen": {
@@ -6245,7 +6245,7 @@
       "RotateSecret"
     ],
     "last_ts": "2024-01-20T15:19:56+00:00",
-    "session_event_count": 19,
+    "session_event_count": 38,
     "session_start_ts": "2024-01-20T15:01:40+00:00"
   },
   "arn:aws:iam::645688815010:user/nwqp": {
@@ -6265,7 +6265,7 @@
       "StopInstances"
     ],
     "last_ts": "2024-12-15T17:06:34+00:00",
-    "session_event_count": 13,
+    "session_event_count": 26,
     "session_start_ts": "2024-12-15T17:00:21+00:00"
   },
   "arn:aws:iam::646258855864:user/sezyxs": {
@@ -6287,7 +6287,7 @@
       "StopInstances"
     ],
     "last_ts": "2024-02-06T19:21:56+00:00",
-    "session_event_count": 19,
+    "session_event_count": 38,
     "session_start_ts": "2024-02-06T19:00:37+00:00"
   },
   "arn:aws:iam::647147493955:user/syeuhx": {
@@ -6306,7 +6306,7 @@
       "StopInstances"
     ],
     "last_ts": "2024-03-24T19:13:38+00:00",
-    "session_event_count": 14,
+    "session_event_count": 28,
     "session_start_ts": "2024-03-24T19:00:07+00:00"
   },
   "arn:aws:iam::647176357966:user/klrscl": {
@@ -6324,7 +6324,7 @@
       "RotateSecret"
     ],
     "last_ts": "2024-06-21T18:15:08+00:00",
-    "session_event_count": 14,
+    "session_event_count": 28,
     "session_start_ts": "2024-06-21T18:01:11+00:00"
   },
   "arn:aws:iam::648216813637:user/kfdbde": {
@@ -6343,7 +6343,7 @@
       "StartInstances"
     ],
     "last_ts": "2024-08-22T07:24:09+00:00",
-    "session_event_count": 19,
+    "session_event_count": 38,
     "session_start_ts": "2024-08-22T07:01:48+00:00"
   },
   "arn:aws:iam::652445453218:user/qlgdgqobrmeq": {
@@ -6361,7 +6361,7 @@
       "ListRoles"
     ],
     "last_ts": "2024-04-02T08:04:31+00:00",
-    "session_event_count": 11,
+    "session_event_count": 22,
     "session_start_ts": "2024-04-02T08:00:16+00:00"
   },
   "arn:aws:iam::653246791892:user/wmgmqy": {
@@ -6380,7 +6380,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-10-25T17:15:24+00:00",
-    "session_event_count": 13,
+    "session_event_count": 26,
     "session_start_ts": "2024-10-25T17:00:36+00:00"
   },
   "arn:aws:iam::654616449314:user/pzvahq": {
@@ -6401,7 +6401,7 @@
       "StartInstances"
     ],
     "last_ts": "2024-01-18T12:16:05+00:00",
-    "session_event_count": 16,
+    "session_event_count": 32,
     "session_start_ts": "2024-01-18T12:01:45+00:00"
   },
   "arn:aws:iam::661820197268:user/cctd": {
@@ -6417,7 +6417,7 @@
       "PutRolePolicy"
     ],
     "last_ts": "2024-10-07T17:07:04+00:00",
-    "session_event_count": 11,
+    "session_event_count": 22,
     "session_start_ts": "2024-10-07T17:00:10+00:00"
   },
   "arn:aws:iam::663576439471:user/oplqdcewopga": {
@@ -6440,7 +6440,7 @@
       "StopLogging"
     ],
     "last_ts": "2024-05-20T08:07:55+00:00",
-    "session_event_count": 16,
+    "session_event_count": 32,
     "session_start_ts": "2024-05-20T08:00:15+00:00"
   },
   "arn:aws:iam::664473350301:user/mgpocy": {
@@ -6457,7 +6457,7 @@
       "StartInstances"
     ],
     "last_ts": "2024-11-02T13:16:17+00:00",
-    "session_event_count": 14,
+    "session_event_count": 28,
     "session_start_ts": "2024-11-02T13:01:41+00:00"
   },
   "arn:aws:iam::665639073687:user/bsdhmy": {
@@ -6475,7 +6475,7 @@
       "StopInstances"
     ],
     "last_ts": "2024-12-09T09:16:30+00:00",
-    "session_event_count": 16,
+    "session_event_count": 32,
     "session_start_ts": "2024-12-09T09:01:47+00:00"
   },
   "arn:aws:iam::666062464814:user/zrinaa": {
@@ -6492,7 +6492,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-05-23T08:12:00+00:00",
-    "session_event_count": 11,
+    "session_event_count": 22,
     "session_start_ts": "2024-05-23T08:01:38+00:00"
   },
   "arn:aws:iam::666919818724:user/yzhrhqp": {
@@ -6511,7 +6511,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-03-16T08:05:53+00:00",
-    "session_event_count": 12,
+    "session_event_count": 24,
     "session_start_ts": "2024-03-16T08:00:08+00:00"
   },
   "arn:aws:iam::666990736121:user/acrkev": {
@@ -6530,7 +6530,7 @@
       "StopInstances"
     ],
     "last_ts": "2024-09-16T14:20:35+00:00",
-    "session_event_count": 17,
+    "session_event_count": 34,
     "session_start_ts": "2024-09-16T14:01:56+00:00"
   },
   "arn:aws:iam::668621037253:user/ucehmwu": {
@@ -6550,7 +6550,7 @@
       "ListRoles"
     ],
     "last_ts": "2024-06-11T14:05:17+00:00",
-    "session_event_count": 13,
+    "session_event_count": 26,
     "session_start_ts": "2024-06-11T14:00:22+00:00"
   },
   "arn:aws:iam::669084976282:user/fdpcxu": {
@@ -6569,7 +6569,7 @@
       "StartInstances"
     ],
     "last_ts": "2024-10-08T17:16:54+00:00",
-    "session_event_count": 15,
+    "session_event_count": 30,
     "session_start_ts": "2024-10-08T17:01:41+00:00"
   },
   "arn:aws:iam::670731095235:user/fiqcvd": {
@@ -6589,7 +6589,7 @@
       "StartInstances"
     ],
     "last_ts": "2024-03-01T11:13:50+00:00",
-    "session_event_count": 13,
+    "session_event_count": 26,
     "session_start_ts": "2024-03-01T11:01:13+00:00"
   },
   "arn:aws:iam::675241974509:user/weesx": {
@@ -6609,7 +6609,7 @@
       "StartInstances"
     ],
     "last_ts": "2024-05-03T09:06:16+00:00",
-    "session_event_count": 13,
+    "session_event_count": 26,
     "session_start_ts": "2024-05-03T09:00:16+00:00"
   },
   "arn:aws:iam::675821389830:root": {
@@ -6619,7 +6619,7 @@
       "ListManagedNotificationEvents"
     ],
     "last_ts": "2024-11-01T09:57:15+00:00",
-    "session_event_count": 8,
+    "session_event_count": 16,
     "session_start_ts": "2024-11-01T09:09:37+00:00"
   },
   "arn:aws:iam::676682777877:user/yznuws": {
@@ -6638,7 +6638,7 @@
       "StopInstances"
     ],
     "last_ts": "2024-03-14T12:17:14+00:00",
-    "session_event_count": 17,
+    "session_event_count": 34,
     "session_start_ts": "2024-03-14T12:00:21+00:00"
   },
   "arn:aws:iam::677229468621:user/lmzjtk": {
@@ -6655,7 +6655,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-03-10T09:18:25+00:00",
-    "session_event_count": 16,
+    "session_event_count": 32,
     "session_start_ts": "2024-03-10T09:01:07+00:00"
   },
   "arn:aws:iam::680474282533:user/xabocv": {
@@ -6677,7 +6677,7 @@
       "StopLogging"
     ],
     "last_ts": "2024-09-23T11:07:47+00:00",
-    "session_event_count": 15,
+    "session_event_count": 30,
     "session_start_ts": "2024-09-23T11:00:30+00:00"
   },
   "arn:aws:iam::690024550611:root": {
@@ -6687,7 +6687,7 @@
       "ListManagedNotificationEvents"
     ],
     "last_ts": "2024-05-15T19:55:09+00:00",
-    "session_event_count": 9,
+    "session_event_count": 18,
     "session_start_ts": "2024-05-15T19:09:56+00:00"
   },
   "arn:aws:iam::691834349358:user/qocrasvh": {
@@ -6706,7 +6706,7 @@
       "RebootInstances"
     ],
     "last_ts": "2024-01-16T15:06:24+00:00",
-    "session_event_count": 12,
+    "session_event_count": 24,
     "session_start_ts": "2024-01-16T15:00:25+00:00"
   },
   "arn:aws:iam::691871352671:user/iauddefsiwyv": {
@@ -6728,7 +6728,7 @@
       "ListSecrets"
     ],
     "last_ts": "2024-05-13T11:07:50+00:00",
-    "session_event_count": 15,
+    "session_event_count": 30,
     "session_start_ts": "2024-05-13T11:00:28+00:00"
   },
   "arn:aws:iam::692053263892:user/npeqxr": {
@@ -6747,7 +6747,7 @@
       "StopInstances"
     ],
     "last_ts": "2024-02-09T16:16:05+00:00",
-    "session_event_count": 15,
+    "session_event_count": 30,
     "session_start_ts": "2024-02-09T16:00:34+00:00"
   },
   "arn:aws:iam::693501578215:user/bnmiqr": {
@@ -6768,7 +6768,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-07-02T07:11:26+00:00",
-    "session_event_count": 16,
+    "session_event_count": 32,
     "session_start_ts": "2024-07-02T07:00:22+00:00"
   },
   "arn:aws:iam::693716414370:user/bxfooy": {
@@ -6781,7 +6781,7 @@
       "RotateSecret"
     ],
     "last_ts": "2024-04-02T14:06:36+00:00",
-    "session_event_count": 8,
+    "session_event_count": 16,
     "session_start_ts": "2024-04-02T14:00:28+00:00"
   },
   "arn:aws:iam::694611395516:user/tebhow": {
@@ -6795,7 +6795,7 @@
       "StopInstances"
     ],
     "last_ts": "2024-04-07T17:14:47+00:00",
-    "session_event_count": 11,
+    "session_event_count": 22,
     "session_start_ts": "2024-04-07T17:01:57+00:00"
   },
   "arn:aws:iam::695237883240:user/swamqz": {
@@ -6810,7 +6810,7 @@
       "ListKeys"
     ],
     "last_ts": "2024-06-27T11:06:04+00:00",
-    "session_event_count": 8,
+    "session_event_count": 16,
     "session_start_ts": "2024-06-27T11:00:07+00:00"
   },
   "arn:aws:iam::695975285180:user/wcmhfo": {
@@ -6831,7 +6831,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-08-03T15:16:45+00:00",
-    "session_event_count": 18,
+    "session_event_count": 36,
     "session_start_ts": "2024-08-03T15:01:02+00:00"
   },
   "arn:aws:iam::697046373129:user/rvdolw": {
@@ -6851,7 +6851,7 @@
       "ListKeys"
     ],
     "last_ts": "2024-04-26T14:18:33+00:00",
-    "session_event_count": 16,
+    "session_event_count": 32,
     "session_start_ts": "2024-04-26T14:01:07+00:00"
   },
   "arn:aws:iam::697332280183:user/hvntok": {
@@ -6872,7 +6872,7 @@
       "StopInstances"
     ],
     "last_ts": "2024-05-16T10:23:20+00:00",
-    "session_event_count": 20,
+    "session_event_count": 40,
     "session_start_ts": "2024-05-16T10:02:00+00:00"
   },
   "arn:aws:iam::697395806352:user/nmzbyz": {
@@ -6887,7 +6887,7 @@
       "PutSecretValue"
     ],
     "last_ts": "2024-06-23T17:08:16+00:00",
-    "session_event_count": 9,
+    "session_event_count": 18,
     "session_start_ts": "2024-06-23T17:01:11+00:00"
   },
   "arn:aws:iam::700278977253:user/jsmqra": {
@@ -6905,7 +6905,7 @@
       "StartInstances"
     ],
     "last_ts": "2024-10-20T11:14:22+00:00",
-    "session_event_count": 13,
+    "session_event_count": 26,
     "session_start_ts": "2024-10-20T11:00:14+00:00"
   },
   "arn:aws:iam::702420441650:user/duoiph": {
@@ -6927,7 +6927,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-02-05T11:22:09+00:00",
-    "session_event_count": 20,
+    "session_event_count": 40,
     "session_start_ts": "2024-02-05T11:01:06+00:00"
   },
   "arn:aws:iam::703433195484:user/hvwjzvuls": {
@@ -6941,7 +6941,7 @@
       "PutRolePolicy"
     ],
     "last_ts": "2024-07-02T19:03:09+00:00",
-    "session_event_count": 7,
+    "session_event_count": 14,
     "session_start_ts": "2024-07-02T19:00:20+00:00"
   },
   "arn:aws:iam::703524071831:user/wmvwaf": {
@@ -6960,7 +6960,7 @@
       "StartInstances"
     ],
     "last_ts": "2024-08-08T11:20:21+00:00",
-    "session_event_count": 15,
+    "session_event_count": 30,
     "session_start_ts": "2024-08-08T11:00:33+00:00"
   },
   "arn:aws:iam::705579532707:user/cnfujv": {
@@ -6976,7 +6976,7 @@
       "RebootInstances"
     ],
     "last_ts": "2024-02-16T17:10:55+00:00",
-    "session_event_count": 11,
+    "session_event_count": 22,
     "session_start_ts": "2024-02-16T17:00:39+00:00"
   },
   "arn:aws:iam::706208028367:user/uvkbc": {
@@ -6997,7 +6997,7 @@
       "SetDefaultPolicyVersion"
     ],
     "last_ts": "2024-07-09T08:07:46+00:00",
-    "session_event_count": 15,
+    "session_event_count": 30,
     "session_start_ts": "2024-07-09T08:00:06+00:00"
   },
   "arn:aws:iam::707531647775:user/yyjj": {
@@ -7012,7 +7012,7 @@
       "PutRolePolicy"
     ],
     "last_ts": "2024-07-02T07:04:40+00:00",
-    "session_event_count": 9,
+    "session_event_count": 18,
     "session_start_ts": "2024-07-02T07:00:27+00:00"
   },
   "arn:aws:iam::714714891570:user/yfypuq": {
@@ -7032,7 +7032,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-12-23T14:17:30+00:00",
-    "session_event_count": 18,
+    "session_event_count": 36,
     "session_start_ts": "2024-12-23T14:00:14+00:00"
   },
   "arn:aws:iam::718160653773:user/bxpkntcf": {
@@ -7049,7 +7049,7 @@
       "ModifyDBInstance"
     ],
     "last_ts": "2024-09-23T10:04:14+00:00",
-    "session_event_count": 10,
+    "session_event_count": 20,
     "session_start_ts": "2024-09-23T10:00:18+00:00"
   },
   "arn:aws:iam::720235019524:user/xkndob": {
@@ -7067,7 +7067,7 @@
       "StartInstances"
     ],
     "last_ts": "2024-10-28T08:13:44+00:00",
-    "session_event_count": 12,
+    "session_event_count": 24,
     "session_start_ts": "2024-10-28T08:01:27+00:00"
   },
   "arn:aws:iam::720891568553:user/cupspc": {
@@ -7083,7 +7083,7 @@
       "StopInstances"
     ],
     "last_ts": "2024-09-17T07:17:27+00:00",
-    "session_event_count": 13,
+    "session_event_count": 26,
     "session_start_ts": "2024-09-17T07:01:44+00:00"
   },
   "arn:aws:iam::720973038023:user/cacizo": {
@@ -7098,7 +7098,7 @@
       "StartInstances"
     ],
     "last_ts": "2024-11-07T19:14:40+00:00",
-    "session_event_count": 12,
+    "session_event_count": 24,
     "session_start_ts": "2024-11-07T19:00:30+00:00"
   },
   "arn:aws:iam::721197883025:user/wicris": {
@@ -7113,7 +7113,7 @@
       "ModifyInstanceAttribute"
     ],
     "last_ts": "2024-06-12T13:06:05+00:00",
-    "session_event_count": 8,
+    "session_event_count": 16,
     "session_start_ts": "2024-06-12T13:00:12+00:00"
   },
   "arn:aws:iam::722815106550:user/tdnlcrlbmzak": {
@@ -7127,7 +7127,7 @@
       "PutRolePolicy"
     ],
     "last_ts": "2024-02-17T13:03:05+00:00",
-    "session_event_count": 8,
+    "session_event_count": 16,
     "session_start_ts": "2024-02-17T13:00:05+00:00"
   },
   "arn:aws:iam::724906043074:user/wbqtdh": {
@@ -7146,7 +7146,7 @@
       "StartInstances"
     ],
     "last_ts": "2024-07-20T15:13:13+00:00",
-    "session_event_count": 13,
+    "session_event_count": 26,
     "session_start_ts": "2024-07-20T15:00:41+00:00"
   },
   "arn:aws:iam::729170840245:user/vnyebz": {
@@ -7160,7 +7160,7 @@
       "GetBucketPolicy"
     ],
     "last_ts": "2024-08-09T14:06:23+00:00",
-    "session_event_count": 8,
+    "session_event_count": 16,
     "session_start_ts": "2024-08-09T14:00:08+00:00"
   },
   "arn:aws:iam::733413467124:root": {
@@ -7170,7 +7170,7 @@
       "ListManagedNotificationEvents"
     ],
     "last_ts": "2024-01-24T14:26:22+00:00",
-    "session_event_count": 6,
+    "session_event_count": 12,
     "session_start_ts": "2024-01-24T14:09:56+00:00"
   },
   "arn:aws:iam::735643444610:user/ptjwwyg": {
@@ -7187,7 +7187,7 @@
       "PutRolePolicy"
     ],
     "last_ts": "2024-11-22T14:04:15+00:00",
-    "session_event_count": 10,
+    "session_event_count": 20,
     "session_start_ts": "2024-11-22T14:00:24+00:00"
   },
   "arn:aws:iam::735848653014:user/hinvct": {
@@ -7202,7 +7202,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-09-23T19:10:57+00:00",
-    "session_event_count": 11,
+    "session_event_count": 22,
     "session_start_ts": "2024-09-23T19:01:25+00:00"
   },
   "arn:aws:iam::736028142866:user/pymvae": {
@@ -7217,7 +7217,7 @@
       "RotateSecret"
     ],
     "last_ts": "2024-06-04T13:09:04+00:00",
-    "session_event_count": 8,
+    "session_event_count": 16,
     "session_start_ts": "2024-06-04T13:01:30+00:00"
   },
   "arn:aws:iam::736237341345:user/mhvydf": {
@@ -7233,7 +7233,7 @@
       "ListKeys"
     ],
     "last_ts": "2024-10-07T19:08:03+00:00",
-    "session_event_count": 9,
+    "session_event_count": 18,
     "session_start_ts": "2024-10-07T19:00:45+00:00"
   },
   "arn:aws:iam::739190699041:user/jsdadfvyrpe": {
@@ -7247,7 +7247,7 @@
       "PutRolePolicy"
     ],
     "last_ts": "2024-04-11T07:03:38+00:00",
-    "session_event_count": 7,
+    "session_event_count": 14,
     "session_start_ts": "2024-04-11T07:00:08+00:00"
   },
   "arn:aws:iam::740972852879:user/hiajlz": {
@@ -7261,7 +7261,7 @@
       "StartInstances"
     ],
     "last_ts": "2024-10-06T14:06:32+00:00",
-    "session_event_count": 8,
+    "session_event_count": 16,
     "session_start_ts": "2024-10-06T14:01:22+00:00"
   },
   "arn:aws:iam::744357804890:user/qifq": {
@@ -7281,7 +7281,7 @@
       "ListUsers"
     ],
     "last_ts": "2024-07-23T10:07:29+00:00",
-    "session_event_count": 13,
+    "session_event_count": 26,
     "session_start_ts": "2024-07-23T10:00:20+00:00"
   },
   "arn:aws:iam::746332812167:user/pwjqgsqrgom": {
@@ -7298,7 +7298,7 @@
       "PutRolePolicy"
     ],
     "last_ts": "2024-01-13T18:04:44+00:00",
-    "session_event_count": 10,
+    "session_event_count": 20,
     "session_start_ts": "2024-01-13T18:00:21+00:00"
   },
   "arn:aws:iam::746511780958:user/zbozlyejcspy": {
@@ -7317,7 +7317,7 @@
       "RotateSecret"
     ],
     "last_ts": "2024-03-25T07:05:26+00:00",
-    "session_event_count": 12,
+    "session_event_count": 24,
     "session_start_ts": "2024-03-25T07:00:14+00:00"
   },
   "arn:aws:iam::749164305476:user/qjdzyl": {
@@ -7335,7 +7335,7 @@
       "StartInstances"
     ],
     "last_ts": "2024-06-11T13:12:05+00:00",
-    "session_event_count": 14,
+    "session_event_count": 28,
     "session_start_ts": "2024-06-11T13:00:35+00:00"
   },
   "arn:aws:iam::750680689057:user/cakqfp": {
@@ -7353,7 +7353,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-08-17T15:11:59+00:00",
-    "session_event_count": 12,
+    "session_event_count": 24,
     "session_start_ts": "2024-08-17T15:01:38+00:00"
   },
   "arn:aws:iam::750985025961:user/suqaip": {
@@ -7370,7 +7370,7 @@
       "PutSecretValue"
     ],
     "last_ts": "2024-01-20T18:10:28+00:00",
-    "session_event_count": 12,
+    "session_event_count": 24,
     "session_start_ts": "2024-01-20T18:00:40+00:00"
   },
   "arn:aws:iam::752372270073:user/unfnzj": {
@@ -7385,7 +7385,7 @@
       "PutSecretValue"
     ],
     "last_ts": "2024-04-26T16:06:41+00:00",
-    "session_event_count": 9,
+    "session_event_count": 18,
     "session_start_ts": "2024-04-26T16:00:15+00:00"
   },
   "arn:aws:iam::753277008584:user/lvpdvprb": {
@@ -7405,7 +7405,7 @@
       "StartInstances"
     ],
     "last_ts": "2024-12-22T09:05:02+00:00",
-    "session_event_count": 13,
+    "session_event_count": 26,
     "session_start_ts": "2024-12-22T09:00:08+00:00"
   },
   "arn:aws:iam::754417602654:user/difzcv": {
@@ -7425,7 +7425,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-07-08T14:22:56+00:00",
-    "session_event_count": 18,
+    "session_event_count": 36,
     "session_start_ts": "2024-07-08T14:01:41+00:00"
   },
   "arn:aws:iam::765243995755:root": {
@@ -7435,7 +7435,7 @@
       "ListManagedNotificationEvents"
     ],
     "last_ts": "2024-11-02T11:34:34+00:00",
-    "session_event_count": 6,
+    "session_event_count": 12,
     "session_start_ts": "2024-11-02T11:08:38+00:00"
   },
   "arn:aws:iam::766121367136:user/eosrxmvawofn": {
@@ -7450,7 +7450,7 @@
       "SetDefaultPolicyVersion"
     ],
     "last_ts": "2024-10-20T07:03:24+00:00",
-    "session_event_count": 8,
+    "session_event_count": 16,
     "session_start_ts": "2024-10-20T07:00:03+00:00"
   },
   "arn:aws:iam::766255271585:user/amhzvv": {
@@ -7469,7 +7469,7 @@
       "StartInstances"
     ],
     "last_ts": "2024-04-22T19:15:17+00:00",
-    "session_event_count": 17,
+    "session_event_count": 34,
     "session_start_ts": "2024-04-22T19:00:50+00:00"
   },
   "arn:aws:iam::767384802951:user/lhmduvdeqnh": {
@@ -7490,7 +7490,7 @@
       "PutRolePolicy"
     ],
     "last_ts": "2024-05-12T18:08:57+00:00",
-    "session_event_count": 15,
+    "session_event_count": 30,
     "session_start_ts": "2024-05-12T18:00:20+00:00"
   },
   "arn:aws:iam::770718205691:user/eaxobx": {
@@ -7508,7 +7508,7 @@
       "StopInstances"
     ],
     "last_ts": "2024-03-02T18:09:53+00:00",
-    "session_event_count": 13,
+    "session_event_count": 26,
     "session_start_ts": "2024-03-02T18:01:26+00:00"
   },
   "arn:aws:iam::771616195592:user/cavpmuaqom": {
@@ -7528,7 +7528,7 @@
       "PutRolePolicy"
     ],
     "last_ts": "2024-08-02T11:05:11+00:00",
-    "session_event_count": 13,
+    "session_event_count": 26,
     "session_start_ts": "2024-08-02T11:00:03+00:00"
   },
   "arn:aws:iam::774273993782:user/fbcofpfrikd": {
@@ -7547,7 +7547,7 @@
       "ModifyInstanceAttribute"
     ],
     "last_ts": "2024-06-21T19:05:01+00:00",
-    "session_event_count": 12,
+    "session_event_count": 24,
     "session_start_ts": "2024-06-21T19:00:16+00:00"
   },
   "arn:aws:iam::778273232103:user/neskvy": {
@@ -7561,7 +7561,7 @@
       "PutRolePolicy"
     ],
     "last_ts": "2024-02-11T07:03:57+00:00",
-    "session_event_count": 7,
+    "session_event_count": 14,
     "session_start_ts": "2024-02-11T07:00:07+00:00"
   },
   "arn:aws:iam::779097850872:user/sjoybc": {
@@ -7578,7 +7578,7 @@
       "RotateSecret"
     ],
     "last_ts": "2024-07-10T07:12:22+00:00",
-    "session_event_count": 12,
+    "session_event_count": 24,
     "session_start_ts": "2024-07-10T07:00:58+00:00"
   },
   "arn:aws:iam::782498360213:user/tpeinn": {
@@ -7598,7 +7598,7 @@
       "StartInstances"
     ],
     "last_ts": "2024-06-23T15:13:35+00:00",
-    "session_event_count": 17,
+    "session_event_count": 34,
     "session_start_ts": "2024-06-23T15:01:10+00:00"
   },
   "arn:aws:iam::784747102116:user/oqbfaq": {
@@ -7620,7 +7620,7 @@
       "StartInstances"
     ],
     "last_ts": "2024-01-24T18:17:49+00:00",
-    "session_event_count": 20,
+    "session_event_count": 40,
     "session_start_ts": "2024-01-24T18:02:00+00:00"
   },
   "arn:aws:iam::789689786872:user/odcpjg": {
@@ -7641,7 +7641,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-12-10T13:20:03+00:00",
-    "session_event_count": 18,
+    "session_event_count": 36,
     "session_start_ts": "2024-12-10T13:01:49+00:00"
   },
   "arn:aws:iam::790096149142:user/gfnqbr": {
@@ -7655,7 +7655,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-09-15T08:09:48+00:00",
-    "session_event_count": 9,
+    "session_event_count": 18,
     "session_start_ts": "2024-09-15T08:00:46+00:00"
   },
   "arn:aws:iam::790150747203:user/kcxsvs": {
@@ -7673,7 +7673,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-03-08T07:12:31+00:00",
-    "session_event_count": 13,
+    "session_event_count": 26,
     "session_start_ts": "2024-03-08T07:00:50+00:00"
   },
   "arn:aws:iam::791578040498:user/evzbtknouu": {
@@ -7687,7 +7687,7 @@
       "SetDefaultPolicyVersion"
     ],
     "last_ts": "2024-11-12T13:03:03+00:00",
-    "session_event_count": 7,
+    "session_event_count": 14,
     "session_start_ts": "2024-11-12T13:00:11+00:00"
   },
   "arn:aws:iam::792773335017:user/cxkylh": {
@@ -7701,7 +7701,7 @@
       "StartInstances"
     ],
     "last_ts": "2024-05-26T12:08:57+00:00",
-    "session_event_count": 8,
+    "session_event_count": 16,
     "session_start_ts": "2024-05-26T12:00:54+00:00"
   },
   "arn:aws:iam::795065895830:user/lwbvbj": {
@@ -7719,7 +7719,7 @@
       "StartInstances"
     ],
     "last_ts": "2024-09-15T11:13:53+00:00",
-    "session_event_count": 14,
+    "session_event_count": 28,
     "session_start_ts": "2024-09-15T11:00:38+00:00"
   },
   "arn:aws:iam::796706593045:user/uozgqu": {
@@ -7739,7 +7739,7 @@
       "StartInstances"
     ],
     "last_ts": "2024-09-09T19:15:16+00:00",
-    "session_event_count": 16,
+    "session_event_count": 32,
     "session_start_ts": "2024-09-09T19:01:55+00:00"
   },
   "arn:aws:iam::797120883225:user/nryzuf": {
@@ -7752,7 +7752,7 @@
       "ModifyDBInstance"
     ],
     "last_ts": "2024-02-04T17:11:35+00:00",
-    "session_event_count": 8,
+    "session_event_count": 16,
     "session_start_ts": "2024-02-04T17:01:36+00:00"
   },
   "arn:aws:iam::798247111145:user/rpkl": {
@@ -7771,7 +7771,7 @@
       "StartInstances"
     ],
     "last_ts": "2024-03-27T16:05:37+00:00",
-    "session_event_count": 12,
+    "session_event_count": 24,
     "session_start_ts": "2024-03-27T16:00:21+00:00"
   },
   "arn:aws:iam::801110060054:user/wmguvifqlzb": {
@@ -7787,7 +7787,7 @@
       "SetDefaultPolicyVersion"
     ],
     "last_ts": "2024-08-09T07:04:11+00:00",
-    "session_event_count": 10,
+    "session_event_count": 20,
     "session_start_ts": "2024-08-09T07:00:13+00:00"
   },
   "arn:aws:iam::801859661763:user/rzrhwawcdai": {
@@ -7808,7 +7808,7 @@
       "SetDefaultPolicyVersion"
     ],
     "last_ts": "2024-10-07T16:05:51+00:00",
-    "session_event_count": 14,
+    "session_event_count": 28,
     "session_start_ts": "2024-10-07T16:00:30+00:00"
   },
   "arn:aws:iam::802431043867:user/gtgtcv": {
@@ -7825,7 +7825,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-05-13T11:09:53+00:00",
-    "session_event_count": 12,
+    "session_event_count": 24,
     "session_start_ts": "2024-05-13T11:00:12+00:00"
   },
   "arn:aws:iam::802711325435:user/wlcnwru": {
@@ -7844,7 +7844,7 @@
       "StartInstances"
     ],
     "last_ts": "2024-04-23T07:04:14+00:00",
-    "session_event_count": 12,
+    "session_event_count": 24,
     "session_start_ts": "2024-04-23T07:00:09+00:00"
   },
   "arn:aws:iam::804574671457:user/niktus": {
@@ -7858,7 +7858,7 @@
       "StopInstances"
     ],
     "last_ts": "2024-06-14T19:14:36+00:00",
-    "session_event_count": 12,
+    "session_event_count": 24,
     "session_start_ts": "2024-06-14T19:01:31+00:00"
   },
   "arn:aws:iam::804900882942:user/gdxijanq": {
@@ -7877,7 +7877,7 @@
       "PutRolePolicy"
     ],
     "last_ts": "2024-03-19T19:06:19+00:00",
-    "session_event_count": 12,
+    "session_event_count": 24,
     "session_start_ts": "2024-03-19T19:00:15+00:00"
   },
   "arn:aws:iam::807136522537:user/gkdzqrrx": {
@@ -7895,7 +7895,7 @@
       "ListPolicies"
     ],
     "last_ts": "2024-11-12T08:03:47+00:00",
-    "session_event_count": 11,
+    "session_event_count": 22,
     "session_start_ts": "2024-11-12T08:00:26+00:00"
   },
   "arn:aws:iam::812656313337:user/kfxoar": {
@@ -7912,7 +7912,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-08-25T10:10:43+00:00",
-    "session_event_count": 11,
+    "session_event_count": 22,
     "session_start_ts": "2024-08-25T10:01:14+00:00"
   },
   "arn:aws:iam::813481458506:user/qrnzunctkybc": {
@@ -7929,7 +7929,7 @@
       "SetDefaultPolicyVersion"
     ],
     "last_ts": "2024-09-28T08:06:47+00:00",
-    "session_event_count": 11,
+    "session_event_count": 22,
     "session_start_ts": "2024-09-28T08:00:08+00:00"
   },
   "arn:aws:iam::813695950650:user/rfxvvx": {
@@ -7948,7 +7948,7 @@
       "StopInstances"
     ],
     "last_ts": "2024-03-24T16:17:41+00:00",
-    "session_event_count": 15,
+    "session_event_count": 30,
     "session_start_ts": "2024-03-24T16:01:12+00:00"
   },
   "arn:aws:iam::816530122494:user/yfittx": {
@@ -7969,7 +7969,7 @@
       "StopInstances"
     ],
     "last_ts": "2024-12-10T13:19:32+00:00",
-    "session_event_count": 20,
+    "session_event_count": 40,
     "session_start_ts": "2024-12-10T13:00:28+00:00"
   },
   "arn:aws:iam::817268175314:user/azmdyx": {
@@ -7985,7 +7985,7 @@
       "StopInstances"
     ],
     "last_ts": "2024-09-04T08:13:10+00:00",
-    "session_event_count": 12,
+    "session_event_count": 24,
     "session_start_ts": "2024-09-04T08:01:19+00:00"
   },
   "arn:aws:iam::817683145459:user/astltg": {
@@ -8001,7 +8001,7 @@
       "RotateSecret"
     ],
     "last_ts": "2024-01-22T10:13:39+00:00",
-    "session_event_count": 12,
+    "session_event_count": 24,
     "session_start_ts": "2024-01-22T10:01:41+00:00"
   },
   "arn:aws:iam::819905206195:user/mckyrw": {
@@ -8018,7 +8018,7 @@
       "StartInstances"
     ],
     "last_ts": "2024-09-05T13:12:56+00:00",
-    "session_event_count": 13,
+    "session_event_count": 26,
     "session_start_ts": "2024-09-05T13:01:06+00:00"
   },
   "arn:aws:iam::824267587625:user/keaqtywjshx": {
@@ -8036,7 +8036,7 @@
       "PutRolePolicy"
     ],
     "last_ts": "2024-07-21T19:05:05+00:00",
-    "session_event_count": 11,
+    "session_event_count": 22,
     "session_start_ts": "2024-07-21T19:00:04+00:00"
   },
   "arn:aws:iam::829560291617:user/olywiupz": {
@@ -8053,7 +8053,7 @@
       "PutRolePolicy"
     ],
     "last_ts": "2024-12-08T10:05:27+00:00",
-    "session_event_count": 11,
+    "session_event_count": 22,
     "session_start_ts": "2024-12-08T10:00:23+00:00"
   },
   "arn:aws:iam::829982589980:user/mbuyle": {
@@ -8071,7 +8071,7 @@
       "StartInstances"
     ],
     "last_ts": "2024-08-20T13:14:33+00:00",
-    "session_event_count": 12,
+    "session_event_count": 24,
     "session_start_ts": "2024-08-20T13:00:46+00:00"
   },
   "arn:aws:iam::833303991219:user/jltqld": {
@@ -8088,7 +8088,7 @@
       "PutSecretValue"
     ],
     "last_ts": "2024-05-15T09:16:31+00:00",
-    "session_event_count": 15,
+    "session_event_count": 30,
     "session_start_ts": "2024-05-15T09:01:35+00:00"
   },
   "arn:aws:iam::835119358701:user/urjrjfgjom": {
@@ -8108,7 +8108,7 @@
       "UpdateAssumeRolePolicy"
     ],
     "last_ts": "2024-10-15T19:06:17+00:00",
-    "session_event_count": 13,
+    "session_event_count": 26,
     "session_start_ts": "2024-10-15T19:00:05+00:00"
   },
   "arn:aws:iam::836277880378:user/algact": {
@@ -8128,7 +8128,7 @@
       "StopInstances"
     ],
     "last_ts": "2024-03-17T07:17:45+00:00",
-    "session_event_count": 15,
+    "session_event_count": 30,
     "session_start_ts": "2024-03-17T07:01:07+00:00"
   },
   "arn:aws:iam::837491518827:user/gdhcyk": {
@@ -8145,7 +8145,7 @@
       "ModifyDBInstance"
     ],
     "last_ts": "2024-07-19T11:18:33+00:00",
-    "session_event_count": 14,
+    "session_event_count": 28,
     "session_start_ts": "2024-07-19T11:01:13+00:00"
   },
   "arn:aws:iam::839194703108:user/gcfueg": {
@@ -8162,7 +8162,7 @@
       "PutSecretValue"
     ],
     "last_ts": "2024-11-08T19:09:25+00:00",
-    "session_event_count": 10,
+    "session_event_count": 20,
     "session_start_ts": "2024-11-08T19:01:00+00:00"
   },
   "arn:aws:iam::840658603092:user/haedyv": {
@@ -8181,7 +8181,7 @@
       "StopInstances"
     ],
     "last_ts": "2024-11-05T08:16:09+00:00",
-    "session_event_count": 16,
+    "session_event_count": 32,
     "session_start_ts": "2024-11-05T08:01:37+00:00"
   },
   "arn:aws:iam::840750007916:user/wnledm": {
@@ -8200,7 +8200,7 @@
       "StartInstances"
     ],
     "last_ts": "2024-01-15T19:14:14+00:00",
-    "session_event_count": 16,
+    "session_event_count": 32,
     "session_start_ts": "2024-01-15T19:00:23+00:00"
   },
   "arn:aws:iam::840785560880:user/fnbyjzmj": {
@@ -8221,7 +8221,7 @@
       "ModifyInstanceAttribute"
     ],
     "last_ts": "2024-08-20T19:07:57+00:00",
-    "session_event_count": 14,
+    "session_event_count": 28,
     "session_start_ts": "2024-08-20T19:00:20+00:00"
   },
   "arn:aws:iam::840843363105:user/ofzxyddce": {
@@ -8237,7 +8237,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-04-06T11:06:50+00:00",
-    "session_event_count": 10,
+    "session_event_count": 20,
     "session_start_ts": "2024-04-06T11:00:25+00:00"
   },
   "arn:aws:iam::841145195726:root": {
@@ -8246,7 +8246,7 @@
       "ListManagedNotificationEvents"
     ],
     "last_ts": "2024-07-04T19:53:35+00:00",
-    "session_event_count": 9,
+    "session_event_count": 18,
     "session_start_ts": "2024-07-04T19:06:42+00:00"
   },
   "arn:aws:iam::841693472303:root": {
@@ -8256,7 +8256,7 @@
       "ListManagedNotificationEvents"
     ],
     "last_ts": "2024-11-03T10:02:01+00:00",
-    "session_event_count": 9,
+    "session_event_count": 18,
     "session_start_ts": "2024-11-03T09:09:22+00:00"
   },
   "arn:aws:iam::843858386406:user/czesmh": {
@@ -8278,7 +8278,7 @@
       "PutParameter"
     ],
     "last_ts": "2024-07-06T07:14:49+00:00",
-    "session_event_count": 16,
+    "session_event_count": 32,
     "session_start_ts": "2024-07-06T07:01:36+00:00"
   },
   "arn:aws:iam::844303711621:user/rphwycgx": {
@@ -8295,7 +8295,7 @@
       "ModifyInstanceAttribute"
     ],
     "last_ts": "2024-06-25T16:03:23+00:00",
-    "session_event_count": 10,
+    "session_event_count": 20,
     "session_start_ts": "2024-06-25T16:00:15+00:00"
   },
   "arn:aws:iam::846502181655:user/irsapo": {
@@ -8315,7 +8315,7 @@
       "StopInstances"
     ],
     "last_ts": "2024-09-04T13:19:32+00:00",
-    "session_event_count": 16,
+    "session_event_count": 32,
     "session_start_ts": "2024-09-04T13:01:24+00:00"
   },
   "arn:aws:iam::847875885939:user/uwkwew": {
@@ -8333,7 +8333,7 @@
       "RotateSecret"
     ],
     "last_ts": "2024-01-07T13:15:01+00:00",
-    "session_event_count": 15,
+    "session_event_count": 30,
     "session_start_ts": "2024-01-07T13:01:29+00:00"
   },
   "arn:aws:iam::849826804622:user/wwbzni": {
@@ -8348,7 +8348,7 @@
       "ListKeys"
     ],
     "last_ts": "2024-01-05T10:12:43+00:00",
-    "session_event_count": 14,
+    "session_event_count": 28,
     "session_start_ts": "2024-01-05T10:00:35+00:00"
   },
   "arn:aws:iam::851501104916:user/legswmmnit": {
@@ -8366,7 +8366,7 @@
       "StartInstances"
     ],
     "last_ts": "2024-07-03T17:06:44+00:00",
-    "session_event_count": 11,
+    "session_event_count": 22,
     "session_start_ts": "2024-07-03T17:00:23+00:00"
   },
   "arn:aws:iam::854173823194:user/mfsfbh": {
@@ -8385,7 +8385,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-07-20T12:19:34+00:00",
-    "session_event_count": 19,
+    "session_event_count": 38,
     "session_start_ts": "2024-07-20T12:00:26+00:00"
   },
   "arn:aws:iam::855052800211:user/qpwpx": {
@@ -8404,7 +8404,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-12-09T11:06:38+00:00",
-    "session_event_count": 13,
+    "session_event_count": 26,
     "session_start_ts": "2024-12-09T11:00:27+00:00"
   },
   "arn:aws:iam::856799068750:user/plmraq": {
@@ -8423,7 +8423,7 @@
       "StopInstances"
     ],
     "last_ts": "2024-09-23T13:12:23+00:00",
-    "session_event_count": 14,
+    "session_event_count": 28,
     "session_start_ts": "2024-09-23T13:01:59+00:00"
   },
   "arn:aws:iam::857454473591:user/wbopzq": {
@@ -8437,7 +8437,7 @@
       "PutRolePolicy"
     ],
     "last_ts": "2024-04-27T11:02:51+00:00",
-    "session_event_count": 7,
+    "session_event_count": 14,
     "session_start_ts": "2024-04-27T11:00:12+00:00"
   },
   "arn:aws:iam::857474143396:user/neuadi": {
@@ -8456,7 +8456,7 @@
       "StartInstances"
     ],
     "last_ts": "2024-12-16T18:19:38+00:00",
-    "session_event_count": 17,
+    "session_event_count": 34,
     "session_start_ts": "2024-12-16T18:00:23+00:00"
   },
   "arn:aws:iam::859195850840:user/bkvpsz": {
@@ -8474,7 +8474,7 @@
       "StartInstances"
     ],
     "last_ts": "2024-01-09T11:20:00+00:00",
-    "session_event_count": 17,
+    "session_event_count": 34,
     "session_start_ts": "2024-01-09T11:00:38+00:00"
   },
   "arn:aws:iam::861549924476:user/ppaoyh": {
@@ -8491,7 +8491,7 @@
       "StopInstances"
     ],
     "last_ts": "2024-09-20T15:09:29+00:00",
-    "session_event_count": 10,
+    "session_event_count": 20,
     "session_start_ts": "2024-09-20T15:00:36+00:00"
   },
   "arn:aws:iam::864079138306:user/rifgkx": {
@@ -8504,7 +8504,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-01-11T10:10:35+00:00",
-    "session_event_count": 9,
+    "session_event_count": 18,
     "session_start_ts": "2024-01-11T10:00:27+00:00"
   },
   "arn:aws:iam::864896528996:user/oyjoopdhrlpy": {
@@ -8518,7 +8518,7 @@
       "PutRolePolicy"
     ],
     "last_ts": "2024-10-12T11:03:40+00:00",
-    "session_event_count": 7,
+    "session_event_count": 14,
     "session_start_ts": "2024-10-12T11:00:25+00:00"
   },
   "arn:aws:iam::867671239790:user/sagulb": {
@@ -8535,7 +8535,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-12-22T15:17:18+00:00",
-    "session_event_count": 13,
+    "session_event_count": 26,
     "session_start_ts": "2024-12-22T15:01:29+00:00"
   },
   "arn:aws:iam::867944851551:user/zivkn": {
@@ -8554,7 +8554,7 @@
       "SetDefaultPolicyVersion"
     ],
     "last_ts": "2024-02-28T12:05:41+00:00",
-    "session_event_count": 12,
+    "session_event_count": 24,
     "session_start_ts": "2024-02-28T12:00:28+00:00"
   },
   "arn:aws:iam::869531060353:user/afwvizxxjv": {
@@ -8567,7 +8567,7 @@
       "PutSecretValue"
     ],
     "last_ts": "2024-03-18T17:03:53+00:00",
-    "session_event_count": 7,
+    "session_event_count": 14,
     "session_start_ts": "2024-03-18T17:00:24+00:00"
   },
   "arn:aws:iam::871158498795:user/erphor": {
@@ -8583,7 +8583,7 @@
       "StartInstances"
     ],
     "last_ts": "2024-08-25T13:08:40+00:00",
-    "session_event_count": 10,
+    "session_event_count": 20,
     "session_start_ts": "2024-08-25T13:00:08+00:00"
   },
   "arn:aws:iam::873306587742:user/cptuig": {
@@ -8605,7 +8605,7 @@
       "StartInstances"
     ],
     "last_ts": "2024-09-23T11:19:24+00:00",
-    "session_event_count": 20,
+    "session_event_count": 40,
     "session_start_ts": "2024-09-23T11:01:19+00:00"
   },
   "arn:aws:iam::873332498706:user/uwdx": {
@@ -8624,7 +8624,7 @@
       "UpdateAssumeRolePolicy"
     ],
     "last_ts": "2024-02-21T17:05:41+00:00",
-    "session_event_count": 12,
+    "session_event_count": 24,
     "session_start_ts": "2024-02-21T17:00:13+00:00"
   },
   "arn:aws:iam::878346122582:user/ezlllcsqgnr": {
@@ -8646,7 +8646,7 @@
       "StopLogging"
     ],
     "last_ts": "2024-09-13T08:07:44+00:00",
-    "session_event_count": 15,
+    "session_event_count": 30,
     "session_start_ts": "2024-09-13T08:00:29+00:00"
   },
   "arn:aws:iam::878697907395:user/pvzltxap": {
@@ -8662,7 +8662,7 @@
       "RebootInstances"
     ],
     "last_ts": "2024-01-20T18:05:50+00:00",
-    "session_event_count": 10,
+    "session_event_count": 20,
     "session_start_ts": "2024-01-20T18:00:19+00:00"
   },
   "arn:aws:iam::879430902853:user/lzkcq": {
@@ -8678,7 +8678,7 @@
       "SetDefaultPolicyVersion"
     ],
     "last_ts": "2024-06-19T14:05:05+00:00",
-    "session_event_count": 9,
+    "session_event_count": 18,
     "session_start_ts": "2024-06-19T14:00:29+00:00"
   },
   "arn:aws:iam::883183994480:user/wazpr": {
@@ -8699,7 +8699,7 @@
       "StopLogging"
     ],
     "last_ts": "2024-07-20T18:07:18+00:00",
-    "session_event_count": 14,
+    "session_event_count": 28,
     "session_start_ts": "2024-07-20T18:00:17+00:00"
   },
   "arn:aws:iam::884656106719:user/kybyuj": {
@@ -8720,7 +8720,7 @@
       "RebootInstances"
     ],
     "last_ts": "2024-03-11T12:21:45+00:00",
-    "session_event_count": 20,
+    "session_event_count": 40,
     "session_start_ts": "2024-03-11T12:00:38+00:00"
   },
   "arn:aws:iam::889045258147:user/rpixfm": {
@@ -8733,7 +8733,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-03-14T18:09:02+00:00",
-    "session_event_count": 8,
+    "session_event_count": 16,
     "session_start_ts": "2024-03-14T18:00:30+00:00"
   },
   "arn:aws:iam::889070299879:user/xzvwpq": {
@@ -8755,7 +8755,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-01-16T18:22:22+00:00",
-    "session_event_count": 20,
+    "session_event_count": 40,
     "session_start_ts": "2024-01-16T18:01:58+00:00"
   },
   "arn:aws:iam::889203432581:user/fxwalb": {
@@ -8769,7 +8769,7 @@
       "PutParameter"
     ],
     "last_ts": "2024-03-07T07:06:33+00:00",
-    "session_event_count": 9,
+    "session_event_count": 18,
     "session_start_ts": "2024-03-07T07:00:57+00:00"
   },
   "arn:aws:iam::890976271776:user/ivedmw": {
@@ -8785,7 +8785,7 @@
       "PutSecretValue"
     ],
     "last_ts": "2024-01-02T18:11:02+00:00",
-    "session_event_count": 10,
+    "session_event_count": 20,
     "session_start_ts": "2024-01-02T18:01:32+00:00"
   },
   "arn:aws:iam::891295003299:user/wzrtep": {
@@ -8806,7 +8806,7 @@
       "StartInstances"
     ],
     "last_ts": "2024-05-24T12:19:03+00:00",
-    "session_event_count": 20,
+    "session_event_count": 40,
     "session_start_ts": "2024-05-24T12:01:22+00:00"
   },
   "arn:aws:iam::893892759532:user/nwmcfxtxhfl": {
@@ -8825,7 +8825,7 @@
       "PutRolePolicy"
     ],
     "last_ts": "2024-08-18T07:03:51+00:00",
-    "session_event_count": 12,
+    "session_event_count": 24,
     "session_start_ts": "2024-08-18T07:00:25+00:00"
   },
   "arn:aws:iam::894646237172:user/ajrddk": {
@@ -8841,7 +8841,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-05-23T12:11:32+00:00",
-    "session_event_count": 9,
+    "session_event_count": 18,
     "session_start_ts": "2024-05-23T12:01:44+00:00"
   },
   "arn:aws:iam::896073871085:user/qbbsbibdqk": {
@@ -8856,7 +8856,7 @@
       "PutRolePolicy"
     ],
     "last_ts": "2024-12-18T13:03:52+00:00",
-    "session_event_count": 8,
+    "session_event_count": 16,
     "session_start_ts": "2024-12-18T13:00:04+00:00"
   },
   "arn:aws:iam::896899884512:user/cmkavy": {
@@ -8873,7 +8873,7 @@
       "StartInstances"
     ],
     "last_ts": "2024-09-16T16:10:44+00:00",
-    "session_event_count": 10,
+    "session_event_count": 20,
     "session_start_ts": "2024-09-16T16:01:28+00:00"
   },
   "arn:aws:iam::898247711234:user/nsnkgp": {
@@ -8894,7 +8894,7 @@
       "StopInstances"
     ],
     "last_ts": "2024-02-06T13:14:23+00:00",
-    "session_event_count": 16,
+    "session_event_count": 32,
     "session_start_ts": "2024-02-06T13:00:17+00:00"
   },
   "arn:aws:iam::898945311391:user/ecnvxd": {
@@ -8911,7 +8911,7 @@
       "RotateSecret"
     ],
     "last_ts": "2024-01-28T10:12:03+00:00",
-    "session_event_count": 12,
+    "session_event_count": 24,
     "session_start_ts": "2024-01-28T10:01:37+00:00"
   },
   "arn:aws:iam::900094063209:root": {
@@ -8921,7 +8921,7 @@
       "ListManagedNotificationEvents"
     ],
     "last_ts": "2024-06-17T21:52:06+00:00",
-    "session_event_count": 7,
+    "session_event_count": 14,
     "session_start_ts": "2024-06-17T21:04:35+00:00"
   },
   "arn:aws:iam::903274379182:user/ykuoko": {
@@ -8937,7 +8937,7 @@
       "RotateSecret"
     ],
     "last_ts": "2024-05-24T13:14:07+00:00",
-    "session_event_count": 15,
+    "session_event_count": 30,
     "session_start_ts": "2024-05-24T13:00:50+00:00"
   },
   "arn:aws:iam::903921677390:user/oqezza": {
@@ -8957,7 +8957,7 @@
       "StartInstances"
     ],
     "last_ts": "2024-02-08T12:18:19+00:00",
-    "session_event_count": 17,
+    "session_event_count": 34,
     "session_start_ts": "2024-02-08T12:00:20+00:00"
   },
   "arn:aws:iam::905562610664:user/ygmuqm": {
@@ -8972,7 +8972,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-04-16T12:11:38+00:00",
-    "session_event_count": 9,
+    "session_event_count": 18,
     "session_start_ts": "2024-04-16T12:01:45+00:00"
   },
   "arn:aws:iam::912299404690:user/exggpn": {
@@ -8991,7 +8991,7 @@
       "ModifyInstanceAttribute"
     ],
     "last_ts": "2024-04-10T08:15:36+00:00",
-    "session_event_count": 15,
+    "session_event_count": 30,
     "session_start_ts": "2024-04-10T08:01:08+00:00"
   },
   "arn:aws:iam::914782682437:user/xanpvb": {
@@ -9012,7 +9012,7 @@
       "RebootInstances"
     ],
     "last_ts": "2024-07-06T19:16:45+00:00",
-    "session_event_count": 16,
+    "session_event_count": 32,
     "session_start_ts": "2024-07-06T19:01:57+00:00"
   },
   "arn:aws:iam::914884408229:user/apbjaxhm": {
@@ -9030,7 +9030,7 @@
       "ListUsers"
     ],
     "last_ts": "2024-11-10T11:05:06+00:00",
-    "session_event_count": 12,
+    "session_event_count": 24,
     "session_start_ts": "2024-11-10T11:00:16+00:00"
   },
   "arn:aws:iam::914973951856:user/wmdwju": {
@@ -9048,7 +9048,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-02-20T18:15:51+00:00",
-    "session_event_count": 16,
+    "session_event_count": 32,
     "session_start_ts": "2024-02-20T18:00:41+00:00"
   },
   "arn:aws:iam::916488246392:user/beruceezopfh": {
@@ -9064,7 +9064,7 @@
       "ListUsers"
     ],
     "last_ts": "2024-06-12T15:04:58+00:00",
-    "session_event_count": 9,
+    "session_event_count": 18,
     "session_start_ts": "2024-06-12T15:00:20+00:00"
   },
   "arn:aws:iam::917630129141:user/fula": {
@@ -9083,7 +9083,7 @@
       "StopLogging"
     ],
     "last_ts": "2024-04-23T09:07:27+00:00",
-    "session_event_count": 12,
+    "session_event_count": 24,
     "session_start_ts": "2024-04-23T09:00:19+00:00"
   },
   "arn:aws:iam::919374210170:user/xouivr": {
@@ -9101,7 +9101,7 @@
       "StartInstances"
     ],
     "last_ts": "2024-01-15T17:15:27+00:00",
-    "session_event_count": 17,
+    "session_event_count": 34,
     "session_start_ts": "2024-01-15T17:00:22+00:00"
   },
   "arn:aws:iam::919654632103:user/dmdtpp": {
@@ -9122,7 +9122,7 @@
       "StopInstances"
     ],
     "last_ts": "2024-02-23T09:21:23+00:00",
-    "session_event_count": 16,
+    "session_event_count": 32,
     "session_start_ts": "2024-02-23T09:01:20+00:00"
   },
   "arn:aws:iam::921048676870:user/hyyafj": {
@@ -9140,7 +9140,7 @@
       "RebootInstances"
     ],
     "last_ts": "2024-01-01T09:15:44+00:00",
-    "session_event_count": 13,
+    "session_event_count": 26,
     "session_start_ts": "2024-01-01T09:00:27+00:00"
   },
   "arn:aws:iam::921377395065:user/guefk": {
@@ -9158,7 +9158,7 @@
       "PutRolePolicy"
     ],
     "last_ts": "2024-10-04T09:05:30+00:00",
-    "session_event_count": 12,
+    "session_event_count": 24,
     "session_start_ts": "2024-10-04T09:00:03+00:00"
   },
   "arn:aws:iam::922976920783:user/bhgobj": {
@@ -9175,7 +9175,7 @@
       "StopInstances"
     ],
     "last_ts": "2024-02-27T18:19:57+00:00",
-    "session_event_count": 18,
+    "session_event_count": 36,
     "session_start_ts": "2024-02-27T18:00:35+00:00"
   },
   "arn:aws:iam::923068630983:user/hwozip": {
@@ -9191,7 +9191,7 @@
       "StopInstances"
     ],
     "last_ts": "2024-07-12T12:10:13+00:00",
-    "session_event_count": 9,
+    "session_event_count": 18,
     "session_start_ts": "2024-07-12T12:01:16+00:00"
   },
   "arn:aws:iam::924971240375:user/yvytlfwo": {
@@ -9212,7 +9212,7 @@
       "StopLogging"
     ],
     "last_ts": "2024-05-18T12:05:47+00:00",
-    "session_event_count": 14,
+    "session_event_count": 28,
     "session_start_ts": "2024-05-18T12:00:13+00:00"
   },
   "arn:aws:iam::929040100791:user/biezki": {
@@ -9232,7 +9232,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-01-20T18:17:36+00:00",
-    "session_event_count": 15,
+    "session_event_count": 30,
     "session_start_ts": "2024-01-20T18:01:05+00:00"
   },
   "arn:aws:iam::929094415037:user/secvkf": {
@@ -9246,7 +9246,7 @@
       "PutParameter"
     ],
     "last_ts": "2024-10-05T10:09:38+00:00",
-    "session_event_count": 12,
+    "session_event_count": 24,
     "session_start_ts": "2024-10-05T10:00:13+00:00"
   },
   "arn:aws:iam::929606399278:user/hjttivdrgrl": {
@@ -9261,7 +9261,7 @@
       "ModifyDBInstance"
     ],
     "last_ts": "2024-05-04T17:03:27+00:00",
-    "session_event_count": 8,
+    "session_event_count": 16,
     "session_start_ts": "2024-05-04T17:00:07+00:00"
   },
   "arn:aws:iam::931803897819:user/laehoh": {
@@ -9278,7 +9278,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-05-10T08:13:08+00:00",
-    "session_event_count": 10,
+    "session_event_count": 20,
     "session_start_ts": "2024-05-10T08:01:19+00:00"
   },
   "arn:aws:iam::934374312214:user/tklreu": {
@@ -9293,7 +9293,7 @@
       "PutParameter"
     ],
     "last_ts": "2024-11-06T12:08:12+00:00",
-    "session_event_count": 10,
+    "session_event_count": 20,
     "session_start_ts": "2024-11-06T12:00:10+00:00"
   },
   "arn:aws:iam::935383711762:user/jjbib": {
@@ -9312,7 +9312,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-10-16T11:04:28+00:00",
-    "session_event_count": 12,
+    "session_event_count": 24,
     "session_start_ts": "2024-10-16T11:00:29+00:00"
   },
   "arn:aws:iam::935710078364:user/lcdxzy": {
@@ -9327,7 +9327,7 @@
       "PutParameter"
     ],
     "last_ts": "2024-11-12T16:08:18+00:00",
-    "session_event_count": 8,
+    "session_event_count": 16,
     "session_start_ts": "2024-11-12T16:00:28+00:00"
   },
   "arn:aws:iam::936224524807:user/npwjrn": {
@@ -9343,7 +9343,7 @@
       "ListKeys"
     ],
     "last_ts": "2024-05-18T08:11:47+00:00",
-    "session_event_count": 12,
+    "session_event_count": 24,
     "session_start_ts": "2024-05-18T08:01:01+00:00"
   },
   "arn:aws:iam::936594975002:user/fhjibrsxfz": {
@@ -9362,7 +9362,7 @@
       "PutRolePolicy"
     ],
     "last_ts": "2024-11-17T10:05:49+00:00",
-    "session_event_count": 12,
+    "session_event_count": 24,
     "session_start_ts": "2024-11-17T10:00:14+00:00"
   },
   "arn:aws:iam::936670941616:user/ljedub": {
@@ -9383,7 +9383,7 @@
       "StopInstances"
     ],
     "last_ts": "2024-05-21T12:19:53+00:00",
-    "session_event_count": 18,
+    "session_event_count": 36,
     "session_start_ts": "2024-05-21T12:01:17+00:00"
   },
   "arn:aws:iam::940904883839:user/xqhailf": {
@@ -9400,7 +9400,7 @@
       "PutRolePolicy"
     ],
     "last_ts": "2024-06-19T18:04:01+00:00",
-    "session_event_count": 10,
+    "session_event_count": 20,
     "session_start_ts": "2024-06-19T18:00:07+00:00"
   },
   "arn:aws:iam::942145290496:user/zpznbur": {
@@ -9420,7 +9420,7 @@
       "PutSecretValue"
     ],
     "last_ts": "2024-04-12T10:08:09+00:00",
-    "session_event_count": 14,
+    "session_event_count": 28,
     "session_start_ts": "2024-04-12T10:00:22+00:00"
   },
   "arn:aws:iam::942546125424:user/xkdppb": {
@@ -9438,7 +9438,7 @@
       "StopLogging"
     ],
     "last_ts": "2024-03-15T18:06:43+00:00",
-    "session_event_count": 11,
+    "session_event_count": 22,
     "session_start_ts": "2024-03-15T18:00:13+00:00"
   },
   "arn:aws:iam::944279076809:user/hmqrafh": {
@@ -9455,7 +9455,7 @@
       "RebootInstances"
     ],
     "last_ts": "2024-09-19T13:03:55+00:00",
-    "session_event_count": 10,
+    "session_event_count": 20,
     "session_start_ts": "2024-09-19T13:00:14+00:00"
   },
   "arn:aws:iam::948732587124:user/nuqsedmgnad": {
@@ -9472,7 +9472,7 @@
       "ListRolePolicies"
     ],
     "last_ts": "2024-05-07T18:05:15+00:00",
-    "session_event_count": 10,
+    "session_event_count": 20,
     "session_start_ts": "2024-05-07T18:00:28+00:00"
   },
   "arn:aws:iam::949583241920:root": {
@@ -9481,7 +9481,7 @@
       "ListManagedNotificationEvents"
     ],
     "last_ts": "2024-05-07T21:00:44+00:00",
-    "session_event_count": 9,
+    "session_event_count": 18,
     "session_start_ts": "2024-05-07T20:07:23+00:00"
   },
   "arn:aws:iam::957521875304:user/nfcqpkwt": {
@@ -9500,7 +9500,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-09-11T10:05:45+00:00",
-    "session_event_count": 12,
+    "session_event_count": 24,
     "session_start_ts": "2024-09-11T10:00:29+00:00"
   },
   "arn:aws:iam::957563711195:user/fwdnjk": {
@@ -9515,7 +9515,7 @@
       "PutParameter"
     ],
     "last_ts": "2024-10-19T18:07:48+00:00",
-    "session_event_count": 9,
+    "session_event_count": 18,
     "session_start_ts": "2024-10-19T18:00:10+00:00"
   },
   "arn:aws:iam::957580434506:user/cacgfg": {
@@ -9532,7 +9532,7 @@
       "PutParameter"
     ],
     "last_ts": "2024-12-10T09:16:03+00:00",
-    "session_event_count": 14,
+    "session_event_count": 28,
     "session_start_ts": "2024-12-10T09:01:30+00:00"
   },
   "arn:aws:iam::960275121305:user/hewqks": {
@@ -9548,7 +9548,7 @@
       "UpdateAssumeRolePolicy"
     ],
     "last_ts": "2024-08-19T13:04:30+00:00",
-    "session_event_count": 9,
+    "session_event_count": 18,
     "session_start_ts": "2024-08-19T13:00:11+00:00"
   },
   "arn:aws:iam::961933240499:user/couhay": {
@@ -9567,7 +9567,7 @@
       "StartInstances"
     ],
     "last_ts": "2024-10-28T13:20:29+00:00",
-    "session_event_count": 17,
+    "session_event_count": 34,
     "session_start_ts": "2024-10-28T13:01:32+00:00"
   },
   "arn:aws:iam::962016956903:user/zcvheu": {
@@ -9589,7 +9589,7 @@
       "StartInstances"
     ],
     "last_ts": "2024-07-20T10:23:24+00:00",
-    "session_event_count": 20,
+    "session_event_count": 40,
     "session_start_ts": "2024-07-20T10:01:30+00:00"
   },
   "arn:aws:iam::962718767053:user/amsmnyroxpgm": {
@@ -9610,7 +9610,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-05-27T10:06:06+00:00",
-    "session_event_count": 14,
+    "session_event_count": 28,
     "session_start_ts": "2024-05-27T10:00:19+00:00"
   },
   "arn:aws:iam::966640187669:user/lwvngf": {
@@ -9630,7 +9630,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-06-04T19:16:10+00:00",
-    "session_event_count": 16,
+    "session_event_count": 32,
     "session_start_ts": "2024-06-04T19:01:36+00:00"
   },
   "arn:aws:iam::971720703069:user/ydpwit": {
@@ -9651,7 +9651,7 @@
       "ModifyDBInstance"
     ],
     "last_ts": "2024-02-23T18:06:08+00:00",
-    "session_event_count": 14,
+    "session_event_count": 28,
     "session_start_ts": "2024-02-23T18:00:15+00:00"
   },
   "arn:aws:iam::972365090934:user/rhguttv": {
@@ -9665,7 +9665,7 @@
       "UpdateAssumeRolePolicy"
     ],
     "last_ts": "2024-11-12T13:03:49+00:00",
-    "session_event_count": 7,
+    "session_event_count": 14,
     "session_start_ts": "2024-11-12T13:00:04+00:00"
   },
   "arn:aws:iam::973956057183:user/pevqnp": {
@@ -9682,7 +9682,7 @@
       "StopInstances"
     ],
     "last_ts": "2024-07-20T15:12:18+00:00",
-    "session_event_count": 10,
+    "session_event_count": 20,
     "session_start_ts": "2024-07-20T15:01:32+00:00"
   },
   "arn:aws:iam::978403518051:user/zlradg": {
@@ -9697,7 +9697,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-11-19T16:17:18+00:00",
-    "session_event_count": 14,
+    "session_event_count": 28,
     "session_start_ts": "2024-11-19T16:01:49+00:00"
   },
   "arn:aws:iam::980119914920:user/upgjcz": {
@@ -9715,7 +9715,7 @@
       "RotateSecret"
     ],
     "last_ts": "2024-08-01T09:25:32+00:00",
-    "session_event_count": 20,
+    "session_event_count": 40,
     "session_start_ts": "2024-08-01T09:00:24+00:00"
   },
   "arn:aws:iam::982023471700:user/hwacacb": {
@@ -9733,7 +9733,7 @@
       "ListSecrets"
     ],
     "last_ts": "2024-09-18T12:06:04+00:00",
-    "session_event_count": 11,
+    "session_event_count": 22,
     "session_start_ts": "2024-09-18T12:00:28+00:00"
   },
   "arn:aws:iam::982278376681:user/fbvlqmjhk": {
@@ -9751,7 +9751,7 @@
       "ListPolicies"
     ],
     "last_ts": "2024-07-19T10:07:04+00:00",
-    "session_event_count": 11,
+    "session_event_count": 22,
     "session_start_ts": "2024-07-19T10:00:20+00:00"
   },
   "arn:aws:iam::982539269463:user/zlfint": {
@@ -9773,7 +9773,7 @@
       "StartInstances"
     ],
     "last_ts": "2024-07-28T11:17:47+00:00",
-    "session_event_count": 20,
+    "session_event_count": 40,
     "session_start_ts": "2024-07-28T11:01:15+00:00"
   },
   "arn:aws:iam::982950688855:user/iurjfm": {
@@ -9789,7 +9789,7 @@
       "StartInstances"
     ],
     "last_ts": "2024-12-02T10:14:42+00:00",
-    "session_event_count": 11,
+    "session_event_count": 22,
     "session_start_ts": "2024-12-02T10:00:52+00:00"
   },
   "arn:aws:iam::983167862614:user/uljsok": {
@@ -9805,7 +9805,7 @@
       "StartInstances"
     ],
     "last_ts": "2024-07-25T07:09:47+00:00",
-    "session_event_count": 9,
+    "session_event_count": 18,
     "session_start_ts": "2024-07-25T07:00:59+00:00"
   },
   "arn:aws:iam::987744210673:user/whzwup": {
@@ -9819,7 +9819,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-06-14T13:10:28+00:00",
-    "session_event_count": 10,
+    "session_event_count": 20,
     "session_start_ts": "2024-06-14T13:01:00+00:00"
   },
   "arn:aws:iam::992108796839:user/lgishz": {
@@ -9839,7 +9839,7 @@
       "StopInstances"
     ],
     "last_ts": "2024-10-03T14:13:40+00:00",
-    "session_event_count": 15,
+    "session_event_count": 30,
     "session_start_ts": "2024-10-03T14:00:10+00:00"
   },
   "arn:aws:iam::992597344751:user/fbtrioiaid": {
@@ -9857,7 +9857,7 @@
       "ListPolicies"
     ],
     "last_ts": "2024-09-05T08:04:34+00:00",
-    "session_event_count": 11,
+    "session_event_count": 22,
     "session_start_ts": "2024-09-05T08:00:04+00:00"
   },
   "arn:aws:iam::997024123974:user/seoglmvh": {
@@ -9874,7 +9874,7 @@
       "RebootInstances"
     ],
     "last_ts": "2024-08-15T15:04:01+00:00",
-    "session_event_count": 10,
+    "session_event_count": 20,
     "session_start_ts": "2024-08-15T15:00:09+00:00"
   },
   "arn:aws:iam::999181785293:user/gmqwpvn": {
@@ -9894,7 +9894,7 @@
       "StopInstances"
     ],
     "last_ts": "2024-02-18T13:07:10+00:00",
-    "session_event_count": 13,
+    "session_event_count": 26,
     "session_start_ts": "2024-02-18T13:00:20+00:00"
   },
   "arn:aws:sts::017456760540:assumed-role/ECSTaskRole/jzoiwncoxzvrljtd": {
@@ -9907,7 +9907,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-09-01T07:03:26+00:00",
-    "session_event_count": 14,
+    "session_event_count": 28,
     "session_start_ts": "2024-09-01T07:00:30+00:00"
   },
   "arn:aws:sts::019324220730:assumed-role/AutoScalingRole/gjwnztmprvfwzdjg": {
@@ -9918,7 +9918,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-04-05T12:03:47+00:00",
-    "session_event_count": 10,
+    "session_event_count": 20,
     "session_start_ts": "2024-04-05T12:00:24+00:00"
   },
   "arn:aws:sts::021085002929:assumed-role/LambdaExecutionRole/gmucwvpvabuvjjer": {
@@ -9929,7 +9929,7 @@
       "PutParameter"
     ],
     "last_ts": "2024-10-01T15:02:57+00:00",
-    "session_event_count": 10,
+    "session_event_count": 20,
     "session_start_ts": "2024-10-01T15:00:30+00:00"
   },
   "arn:aws:sts::030492814034:assumed-role/CodeDeployRole/udhagpzdezimwria": {
@@ -9941,7 +9941,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-04-28T11:01:58+00:00",
-    "session_event_count": 7,
+    "session_event_count": 14,
     "session_start_ts": "2024-04-28T11:00:30+00:00"
   },
   "arn:aws:sts::059638890156:assumed-role/ECSTaskRole/nxvijslghbsblinc": {
@@ -9952,7 +9952,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-11-17T16:02:29+00:00",
-    "session_event_count": 7,
+    "session_event_count": 14,
     "session_start_ts": "2024-11-17T16:00:28+00:00"
   },
   "arn:aws:sts::087701816628:assumed-role/LambdaExecutionRole/ilvlolgegmqdltiu": {
@@ -9963,7 +9963,7 @@
       "ListKeys"
     ],
     "last_ts": "2024-07-07T10:03:25+00:00",
-    "session_event_count": 12,
+    "session_event_count": 24,
     "session_start_ts": "2024-07-07T10:00:02+00:00"
   },
   "arn:aws:sts::087796560353:assumed-role/AutoScalingRole/joxrjbugeftyleil": {
@@ -9976,7 +9976,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-01-06T19:02:42+00:00",
-    "session_event_count": 11,
+    "session_event_count": 22,
     "session_start_ts": "2024-01-06T19:00:04+00:00"
   },
   "arn:aws:sts::102564128832:assumed-role/ECSTaskRole/ieljvbejtbsmdhwg": {
@@ -9989,7 +9989,7 @@
       "PutParameter"
     ],
     "last_ts": "2024-03-16T13:04:04+00:00",
-    "session_event_count": 12,
+    "session_event_count": 24,
     "session_start_ts": "2024-03-16T13:00:24+00:00"
   },
   "arn:aws:sts::106152373284:assumed-role/LambdaExecutionRole/bjjwnmmlefyiijrr": {
@@ -10001,7 +10001,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-10-25T19:02:13+00:00",
-    "session_event_count": 10,
+    "session_event_count": 20,
     "session_start_ts": "2024-10-25T19:00:07+00:00"
   },
   "arn:aws:sts::110858888024:assumed-role/LambdaExecutionRole/ieocmzshdolwlsqy": {
@@ -10014,7 +10014,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-10-23T12:02:52+00:00",
-    "session_event_count": 11,
+    "session_event_count": 22,
     "session_start_ts": "2024-10-23T12:00:26+00:00"
   },
   "arn:aws:sts::111528870705:assumed-role/ECSTaskRole/kqflmyfibmcreieu": {
@@ -10025,7 +10025,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-12-23T14:01:28+00:00",
-    "session_event_count": 6,
+    "session_event_count": 12,
     "session_start_ts": "2024-12-23T14:00:04+00:00"
   },
   "arn:aws:sts::117183929218:assumed-role/LambdaExecutionRole/cutxswneirrwsuqz": {
@@ -10038,7 +10038,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-12-25T13:03:46+00:00",
-    "session_event_count": 12,
+    "session_event_count": 24,
     "session_start_ts": "2024-12-25T13:00:21+00:00"
   },
   "arn:aws:sts::124828119982:assumed-role/AWSServiceRoleForEC2/mrttdiohupcnnxxg": {
@@ -10051,7 +10051,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-10-27T13:04:07+00:00",
-    "session_event_count": 14,
+    "session_event_count": 28,
     "session_start_ts": "2024-10-27T13:00:02+00:00"
   },
   "arn:aws:sts::136827840751:assumed-role/CodeDeployRole/ljafvjmqawqafoyw": {
@@ -10063,7 +10063,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-10-13T18:03:14+00:00",
-    "session_event_count": 11,
+    "session_event_count": 22,
     "session_start_ts": "2024-10-13T18:00:29+00:00"
   },
   "arn:aws:sts::142208292433:assumed-role/AutoScalingRole/lyzfazrxmcxtdomj": {
@@ -10073,7 +10073,7 @@
       "ListKeys"
     ],
     "last_ts": "2024-11-15T08:02:12+00:00",
-    "session_event_count": 7,
+    "session_event_count": 14,
     "session_start_ts": "2024-11-15T08:00:21+00:00"
   },
   "arn:aws:sts::163864980895:assumed-role/AWSServiceRoleForEC2/pndagdyoslvwigml": {
@@ -10086,7 +10086,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-04-20T09:04:14+00:00",
-    "session_event_count": 13,
+    "session_event_count": 26,
     "session_start_ts": "2024-04-20T09:00:28+00:00"
   },
   "arn:aws:sts::169890111022:assumed-role/CodeDeployRole/booefuwuokkfaepz": {
@@ -10097,7 +10097,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-10-09T18:01:16+00:00",
-    "session_event_count": 6,
+    "session_event_count": 12,
     "session_start_ts": "2024-10-09T18:00:27+00:00"
   },
   "arn:aws:sts::171629485080:assumed-role/LambdaExecutionRole/zwdfetzayqoqtoer": {
@@ -10108,7 +10108,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-08-21T11:02:26+00:00",
-    "session_event_count": 9,
+    "session_event_count": 18,
     "session_start_ts": "2024-08-21T11:00:07+00:00"
   },
   "arn:aws:sts::192977722520:assumed-role/ECSTaskRole/rvwcqswqwdhuvzmp": {
@@ -10121,7 +10121,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-02-02T13:02:44+00:00",
-    "session_event_count": 10,
+    "session_event_count": 20,
     "session_start_ts": "2024-02-02T13:00:07+00:00"
   },
   "arn:aws:sts::226349469511:assumed-role/CodeDeployRole/evdjxryrklficmqy": {
@@ -10134,7 +10134,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-10-24T18:02:45+00:00",
-    "session_event_count": 12,
+    "session_event_count": 24,
     "session_start_ts": "2024-10-24T18:00:11+00:00"
   },
   "arn:aws:sts::233157027683:assumed-role/LambdaExecutionRole/bdgltodvaoyqmgyf": {
@@ -10145,7 +10145,7 @@
       "PutParameter"
     ],
     "last_ts": "2024-08-20T13:01:31+00:00",
-    "session_event_count": 6,
+    "session_event_count": 12,
     "session_start_ts": "2024-08-20T13:00:11+00:00"
   },
   "arn:aws:sts::278526872386:assumed-role/CodeDeployRole/egqngdjgtcwffgxi": {
@@ -10155,7 +10155,7 @@
       "PutParameter"
     ],
     "last_ts": "2024-07-14T18:01:15+00:00",
-    "session_event_count": 6,
+    "session_event_count": 12,
     "session_start_ts": "2024-07-14T18:00:19+00:00"
   },
   "arn:aws:sts::285150697852:assumed-role/LambdaExecutionRole/vyhpsdasrtkvaixy": {
@@ -10168,7 +10168,7 @@
       "PutParameter"
     ],
     "last_ts": "2024-01-28T17:02:37+00:00",
-    "session_event_count": 13,
+    "session_event_count": 26,
     "session_start_ts": "2024-01-28T17:00:07+00:00"
   },
   "arn:aws:sts::285821996984:assumed-role/AWSServiceRoleForEC2/rcbwqpubrtsfhepf": {
@@ -10178,7 +10178,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-03-24T07:01:31+00:00",
-    "session_event_count": 7,
+    "session_event_count": 14,
     "session_start_ts": "2024-03-24T07:00:19+00:00"
   },
   "arn:aws:sts::292385808760:assumed-role/ECSTaskRole/nzisrkaxvtmosozr": {
@@ -10189,7 +10189,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-09-23T13:01:26+00:00",
-    "session_event_count": 6,
+    "session_event_count": 12,
     "session_start_ts": "2024-09-23T13:00:01+00:00"
   },
   "arn:aws:sts::312303463728:assumed-role/CodeDeployRole/xfgvgoodaiqtecyr": {
@@ -10200,7 +10200,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-11-18T11:02:08+00:00",
-    "session_event_count": 9,
+    "session_event_count": 18,
     "session_start_ts": "2024-11-18T11:00:06+00:00"
   },
   "arn:aws:sts::323729396570:assumed-role/CodeDeployRole/qisohkzprehkcill": {
@@ -10212,7 +10212,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-07-03T17:02:42+00:00",
-    "session_event_count": 11,
+    "session_event_count": 22,
     "session_start_ts": "2024-07-03T17:00:11+00:00"
   },
   "arn:aws:sts::354680980898:assumed-role/ECSTaskRole/gbfzzppnoftiwdcr": {
@@ -10225,7 +10225,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-02-16T09:02:49+00:00",
-    "session_event_count": 12,
+    "session_event_count": 24,
     "session_start_ts": "2024-02-16T09:00:18+00:00"
   },
   "arn:aws:sts::382255661906:assumed-role/LambdaExecutionRole/rdagybokvnnfeone": {
@@ -10239,7 +10239,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-09-24T09:03:15+00:00",
-    "session_event_count": 13,
+    "session_event_count": 26,
     "session_start_ts": "2024-09-24T09:00:28+00:00"
   },
   "arn:aws:sts::421204571138:assumed-role/ECSTaskRole/vqrsvownetixlttb": {
@@ -10251,7 +10251,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-09-03T10:04:24+00:00",
-    "session_event_count": 14,
+    "session_event_count": 28,
     "session_start_ts": "2024-09-03T10:00:08+00:00"
   },
   "arn:aws:sts::423591989272:assumed-role/AWSServiceRoleForEC2/qcmvtfecugaspgnd": {
@@ -10263,7 +10263,7 @@
       "ListKeys"
     ],
     "last_ts": "2024-05-07T10:03:16+00:00",
-    "session_event_count": 12,
+    "session_event_count": 24,
     "session_start_ts": "2024-05-07T10:00:01+00:00"
   },
   "arn:aws:sts::424013451063:assumed-role/AutoScalingRole/rogmixodnojdiqdi": {
@@ -10277,7 +10277,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-12-16T14:04:04+00:00",
-    "session_event_count": 12,
+    "session_event_count": 24,
     "session_start_ts": "2024-12-16T14:00:20+00:00"
   },
   "arn:aws:sts::425966800754:assumed-role/LambdaExecutionRole/chiwfxbmzgxeobrg": {
@@ -10290,7 +10290,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-12-26T08:04:23+00:00",
-    "session_event_count": 15,
+    "session_event_count": 30,
     "session_start_ts": "2024-12-26T08:00:25+00:00"
   },
   "arn:aws:sts::430072289045:assumed-role/AWSServiceRoleForEC2/llzrmoaahgzdhzlu": {
@@ -10303,7 +10303,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-07-22T18:01:18+00:00",
-    "session_event_count": 6,
+    "session_event_count": 12,
     "session_start_ts": "2024-07-22T18:00:26+00:00"
   },
   "arn:aws:sts::483379669240:assumed-role/ECSTaskRole/dyxyzjlhkgyyxyto": {
@@ -10314,7 +10314,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-04-24T13:02:26+00:00",
-    "session_event_count": 7,
+    "session_event_count": 14,
     "session_start_ts": "2024-04-24T13:00:23+00:00"
   },
   "arn:aws:sts::508302485093:assumed-role/LambdaExecutionRole/gbaybirdjpsmjbxa": {
@@ -10326,7 +10326,7 @@
       "PutParameter"
     ],
     "last_ts": "2024-06-07T13:02:58+00:00",
-    "session_event_count": 9,
+    "session_event_count": 18,
     "session_start_ts": "2024-06-07T13:00:23+00:00"
   },
   "arn:aws:sts::527640389050:assumed-role/LambdaExecutionRole/vbfsdzofrjodhvmf": {
@@ -10340,7 +10340,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-10-18T09:03:36+00:00",
-    "session_event_count": 13,
+    "session_event_count": 26,
     "session_start_ts": "2024-10-18T09:00:26+00:00"
   },
   "arn:aws:sts::541527025377:assumed-role/CodeDeployRole/czbsxrgtkvsbzwxx": {
@@ -10353,7 +10353,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-01-06T16:04:05+00:00",
-    "session_event_count": 14,
+    "session_event_count": 28,
     "session_start_ts": "2024-01-06T16:00:24+00:00"
   },
   "arn:aws:sts::584029926372:assumed-role/AWSServiceRoleForEC2/ryuhnjcgncxganje": {
@@ -10364,7 +10364,7 @@
       "ListKeys"
     ],
     "last_ts": "2024-04-11T07:01:58+00:00",
-    "session_event_count": 8,
+    "session_event_count": 16,
     "session_start_ts": "2024-04-11T07:00:26+00:00"
   },
   "arn:aws:sts::585524832303:assumed-role/AWSServiceRoleForEC2/vqtbjapakyaiolnk": {
@@ -10377,7 +10377,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-05-23T10:03:49+00:00",
-    "session_event_count": 14,
+    "session_event_count": 28,
     "session_start_ts": "2024-05-23T10:00:05+00:00"
   },
   "arn:aws:sts::621282587405:assumed-role/AutoScalingRole/dfoyfcolpdvvcljg": {
@@ -10388,7 +10388,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-06-04T18:03:24+00:00",
-    "session_event_count": 14,
+    "session_event_count": 28,
     "session_start_ts": "2024-06-04T18:00:11+00:00"
   },
   "arn:aws:sts::635404595043:assumed-role/LambdaExecutionRole/pwngekqpcszcyjng": {
@@ -10399,7 +10399,7 @@
       "PutParameter"
     ],
     "last_ts": "2024-08-19T19:02:00+00:00",
-    "session_event_count": 9,
+    "session_event_count": 18,
     "session_start_ts": "2024-08-19T19:00:05+00:00"
   },
   "arn:aws:sts::691791234703:assumed-role/LambdaExecutionRole/yckwcqsovrprbjuc": {
@@ -10411,7 +10411,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-04-05T08:02:23+00:00",
-    "session_event_count": 7,
+    "session_event_count": 14,
     "session_start_ts": "2024-04-05T08:00:16+00:00"
   },
   "arn:aws:sts::693806342643:assumed-role/ECSTaskRole/pvipazzvxwcwjpzs": {
@@ -10424,7 +10424,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-08-21T09:03:03+00:00",
-    "session_event_count": 10,
+    "session_event_count": 20,
     "session_start_ts": "2024-08-21T09:00:09+00:00"
   },
   "arn:aws:sts::704827975397:assumed-role/CodeDeployRole/vczynndxkghvzozt": {
@@ -10436,7 +10436,7 @@
       "ListKeys"
     ],
     "last_ts": "2024-07-04T09:00:54+00:00",
-    "session_event_count": 6,
+    "session_event_count": 12,
     "session_start_ts": "2024-07-04T09:00:08+00:00"
   },
   "arn:aws:sts::775833935888:assumed-role/ECSTaskRole/hsyeizquitjwpgoj": {
@@ -10446,7 +10446,7 @@
       "GetSecretValue"
     ],
     "last_ts": "2024-08-14T12:01:46+00:00",
-    "session_event_count": 7,
+    "session_event_count": 14,
     "session_start_ts": "2024-08-14T12:00:27+00:00"
   },
   "arn:aws:sts::797110785003:assumed-role/ECSTaskRole/gmgzgxvyyacnuoxc": {
@@ -10459,7 +10459,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-12-16T17:03:07+00:00",
-    "session_event_count": 11,
+    "session_event_count": 22,
     "session_start_ts": "2024-12-16T17:00:24+00:00"
   },
   "arn:aws:sts::799301271314:assumed-role/AWSServiceRoleForEC2/yctzzrscqqweqdeq": {
@@ -10472,7 +10472,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-06-11T14:02:15+00:00",
-    "session_event_count": 10,
+    "session_event_count": 20,
     "session_start_ts": "2024-06-11T14:00:29+00:00"
   },
   "arn:aws:sts::815241828350:assumed-role/LambdaExecutionRole/ubrgkmtfsbikyskf": {
@@ -10485,7 +10485,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-01-02T11:03:38+00:00",
-    "session_event_count": 14,
+    "session_event_count": 28,
     "session_start_ts": "2024-01-02T11:00:30+00:00"
   },
   "arn:aws:sts::831753808467:assumed-role/ECSTaskRole/plchadbylvhbduhb": {
@@ -10498,7 +10498,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-06-17T17:02:45+00:00",
-    "session_event_count": 14,
+    "session_event_count": 28,
     "session_start_ts": "2024-06-17T17:00:14+00:00"
   },
   "arn:aws:sts::837075343642:assumed-role/ECSTaskRole/fnfgmwginkfdwbfj": {
@@ -10510,7 +10510,7 @@
       "PutParameter"
     ],
     "last_ts": "2024-06-19T12:02:33+00:00",
-    "session_event_count": 10,
+    "session_event_count": 20,
     "session_start_ts": "2024-06-19T12:00:18+00:00"
   },
   "arn:aws:sts::841794066265:assumed-role/AWSServiceRoleForEC2/ljzbqamitffbsahd": {
@@ -10523,7 +10523,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-11-23T14:03:30+00:00",
-    "session_event_count": 13,
+    "session_event_count": 26,
     "session_start_ts": "2024-11-23T14:00:10+00:00"
   },
   "arn:aws:sts::841857462317:assumed-role/AutoScalingRole/qszymvosxrfdhbla": {
@@ -10535,7 +10535,7 @@
       "PutParameter"
     ],
     "last_ts": "2024-08-14T10:02:01+00:00",
-    "session_event_count": 10,
+    "session_event_count": 20,
     "session_start_ts": "2024-08-14T10:00:09+00:00"
   },
   "arn:aws:sts::882208292270:assumed-role/AutoScalingRole/jgcxuclihlavghis": {
@@ -10548,7 +10548,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-09-06T12:02:47+00:00",
-    "session_event_count": 10,
+    "session_event_count": 20,
     "session_start_ts": "2024-09-06T12:00:28+00:00"
   },
   "arn:aws:sts::903794194531:assumed-role/CodeDeployRole/juuaydnovtsuzpzd": {
@@ -10560,7 +10560,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-05-12T19:03:44+00:00",
-    "session_event_count": 13,
+    "session_event_count": 26,
     "session_start_ts": "2024-05-12T19:00:29+00:00"
   },
   "arn:aws:sts::939695417602:assumed-role/AWSServiceRoleForEC2/trttwnnlykpzfsyj": {
@@ -10572,7 +10572,7 @@
       "ListKeys"
     ],
     "last_ts": "2024-11-08T17:01:39+00:00",
-    "session_event_count": 8,
+    "session_event_count": 16,
     "session_start_ts": "2024-11-08T17:00:03+00:00"
   },
   "arn:aws:sts::965452271944:assumed-role/CodeDeployRole/ukpgrcvchttxlihq": {
@@ -10585,7 +10585,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-11-07T12:03:49+00:00",
-    "session_event_count": 14,
+    "session_event_count": 28,
     "session_start_ts": "2024-11-07T12:00:20+00:00"
   },
   "arn:aws:sts::982206912342:assumed-role/CodeDeployRole/efjqaowjekyrsdvj": {
@@ -10598,7 +10598,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-05-04T12:03:50+00:00",
-    "session_event_count": 12,
+    "session_event_count": 24,
     "session_start_ts": "2024-05-04T12:00:06+00:00"
   },
   "arn:aws:sts::983883936476:assumed-role/LambdaExecutionRole/dnxujlmwshieiase": {
@@ -10610,7 +10610,7 @@
       "SendCommand"
     ],
     "last_ts": "2024-05-13T10:02:18+00:00",
-    "session_event_count": 9,
+    "session_event_count": 18,
     "session_start_ts": "2024-05-13T10:00:23+00:00"
   },
   "arn:aws:sts::998128736670:assumed-role/LambdaExecutionRole/shbhilpwgymyndkz": {
@@ -10620,7 +10620,7 @@
       "ListKeys"
     ],
     "last_ts": "2024-01-25T11:01:58+00:00",
-    "session_event_count": 7,
+    "session_event_count": 14,
     "session_start_ts": "2024-01-25T11:00:15+00:00"
   },
   "unknown_principal": {
