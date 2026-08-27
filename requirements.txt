@@ -18,6 +18,11 @@ py2neo>=2021.2.4
 # Machine Learning
 scikit-learn>=1.4.0
 
+# AWS IAM action access-level data (offline; see privilege_features.py's
+# ActionAccessLevelResolver docstring -- without this, action access-level
+# classification silently falls back to a 13-action partial table)
+policy_sentry>=0.12.0
+
 # Configuration
 PyYAML>=6.0.1
 

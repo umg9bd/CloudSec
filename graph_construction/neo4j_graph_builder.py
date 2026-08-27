@@ -114,7 +114,6 @@ import re
 from dataclasses import dataclass
 
 import pandas as pd
-from neo4j import GraphDatabase
 
 import privilege_features as pf
 
@@ -375,6 +374,11 @@ def build_graph():
     print(f"  {len(df):,} rows | {df['label'].sum()} labelled attack | "
           f"{ppg.graph.number_of_nodes()} nodes | {ppg.graph.number_of_edges()} edges")
 
+    # Imported here, not at module level: everything above this line is pure
+    # graph topology and has no Neo4j dependency (see ensemble.py, which
+    # imports this module for that path without a running Neo4j or even the
+    # neo4j package installed).
+    from neo4j import GraphDatabase
     driver = GraphDatabase.driver(URI, auth=(USER, PASSWORD))
     with driver.session() as session:
         print("Creating constraints …")
