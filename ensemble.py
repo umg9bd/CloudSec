@@ -1,80 +1,3 @@
-"""
-ensemble.py — single CloudTrail input in, single 0-10 risk score per
-EVENT out (one row per API call, not per principal).
-
-Why per-event, not per-principal: a per-principal score can't say
-anything about an attack CHAIN (which step escalated), and it wrongly
-implies risk is a static property of an identity -- in practice a
-principal's first N actions are benign and only a later action is the
-escalation. Scoring every event lets you walk one principal's timeline
-in order and see exactly where risk_score jumps.
-
-Pipeline:
-
-    raw CloudTrail input
-            |
-            v
-    feature_engine9.FeatureEngineer   (existing, unmodified)
-            |
-            +----------------------+
-            v                      v
-    cloudtrail_structural.csv   cloudtrail_temporal.csv
-            |                      |
-            v                      v
-    GNN side: per-event        LSTM side: P_event
-    structural risk             (temporal-analysis's LSTMTransformerV5,
-    (graph topology only --     PER EVENT, before window max-pooling --
-     see score_gnn_events())    see score_lstm_events())
-            |                      |
-            +----------+-----------+
-                       v
-        risk = clip(w_gnn*gnn_event_score + w_lstm*P_event, 0, 1) * 10
-
-GNN side note -- deliberately NOT the trained classifier's edge
-probability: this project's own real-data evaluation
-(PROJECT_STATUS_REPORT.md) found GraphSAGE/GAT's per-edge predictions
-inverted on real attack data (edge-level AUC ~= 0.26 -- attack edges
-scored LOWER than benign ones; only session-level aggregation was
-verified to work). Building a per-event score on that would inherit a
-signal the project's own testing says is broken. Instead,
-score_gnn_events() computes a per-event score purely from graph
-TOPOLOGY (privilege_features.PrivilegePropagationGraph.compute_all_edge_features()
-plus known privilege-escalation action names, access-level rank, and
-target sensitivity tier) -- no trained model involved, so this can't
-inherit that unreliability.
-
-The graph itself is still built via build_ppg() / build_ppg_from_neo4j(),
-carried over unchanged from the earlier per-principal version of this
-file (both still needed to get compute_all_edge_features()). Neither
-builds data_loader.PrivilegePropagationGraphLoader's HeteroData -- that
-class is for the trained classifier, a different job entirely.
-
-LSTM side notes (two fixes applied only in this file, not in the
-vendored temporal-analysis/ code):
-  1. cloudtrail_temporal.csv carries event_name_idx from THIS repo's
-     own growable vocab (datasets/privilege-escalation/.event_name_vocab.json),
-     which is a different index space than the LSTM checkpoint's own
-     embedded vocab. Feeding event_name_idx straight through would
-     silently score the wrong action for most events. Fixed by mapping
-     event_name_idx -> event_name string via our vocab and letting the
-     scorer re-map string -> its own vocab.
-  2. pandas 3.x parses timestamp strings at microsecond resolution by
-     default, but train_lstm_transformer.py's sequence-building code
-     compares that against Timestamp.value (always nanoseconds) -- a
-     1000x unit mismatch that silently breaks window/sequence bounds
-     on this pandas version. Fixed by forcing datetime64[ns, UTC]
-     before handing the frame to the scorer.
-
-Two modes (see main() / --watch):
-  - One-shot (default): score --input once via run(), which itself calls
-    fe9.run_batch() -- this file is the single entry point, no separate
-    feature_engine9.py invocation needed.
-  - --watch DIR: watch() runs the same pipeline continuously, re-scoring
-    the full accumulated dataset each time a new log file lands in DIR
-    (fast-lane alerts print immediately; the priors are always frozen in
-    this mode, never fit -- see the freeze_priors comment in watch()).
-"""
-
 from __future__ import annotations
 
 import argparse
@@ -93,18 +16,17 @@ for p in (REPO_ROOT,
     if p not in sys.path:
         sys.path.insert(0, p)
 
-import feature_engine9 as fe9              # noqa: E402
-import neo4j_graph_builder as nb           # noqa: E402
-import privilege_features as pf            # noqa: E402
-import prod.scorer as lstm_scorer          # noqa: E402
-import train_lstm_transformer as tlt       # noqa: E402
+import feature_engine9 as fe9               
+import neo4j_graph_builder as nb       
+import privilege_features as pf          
+import prod.scorer as lstm_scorer          
+import train_lstm_transformer as tlt       
 
 
-# ── Graph construction (unchanged from the per-principal version) ───────────
-
+# Builds a PrivilegePropagationGraph directly from a structural DataFrame.
 def build_ppg(structural_df: pd.DataFrame, resolver: "pf.ActionAccessLevelResolver | None" = None):
     """Builds the same PrivilegePropagationGraph neo4j_graph_builder.build_graph()
-    builds, minus the Neo4j write/read round-trip."""
+    builds"""
     resolver = resolver or pf.ActionAccessLevelResolver()
 
     principal_infos = structural_df["source_node"].apply(nb.parse_principal)
@@ -143,6 +65,7 @@ DEFAULT_NEO4J_USER = "neo4j"
 DEFAULT_NEO4J_PASSWORD = "test1234"
 
 
+# Builds the same PrivilegePropagationGraph by reading nodes/edges back out of a live Neo4j instance.
 def build_ppg_from_neo4j(uri: str = DEFAULT_NEO4J_URI, user: str = DEFAULT_NEO4J_USER,
                           password: str = DEFAULT_NEO4J_PASSWORD,
                           resolver: "pf.ActionAccessLevelResolver | None" = None):
@@ -187,11 +110,6 @@ def build_ppg_from_neo4j(uri: str = DEFAULT_NEO4J_URI, user: str = DEFAULT_NEO4J
 
 
 # ── GNN side: per-event structural risk (no trained model) ──────────────────
-
-# GetSecretValue is on this list too (redundant with the secretsmanager/kms
-# service check below) so the credential-access signal doesn't depend on
-# target_node parsing alone -- e.g. a request that names the secret in
-# params rather than the resource path still gets caught by action name.
 CREDENTIAL_ACCESS_ACTIONS = {
     "GetSecretValue", "GetPasswordData", "GetParameters", "GetParameter",
     "DescribeParameters", "ListSecrets", "BatchGetSecretValue",
@@ -199,33 +117,9 @@ CREDENTIAL_ACCESS_ACTIONS = {
 CREDENTIAL_ACCESS_SERVICES = {"secretsmanager", "kms"}
 
 
+# Computes a 0-1 structural risk score per event from graph features (hops, privilege gain, sensitivity).
 def score_gnn_events(structural_df: pd.DataFrame, source: str = "csv",
                       resolver: "pf.ActionAccessLevelResolver | None" = None) -> pd.DataFrame:
-    """One row per log_id. gnn_event_score in [0,1], a weighted blend of pure
-    graph-topology signals (see module docstring for why not the trained
-    classifier):
-      - is_priv_esc_technique (0.25): action is on the known IAM
-        privilege-escalation technique list (AttachUserPolicy, PassRole, ...)
-      - credential_access    (0.20): action reads a secret/credential value
-        (GetSecretValue, GetPasswordData, GetParameters, ... or targets a
-        secretsmanager/kms resource) -- added after real-data validation
-        showed the original 6-component score missed 97% of real attack
-        events on real_dataset_dev.csv, almost all of them credential-theft
-        reads (GetPasswordData/GetParameters/DescribeParameters) that
-        is_priv_esc_technique and access_level systematically under-score,
-        since a Read that steals a password looks structurally identical to
-        a routine Read that doesn't.
-      - access_level_rank    (0.10): action's AWS access-level severity
-        (List < Read < Tagging < Write < Permissions management)
-      - target_sensitivity   (0.15): criticality tier of the target resource
-      - hop_count            (0.10): 1.0 if this is the second leg of an
-        assume-role chain (privilege_features.hop_count), else 0.0
-      - privilege_gain       (0.10): access-level increase over the role
-        assumption that granted this edge, when defined
-      - abnormal_path        (0.10): how structurally rare this
-        (source-type, relation, target-type) pattern is in the graph
-    Weights sum to 1.0, mirroring blast_radius.BlastRadiusConfig's convention.
-    """
     resolver = resolver or pf.ActionAccessLevelResolver()
     if source == "neo4j":
         ppg = build_ppg_from_neo4j(resolver=resolver)
@@ -262,6 +156,9 @@ def score_gnn_events(structural_df: pd.DataFrame, source: str = "csv",
 
         score = (0.25 * s_priv_esc + 0.20 * s_cred_access + 0.10 * s_access + 0.15 * s_target
                  + 0.10 * s_hop + 0.10 * s_gain + 0.10 * s_abnormal)
+        #privilege esc technique, access credentials, req access lvl of action, sensitivity of target resource
+        #event is n privilege hops away, event produces privilege gain, path is abnormal
+    
 
         rows.append({
             "log_id": log_id,
@@ -277,6 +174,7 @@ def score_gnn_events(structural_df: pd.DataFrame, source: str = "csv",
 
 # ── LSTM side: per-event P_event (before window max-pooling) ────────────────
 
+# Runs the trained LSTMTransformerV5 model to get a per-event probability (P_event) for each log row.
 def score_lstm_events(temporal_df: pd.DataFrame, event_vocab_path: str,
                        ckpt_path=None) -> pd.DataFrame:
     """One row per log_id: P_event, this single event's own probability from
@@ -290,13 +188,6 @@ def score_lstm_events(temporal_df: pd.DataFrame, event_vocab_path: str,
 
     df = temporal_df.copy()
     df["event_name"] = df["event_name_idx"].map(inv).fillna("<UNK>")
-    # format="mixed": a single-source temporal_df's timestamps are all one
-    # format, but watch mode accumulates rows across different source files
-    # (e.g. ISO8601 "...T...Z" from a JSON input alongside the CSV-style
-    # "YYYY-MM-DD HH:MM:SS+0000" synthetic_cloudtrail.csv already carries)
-    # into the same shared cloudtrail_temporal.csv. pandas' vectorized
-    # to_datetime infers ONE format from the column and raises on anything
-    # that doesn't match it; format="mixed" infers per-element instead.
     df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True, format="mixed").astype("datetime64[ns, UTC]")
 
     feature_cols = list(scorer.ckpt["feature_cols"])
@@ -310,6 +201,7 @@ def score_lstm_events(temporal_df: pd.DataFrame, event_vocab_path: str,
 
 # ── Ensemble ─────────────────────────────────────────────────────────────────
 
+# Merges GNN and LSTM per-event scores into a single weighted 0-10 risk_score table.
 def combine_events(structural_df: pd.DataFrame, temporal_df: pd.DataFrame,
                     gnn_df: pd.DataFrame, lstm_df: pd.DataFrame,
                     weight_gnn: float = 0.5, weight_lstm: float = 0.5) -> pd.DataFrame:
@@ -344,6 +236,7 @@ def combine_events(structural_df: pd.DataFrame, temporal_df: pd.DataFrame,
     return merged[cols].reset_index(drop=True)
 
 
+# One-shot pipeline: runs feature engineering, scores with both models, and writes the combined risk table.
 def run(input_path: str, weight_gnn: float = 0.5, weight_lstm: float = 0.5,
         out_path: "str | None" = None, freeze_vocab: bool = False,
         gnn_source: str = "csv") -> pd.DataFrame:
@@ -377,23 +270,12 @@ def run(input_path: str, weight_gnn: float = 0.5, weight_lstm: float = 0.5,
         result.to_csv(out_path, index=False)
     return result
 
-
 # ── Watch mode: re-score the full pipeline as new log files land ────────────
 
+# Watches a directory and re-runs the full scoring pipeline each time a new log file arrives.
 def watch(directory: str, weight_gnn: float = 0.5, weight_lstm: float = 0.5,
           out_path: str = "risk_scores.csv", freeze_vocab: bool = False,
           gnn_source: str = "csv") -> None:
-    """Watches `directory` for new CloudTrail log files -- same dedup/engine
-    setup as feature_engine9.watch_folder(), against the same shared
-    cloudtrail_structural.csv/cloudtrail_temporal.csv -- and after each
-    arrival, re-scores the FULL accumulated dataset through the GNN+LSTM
-    ensemble and rewrites out_path.
-
-    A full rescan, not an incremental update: score_gnn_events() rebuilds
-    the graph from the whole structural_df each call, because hop_count,
-    privilege_gain, and abnormal_path_frequency need the graph's entire
-    history to mean anything -- scoring only the newest arrival in
-    isolation would silently zero all three out for it every time."""
     from watchdog.events import FileSystemEventHandler
     from watchdog.observers import Observer
 
@@ -405,18 +287,13 @@ def watch(directory: str, weight_gnn: float = 0.5, weight_lstm: float = 0.5,
         action_prior_path=fe9.ACTION_PRIOR_FILE,
         principal_prior_path=fe9.PRINCIPAL_PRIOR_FILE,
         freeze_vocab=freeze_vocab,
-        # FeatureEngineer defaults to freeze_priors=False (unfrozen/fit-
-        # enabled) -- the auto-safety ("frozen unless this is the training
-        # input") lives only inside run_batch(), which this function
-        # bypasses by calling process_batch_file() directly. Watch mode is
-        # live/eval scoring and must never fit the label-derived priors, so
-        # this has to be passed explicitly here.
         freeze_priors=True,
     )
     state = fe9.load_state()
     processed = set(state["processed_files"])
     resolver = pf.ActionAccessLevelResolver()
 
+    # Re-scores all accumulated events so far and overwrites the output CSV.
     def rescore():
         structural_df = pd.read_csv(fe9.STRUCT_OUT)
         temporal_df = pd.read_csv(fe9.TEMPORAL_OUT)
@@ -428,7 +305,9 @@ def watch(directory: str, weight_gnn: float = 0.5, weight_lstm: float = 0.5,
         result.to_csv(out_path, index=False)
         print(f"[ENSEMBLE] {len(result)} events scored -> {out_path}", flush=True)
 
+    # Filesystem event handler that reacts to new CloudTrail log files landing in the watched directory.
     class ArrivalHandler(FileSystemEventHandler):
+        # Processes a newly-arrived, stable log file and triggers a rescore.
         def on_created(self, event):
             if event.is_directory:
                 return
@@ -460,6 +339,7 @@ def watch(directory: str, weight_gnn: float = 0.5, weight_lstm: float = 0.5,
         observer.join()
 
 
+# CLI entry point: parses args and dispatches to either one-shot run() or watch().
 def main():
     parser = argparse.ArgumentParser(
         description="Combined GNN structural + LSTM temporal risk ensemble -- "
