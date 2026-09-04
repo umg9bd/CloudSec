@@ -15,10 +15,10 @@ All figures below are on **the same 238 held-out real test sessions**.
 
 | | Precision | Recall | F1 |
 |---|---|---|---|
-| GraphSAGE, session-level, real held-out test data | 0.874 | 0.830 | **0.851** [95% CI: 0.794, 0.900] |
+| GraphSAGE, session-level, real held-out test data | 0.829 | 0.920 | **0.872** |
 | Rule-based baseline (GuardDuty-style, 11 rules) | 0.878 | 0.650 | 0.747 [95% CI: 0.667, 0.811] |
 
-**Paired bootstrap on the difference: +0.104 F1, 95% CI [+0.040, +0.171], p = 0.0008.**
+**Paired bootstrap on the difference: +0.125 F1, 95% CI [+0.059, +0.197], p = 0.0004.**
 
 The GNN clears the rule-based baseline on real, previously-unseen attack
 sessions — verified with a dev-set-only selected threshold (0.65), checked once
