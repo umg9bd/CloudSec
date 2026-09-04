@@ -31,7 +31,7 @@ import pandas as pd
 import torch
 from sklearn.metrics import f1_score, precision_score, recall_score
 
-from data_loader import PrivilegePropagationGraphLoader
+from data_loader import PrivilegePropagationGraphLoader, scored_edge_types
 from evaluate_on_real import build_model_from_args
 from utils import evaluate
 
@@ -193,6 +193,12 @@ def main():
         uri=args.neo4j_uri, user=args.neo4j_user, password=args.neo4j_pass,
         fit_artifacts=fit_artifacts,
         model_node_types=set(model_args["node_feat_dims"]),
+        # Inferred from the checkpoint, not passed by hand: if the model was
+        # trained with reverse edges it has conv weights keyed on those triples
+        # and MUST be given them at evaluation too, or message passing silently
+        # differs from training. Reading it off the checkpoint makes the two
+        # impossible to get out of sync.
+        add_reverse_edges=any(str(t[1]).startswith("REV_") for t in model_args["edge_types"]),
     )
     data, meta = loader.load()
 
@@ -200,7 +206,7 @@ def main():
     check_graph_provenance(meta.get("source_csv"), raw_basename)
 
     trained_triples = set(tuple(t) for t in model_args["edge_types"])
-    real_triples = set(data.edge_types)
+    real_triples = set(scored_edge_types(data))
     untrained_triples = real_triples - trained_triples
     for t in untrained_triples:
         del data[t]
@@ -209,13 +215,13 @@ def main():
     model.load_state_dict(ckpt["state_dict"])
     model.eval()
 
-    all_true_masks = {t: torch.ones(data[t].y.shape[0], dtype=torch.bool) for t in data.edge_types}
+    all_true_masks = {t: torch.ones(data[t].y.shape[0], dtype=torch.bool) for t in scored_edge_types(data)}
     m = evaluate(model, data, all_true_masks, return_probs=True)
     probs = np.array(m["probs"])
 
     # Same flattening order utils.evaluate uses internally: sorted(data.edge_types).
     log_ids_flat = []
-    for t in sorted(data.edge_types):
+    for t in scored_edge_types(data):
         log_ids_flat.extend(data[t].log_id)
     assert len(log_ids_flat) == len(probs), f"{len(log_ids_flat)} log_ids vs {len(probs)} probs"
 

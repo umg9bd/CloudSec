@@ -60,6 +60,8 @@ import torch.nn.functional as F
 from torch_geometric.nn import HeteroConv, SAGEConv
 from torch_geometric.data import HeteroData
 
+from data_loader import scored_edge_types
+
 EdgeTriple = Tuple[str, str, str]
 
 
@@ -237,7 +239,12 @@ class GraphSAGEAnomalyDetector(nn.Module):
         """Returns raw logits, one flat tensor, ordered by sorted(data.edge_types)."""
         h_dict = self._encode(data)
         logits_per_triple = []
-        for triple in sorted(data.edge_types):
+        # scored_edge_types(), not sorted(data.edge_types): reverse edges are in
+        # self.edge_types so the ENCODER above can message-pass over them, but
+        # they are mirrors of already-scored observations and carry no labels.
+        # Scoring them would double-count every edge and desynchronise logits
+        # from global_labels(), which keys on the same helper.
+        for triple in scored_edge_types(data):
             if triple not in self.edge_types:
                 continue  # triple present in this batch but unseen at construction — skip rather than crash
             src_type, _, dst_type = triple
