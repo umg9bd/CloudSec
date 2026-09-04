@@ -75,6 +75,37 @@ ATTACK_CHAINS = {
         {"event_name": "PutBucketPolicy",  "event_source": "s3.amazonaws.com",             "attack_technique": "exfiltration",         "read_only": False, "target_key": "bucket"},
         {"event_name": "StopLogging",      "event_source": "cloudtrail.amazonaws.com",     "attack_technique": "defense-evasion",      "read_only": False, "target_key": "trail", "error_probability": 0.4},
     ],
+    # ── Credential-access chains ─────────────────────────────────────────────
+    # ADDED after measuring a tactic-coverage gap between synthetic and real
+    # attack data. The chains above are IAM-manipulation shaped: of 26 attack
+    # steps, only 3 touched credentials, and each was the LAST step of an IAM
+    # chain rather than the objective. Real Stratus data is the mirror image --
+    # 92.5% of its attack events are credential-access, dominated by
+    # DescribeParameters / GetParameters / GetSecretValue.
+    #
+    # The consequence was measurable: the model learned "READ = reconnaissance
+    # = benign" and scored real credential-access attacks LOW. Within-group AUC
+    # on (User, READ, Resource) -- which carries 87% of real attack edges -- was
+    # 0.275, while every other edge type scored 0.76-0.98.
+    #
+    # These three chains make credential retrieval the OBJECTIVE, and every step
+    # is read_only so they land in exactly that under-represented triple.
+    # DescribeParameters and GetParameters appeared in NO chain before, despite
+    # being 72% of real attack edges.
+    "ssm_parameter_harvest": [
+        {"event_name": "DescribeParameters", "event_source": "ssm.amazonaws.com",  "attack_technique": "credential-access", "read_only": True, "target_key": "parameter"},
+        {"event_name": "GetParameters",      "event_source": "ssm.amazonaws.com",  "attack_technique": "credential-access", "read_only": True, "target_key": "parameter"},
+        {"event_name": "Decrypt",            "event_source": "kms.amazonaws.com",  "attack_technique": "credential-access", "read_only": True, "target_key": "key"},
+    ],
+    "secrets_manager_sweep": [
+        {"event_name": "ListSecrets",    "event_source": "secretsmanager.amazonaws.com", "attack_technique": "credential-access", "read_only": True, "target_key": "secret"},
+        {"event_name": "DescribeSecret", "event_source": "secretsmanager.amazonaws.com", "attack_technique": "credential-access", "read_only": True, "target_key": "secret"},
+        {"event_name": "GetSecretValue", "event_source": "secretsmanager.amazonaws.com", "attack_technique": "credential-access", "read_only": True, "target_key": "secret"},
+    ],
+    "ec2_credential_extraction": [
+        {"event_name": "DescribeInstances", "event_source": "ec2.amazonaws.com", "attack_technique": "credential-access", "read_only": True, "target_key": "instance"},
+        {"event_name": "GetPasswordData",   "event_source": "ec2.amazonaws.com", "attack_technique": "credential-access", "read_only": True, "target_key": "instance", "error_probability": 0.3},
+    ],
     "ec2_password_data": [
         {"event_name": "CreateRole",      "event_source": "iam.amazonaws.com", "attack_technique": "persistence",          "read_only": False, "target_key": "role"},
         {"event_name": "PutRolePolicy",   "event_source": "iam.amazonaws.com", "attack_technique": "privilege-escalation", "read_only": False, "target_key": "role"},
@@ -198,7 +229,8 @@ def rand_resource(kind):
     return {"role": f"role-{s}", "user": f"svc-{s}", "group": f"admins-{s}",
             "policy": "arn:aws:iam::aws:policy/AdministratorAccess",
             "secret": f"prod/db/{s}", "bucket": f"data-{s}-bucket",
-            "trail": f"mgmt-trail-{s}", "instance": f"i-{rand_str(17)}"}.get(kind, s)
+            "trail": f"mgmt-trail-{s}", "instance": f"i-{rand_str(17)}",
+            "parameter": f"/prod/app/{s}", "key": f"alias/{s}"}.get(kind, s)
 def jitter(lo=2, hi=45): return timedelta(seconds=random.randint(lo, hi))
 
 def _weighted_sample(pool, n):

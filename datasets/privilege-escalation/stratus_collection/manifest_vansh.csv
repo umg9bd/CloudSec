@@ -66,3 +66,11 @@ cfddb28b-cdc2-42cf-b990-85a058f14d1b,vansh,536697249497,aws.persistence.iam-crea
 622d46f4-d56d-4d98-8120-e73ef2a3221b,vansh,536697249497,aws.persistence.iam-create-backdoor-role,persistence,1,2026-07-15T07:36:37.850860+00:00,2026-07-15T07:37:31.999422+00:00,ok,ok,ok,ok,CreateRole;AttachRolePolicy,
 2ff6c879-29a6-4b6a-a91f-d61b08d6dccb,vansh,536697249497,aws.defense-evasion.cloudtrail-event-selectors,defense-evasion,2,2026-07-15T07:37:32.000438+00:00,2026-07-15T07:39:34.015224+00:00,ok,ok,ok,ok,PutEventSelectors,
 061d0491-bb37-4429-8143-182e8e23c941,vansh,536697249497,aws.defense-evasion.cloudtrail-stop,defense-evasion,2,2026-07-15T07:39:34.016231+00:00,2026-07-15T07:41:20.716928+00:00,ok,ok,ok,ok,StopLogging,
+a836f11b-97ec-4cb7-8389-f367918b9741,vansh,536697249497,aws.persistence.iam-create-user-login-profile,persistence,1,2026-08-27T16:10:34.900929+00:00,2026-08-27T16:10:43.035812+00:00,,,,FAILED - MANUAL CHECK NEEDED,CreateLoginProfile,"interrupted by user | cleanup: eanup
++-----------------------------------------------+---------------------------------------+--------+
+| ID                                            | NAME                                  | STATUS |
++-----------------------------------------------+---------------------------------------+--------+
+| aws.persistence.iam-create-user-login-profile | Create a Login Profile on an IAM User | COLD   |
++-----------------------------------------------+---------------------------------------+--------+"
+c9eb392e-42ea-4d89-8d94-b0d535931dc2,vansh,536697249497,aws.persistence.iam-create-user-login-profile,persistence,1,2026-08-27T16:15:34.671146+00:00,2026-08-27T16:17:00.182079+00:00,ok,ok,ok,ok,CreateLoginProfile,
+877bf238-0946-4852-b6f9-83d0015eefa2,vansh,536697249497,aws.persistence.iam-create-user-login-profile,persistence,1,2026-08-27T16:20:26.091191+00:00,2026-08-27T16:21:46.466639+00:00,ok,ok,ok,ok,CreateLoginProfile,
