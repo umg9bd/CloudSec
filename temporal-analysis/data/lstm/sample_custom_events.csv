@@ -1,0 +1,9 @@
+username,timestamp,event_name,label
+demo-attacker,2024-06-01T12:00:00Z,CreateRole,1
+demo-attacker,2024-06-01T12:00:15Z,AttachRolePolicy,1
+demo-attacker,2024-06-01T12:00:30Z,AssumeRole,1
+demo-attacker,2024-06-01T12:00:45Z,GetSecretValue,1
+demo-attacker,2024-06-01T12:01:00Z,CreateAccessKey,1
+demo-benign,2024-06-01T12:00:00Z,DescribeInstances,0
+demo-benign,2024-06-01T12:00:20Z,ListBuckets,0
+demo-benign,2024-06-01T12:00:40Z,GetCallerIdentity,0

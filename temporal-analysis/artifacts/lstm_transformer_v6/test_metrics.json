@@ -1,0 +1,57 @@
+{
+  "schema_version": "lstm_transformer_v6.0",
+  "train_event": {
+    "accuracy": 1.0,
+    "auc_pr": 1.0,
+    "auc_roc": 1.0,
+    "f1": 1.0,
+    "precision": 1.0,
+    "recall": 1.0,
+    "threshold": 0.95,
+    "n": 6519,
+    "n_pos": 338
+  },
+  "val_event": {
+    "accuracy": 0.9992050874403816,
+    "auc_pr": 1.0,
+    "auc_roc": 1.0,
+    "f1": 0.9934640522875817,
+    "precision": 0.987012987012987,
+    "recall": 1.0,
+    "threshold": 0.95,
+    "n": 1258,
+    "n_pos": 76
+  },
+  "test_event": {
+    "accuracy": 0.9958634953464323,
+    "auc_pr": 0.7369496782590823,
+    "auc_roc": 0.9957173447537473,
+    "f1": 0.9428571428571428,
+    "precision": 0.8918918918918919,
+    "recall": 1.0,
+    "threshold": 0.95,
+    "n": 1934,
+    "n_pos": 66
+  },
+  "test_window": {
+    "accuracy": 0.997765719757421,
+    "auc_pr": 0.8731282281870503,
+    "auc_roc": 0.9976470588235294,
+    "f1": 0.978328173374613,
+    "precision": 0.9575757575757575,
+    "recall": 1.0,
+    "threshold": 0.95,
+    "n": 3133,
+    "n_pos": 158
+  },
+  "event_threshold": 0.95,
+  "window_threshold": 0.95,
+  "n_rows_deduped": 9711,
+  "n_users": 564,
+  "protocol": {
+    "model": "LSTMTransformerV6",
+    "split": "user-disjoint 70/15/15",
+    "test_attacker": null,
+    "campaign_relabel": false
+  }
+}

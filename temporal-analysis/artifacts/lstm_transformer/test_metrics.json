@@ -1,0 +1,154 @@
+{
+  "test_event": {
+    "accuracy": 0.9716673461068079,
+    "auc_pr": 0.9690369664154955,
+    "auc_roc": 0.9966591751199659,
+    "f1": 0.8768821966341895,
+    "precision": 0.7932692307692307,
+    "recall": 0.9801980198019802,
+    "threshold": 0.625,
+    "n": 4906,
+    "n_pos": 505
+  },
+  "test_event_fe": {
+    "accuracy": 0.9982332155477032,
+    "auc_pr": 0.9991068292163829,
+    "auc_roc": 0.9999365173413463,
+    "f1": 0.9871794871794872,
+    "precision": 0.9935483870967742,
+    "recall": 0.9808917197452229,
+    "threshold": 0.625,
+    "n": 2264,
+    "n_pos": 157
+  },
+  "test_event_inv": {
+    "accuracy": 0.9489023467070401,
+    "auc_pr": 0.9533961937335438,
+    "auc_roc": 0.9933346861878565,
+    "f1": 0.8347613219094248,
+    "precision": 0.7270788912579957,
+    "recall": 0.9798850574712644,
+    "threshold": 0.625,
+    "n": 2642,
+    "n_pos": 348
+  },
+  "test_bertjan_campaign": {
+    "accuracy": 0.9489023467070401,
+    "auc_pr": 0.9533961937335438,
+    "auc_roc": 0.9933346861878565,
+    "f1": 0.8347613219094248,
+    "precision": 0.7270788912579957,
+    "recall": 0.9798850574712644,
+    "threshold": 0.625,
+    "n": 2642,
+    "n_pos": 348
+  },
+  "test_bertjan_original": {
+    "accuracy": 0.8622255866767601,
+    "auc_pr": 0.3935277671701833,
+    "auc_roc": 0.9476967317369905,
+    "f1": 0.3680555555555556,
+    "precision": 0.2260127931769723,
+    "recall": 0.9906542056074766,
+    "threshold": 0.625,
+    "n": 2642,
+    "n_pos": 107
+  },
+  "test_bertjan_original_0p5": {
+    "accuracy": 0.8493565480696442,
+    "auc_pr": 0.3935277671701833,
+    "auc_roc": 0.9476967317369905,
+    "f1": 0.3475409836065574,
+    "precision": 0.21073558648111332,
+    "recall": 0.9906542056074766,
+    "threshold": 0.5,
+    "n": 2642,
+    "n_pos": 107
+  },
+  "train_event": {
+    "accuracy": 0.9998637416541764,
+    "auc_pr": 1.0,
+    "auc_roc": 1.0,
+    "f1": 0.9989281886387996,
+    "precision": 1.0,
+    "recall": 0.9978586723768736,
+    "threshold": 0.625,
+    "n": 7339,
+    "n_pos": 467
+  },
+  "val_event": {
+    "accuracy": 1.0,
+    "auc_pr": 0.9999999999999999,
+    "auc_roc": 1.0,
+    "f1": 1.0,
+    "precision": 1.0,
+    "recall": 1.0,
+    "threshold": 0.625,
+    "n": 1311,
+    "n_pos": 168
+  },
+  "test": {
+    "accuracy": 0.9924446842957366,
+    "auc_pr": 0.9991784360602683,
+    "auc_roc": 0.9997876782617927,
+    "f1": 0.9815789473684211,
+    "precision": 0.9946666666666667,
+    "recall": 0.9688311688311688,
+    "threshold": 0.85,
+    "n": 1853,
+    "n_pos": 385
+  },
+  "test_inv": {
+    "accuracy": 0.92,
+    "auc_pr": 1.0,
+    "auc_roc": 1.0,
+    "f1": 0.9523809523809523,
+    "precision": 0.9090909090909091,
+    "recall": 1.0,
+    "threshold": 0.85,
+    "n": 25,
+    "n_pos": 20
+  },
+  "test_fe": {
+    "accuracy": 0.9934354485776805,
+    "auc_pr": 0.9996272309088974,
+    "auc_roc": 0.9999063661644771,
+    "f1": 0.9832869080779945,
+    "precision": 1.0,
+    "recall": 0.9671232876712329,
+    "threshold": 0.85,
+    "n": 1828,
+    "n_pos": 365
+  },
+  "val_event_inv": {
+    "accuracy": 1.0,
+    "auc_pr": 0.9999999999999998,
+    "auc_roc": 1.0,
+    "f1": 1.0,
+    "precision": 1.0,
+    "recall": 1.0,
+    "threshold": 0.625,
+    "n": 134,
+    "n_pos": 29
+  },
+  "event_threshold": 0.625,
+  "window_threshold": 0.85,
+  "protocol": {
+    "model": "LSTMTransformerV5",
+    "test_attacker": "inv:bert-jan",
+    "val_inv": [
+      "inv:stratus-red-team-ec2-get-password-data-role",
+      "inv:benjamin"
+    ],
+    "fe_pos_keep": 0.25,
+    "early_stop": "val_f1",
+    "campaign_relabel": true,
+    "secrets_head": true
+  },
+  "previous_v4": {
+    "test_inv_event_auc_pr": 0.522,
+    "test_inv_event_precision": 0.38,
+    "test_inv_event_recall": 0.43,
+    "test_inv_event_f1": 0.4
+  }
+}
