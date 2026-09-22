@@ -1578,5 +1578,6 @@ git push
                     v                 v
               Explainability       Alerts
 ```
+# Model's predictions on a synthetic attack chain along with blast radius and alerts
 <img width="1451" height="440" alt="image" src="https://github.com/user-attachments/assets/7800bb6f-b569-4e0d-8a24-d1e1f2d34032" />
 
