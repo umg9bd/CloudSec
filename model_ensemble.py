@@ -137,7 +137,7 @@ def build_ensemble_from_args(args: dict, device: torch.device) -> EnsembleModel:
     notes for why self-contained was chosen over path references.
     """
     from model_graphsage import GraphSAGEAnomalyDetector
-    from model_hgt import build_hgt_from_args
+    from model_gat import GATAnomalyDetector
 
     components = []
     for c in args["ensemble"]["components"]:
@@ -151,8 +151,17 @@ def build_ensemble_from_args(args: dict, device: torch.device) -> EnsembleModel:
                 num_sage_layers=sub_args.get("num_sage_layers", 2),
                 dropout=0.0,
             )
-        elif c["model_type"] == "hgt":
-            model = build_hgt_from_args(c["model_args"])
+        elif c["model_type"] == "gat":
+            sub_args = c["model_args"]
+            model = GATAnomalyDetector(
+                node_feat_dims=sub_args["node_feat_dims"],
+                edge_types=sub_args["edge_types"],
+                edge_feat_dim=sub_args["edge_feat_dim"],
+                hidden_dim=sub_args.get("hidden_dim", 128),
+                num_gat_layers=sub_args.get("num_gat_layers", 2),
+                heads=sub_args.get("heads", 4),
+                dropout=0.0,
+            )
         else:
             raise ValueError(f"Unknown ensemble component model_type {c['model_type']!r}")
         model.load_state_dict(c["state_dict"])
