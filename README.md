@@ -1578,3 +1578,5 @@ git push
                     v                 v
               Explainability       Alerts
 ```
+<img width="1451" height="440" alt="image" src="https://github.com/user-attachments/assets/7800bb6f-b569-4e0d-8a24-d1e1f2d34032" />
+
