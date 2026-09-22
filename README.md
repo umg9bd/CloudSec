@@ -9,32 +9,54 @@ incremental streaming inference.
 ## Architecture
 
 ``` text
-CloudTrail
-    │
-    ▼
-Feature Engineering
-    │
-    ▼
-Incremental Graph Update
-(Neo4j + In-Memory Graph)
-    │
-    ▼
-K-Hop Neighbourhood Extraction
-    │
-    ▼
-PyTorch Geometric HeteroData
-    │
-    ▼
-GraphSAGE
-    │
-    ├── Benign
-    └── Malicious
-            │
-            ▼
-     Blast Radius Analysis
-            │
-            ▼
-        JSON Alert
+                       AWS CloudTrail
+                              |
+                              v
+                  +----------------------+
+                  | Stateful Feature     |
+                  | Engineering          |
+                  | feature_engine9.py   |
+                  +----------+-----------+
+                             |
+                             v
+                  Structural CloudTrail CSV
+                             |
+                             v
+                  +----------------------+
+                  | Neo4j Graph Builder   |
+                  +----------+-----------+
+                             |
+                             v
+                  Privilege Propagation Graph
+                             |
+            +----------------+----------------+
+            |                |                |
+            v                v                v
+          User             Role           Resource
+            |                |                |
+            +----------------+----------------+
+                             |
+                             v
+                      PyG HeteroData
+                             |
+             +---------------+---------------+
+             |               |               |
+             v               v               v
+            HGT         GraphSAGE            GAT
+         PRIMARY         BASELINE          BASELINE
+             |               |               |
+             +---------------+---------------+
+                             |
+                             v
+                     Edge Classifier
+                             |
+                             v
+                    Attack Probability
+                             |
+                    +--------+--------+
+                    |                 |
+                    v                 v
+              Explainability       Alerts
 ```
 
 ## Why GraphSAGE?
