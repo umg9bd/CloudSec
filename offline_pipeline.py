@@ -206,12 +206,22 @@ def _build_edge_dfs(computed: dict) -> Dict[str, pd.DataFrame]:
     for rel, rows in edge_dfs.items():
         if not rows:
             continue
-        d = pd.DataFrame(rows)
-        d["src_type"] = d["src_labels"].apply(lambda l: l[0])
-        d["dst_type"] = d["dst_labels"].apply(lambda l: l[0])
-        d["is_read_only"] = d["edge_type"].str.startswith(
-            ("Get", "List", "Describe", "Head", "Lookup", "Scan", "Query", "Search", "Check", "Validate")
-        ).astype(int)
+        # Build derived columns without chained-assignment patterns so this
+        # remains correct when pandas Copy-on-Write is enabled.
+        d = (
+            pd.DataFrame(rows)
+            .copy()
+            .assign(
+                src_type=lambda x: x["src_labels"].apply(lambda l: l[0]),
+                dst_type=lambda x: x["dst_labels"].apply(lambda l: l[0]),
+                is_read_only=lambda x: x["edge_type"].str.startswith(
+                    (
+                        "Get", "List", "Describe", "Head", "Lookup",
+                        "Scan", "Query", "Search", "Check", "Validate",
+                    )
+                ).astype(int),
+            )
+        )
         out[rel] = d
     return out
 
@@ -254,8 +264,12 @@ def load_offline(csv_path: str, device: str = "cpu") -> Tuple[HeteroData, dict]:
     loader.label_encoders["edge_type"] = edge_type_enc
 
     from data_loader import EDGE_NUM_COLS
-    for d in edge_dfs.values():
-        d["action_global_frequency_log"] = np.log1p(d["action_global_frequency"].astype(float))
+    for rel, d in edge_dfs.items():
+        edge_dfs[rel] = d.assign(
+            action_global_frequency_log=np.log1p(
+                d["action_global_frequency"].astype(float)
+            )
+        )
     all_num = (
         pd.concat([d[EDGE_NUM_COLS] for d in edge_dfs.values()])
         if edge_dfs else pd.DataFrame(columns=EDGE_NUM_COLS)
@@ -268,15 +282,22 @@ def load_offline(csv_path: str, device: str = "cpu") -> Tuple[HeteroData, dict]:
         if edge_dfs else pd.DataFrame(columns=["src_type", "relation", "dst_type"])
     )
     for (src_type, rel, dst_type), gdf in combined.groupby(["src_type", "relation", "dst_type"], sort=True):
-        gdf = gdf.sort_values("log_id").reset_index(drop=True)
+        gdf = (
+            gdf.sort_values("log_id")
+            .reset_index(drop=True)
+            .copy()
+            .assign(
+                src_idx=lambda x: x["src_key"].map(node_idx[src_type]),
+                dst_idx=lambda x: x["dst_key"].map(node_idx[dst_type]),
+            )
+            .dropna(subset=["src_idx", "dst_idx"])
+            .copy()
+            .assign(
+                src_idx=lambda x: x["src_idx"].astype(int),
+                dst_idx=lambda x: x["dst_idx"].astype(int),
+            )
+        )
         triple = (src_type, rel, dst_type)
-
-        gdf = gdf.copy()
-        gdf["src_idx"] = gdf["src_key"].map(node_idx[src_type])
-        gdf["dst_idx"] = gdf["dst_key"].map(node_idx[dst_type])
-        gdf = gdf.dropna(subset=["src_idx", "dst_idx"])
-        gdf["src_idx"] = gdf["src_idx"].astype(int)
-        gdf["dst_idx"] = gdf["dst_idx"].astype(int)
 
         edge_index = torch.tensor(np.stack([gdf["src_idx"].values, gdf["dst_idx"].values]), dtype=torch.long)
         edge_attr = loader._edge_features(gdf, edge_type_enc)
