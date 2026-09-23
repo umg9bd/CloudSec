@@ -1,0 +1,90 @@
+[
+  {
+    "eventTime": "2026-09-21T12:00:00Z",
+    "eventName": "AssumeRole",
+    "eventSource": "sts.amazonaws.com",
+    "userIdentity": {
+      "type": "IAMUser",
+      "principalId": "attacker-user",
+      "arn": "arn:aws:iam::123456789012:user/attacker-user"
+    },
+    "requestParameters": {
+      "roleArn": "arn:aws:iam::123456789012:role/initial-access-role"
+    },
+    "sourceIPAddress": "198.51.100.25"
+  },
+  {
+    "eventTime": "2026-09-21T12:01:10Z",
+    "eventName": "GetObject",
+    "eventSource": "s3.amazonaws.com",
+    "userIdentity": {
+      "type": "AssumedRole",
+      "principalId": "initial-access-role",
+      "arn": "arn:aws:iam::123456789012:role/initial-access-role"
+    },
+    "requestParameters": {
+      "bucketName": "sensitive-data-bucket",
+      "key": "confidential/data.csv"
+    },
+    "sourceIPAddress": "198.51.100.25"
+  },
+  {
+    "eventTime": "2026-09-21T12:02:20Z",
+    "eventName": "PutObject",
+    "eventSource": "s3.amazonaws.com",
+    "userIdentity": {
+      "type": "AssumedRole",
+      "principalId": "initial-access-role",
+      "arn": "arn:aws:iam::123456789012:role/initial-access-role"
+    },
+    "requestParameters": {
+      "bucketName": "sensitive-data-bucket",
+      "key": "tmp/modified-data.csv"
+    },
+    "sourceIPAddress": "198.51.100.25"
+  },
+  {
+    "eventTime": "2026-09-21T12:03:30Z",
+    "eventName": "AssumeRole",
+    "eventSource": "sts.amazonaws.com",
+    "userIdentity": {
+      "type": "AssumedRole",
+      "principalId": "initial-access-role",
+      "arn": "arn:aws:iam::123456789012:role/initial-access-role"
+    },
+    "requestParameters": {
+      "roleArn": "arn:aws:iam::123456789012:role/privileged-admin-role"
+    },
+    "sourceIPAddress": "198.51.100.25"
+  },
+  {
+    "eventTime": "2026-09-21T12:04:40Z",
+    "eventName": "AttachRolePolicy",
+    "eventSource": "iam.amazonaws.com",
+    "userIdentity": {
+      "type": "AssumedRole",
+      "principalId": "privileged-admin-role",
+      "arn": "arn:aws:iam::123456789012:role/privileged-admin-role"
+    },
+    "requestParameters": {
+      "roleName": "privileged-admin-role",
+      "policyArn": "arn:aws:iam::aws:policy/AdministratorAccess"
+    },
+    "sourceIPAddress": "198.51.100.25"
+  },
+  {
+    "eventTime": "2026-09-21T12:05:50Z",
+    "eventName": "PutObject",
+    "eventSource": "s3.amazonaws.com",
+    "userIdentity": {
+      "type": "AssumedRole",
+      "principalId": "privileged-admin-role",
+      "arn": "arn:aws:iam::123456789012:role/privileged-admin-role"
+    },
+    "requestParameters": {
+      "bucketName": "exfiltration-test-bucket",
+      "key": "export/stolen-data.csv"
+    },
+    "sourceIPAddress": "198.51.100.25"
+  }
+]

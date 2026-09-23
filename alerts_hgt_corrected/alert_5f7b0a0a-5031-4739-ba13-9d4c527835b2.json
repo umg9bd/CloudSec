@@ -1,0 +1,72 @@
+{
+  "alert_id": "5f7b0a0a-5031-4739-ba13-9d4c527835b2",
+  "generated_at": "2026-09-23T08:48:54.858666+00:00",
+  "event": {
+    "timestamp": "2026-07-30T09:00:05Z",
+    "principal_arn": "arn:aws:sts::261390480702:assumed-role/AdminRole/session1",
+    "principal_type": "AssumedRole",
+    "event_name": "CreateRole",
+    "event_source": "iam.amazonaws.com",
+    "target_resource": "arn:aws:iam::261390480702:role/BackdoorRole",
+    "source_ip": "0.0.0.0",
+    "aws_region": "us-east-1",
+    "error_code": ""
+  },
+  "prediction": {
+    "probability": 0.622927,
+    "principal_label": "Role",
+    "principal_key": "AdminRole"
+  },
+  "blast_radius": {
+    "principal_label": "Role",
+    "principal_key": "AdminRole",
+    "score": 0.3071,
+    "score_components": {
+      "reachable_assets": 0.02,
+      "privilege_escalation": 1.0,
+      "critical_asset_exposure": 0.007,
+      "cross_service": 0.0,
+      "cross_account": 0
+    },
+    "is_lower_bound": true,
+    "reachable_assets": {
+      "total": 1,
+      "by_category": {
+        "iam_role": 1,
+        "ec2_instance": 0,
+        "lambda_function": 0,
+        "s3_bucket": 0,
+        "rds_database": 0,
+        "dynamodb_table": 0,
+        "secretsmanager_secret": 0,
+        "kms_key": 0,
+        "other": 0
+      }
+    },
+    "privilege_reachability": {
+      "assume_role_chain_depth": 1,
+      "administrator_reachable": true,
+      "administrator_reachable_is_proxy": true,
+      "pass_role_observed": false,
+      "cross_account_ids_reachable": []
+    },
+    "critical_assets": {
+      "count": 0,
+      "exposure_score": 0.35,
+      "assets": []
+    },
+    "cross_service_count": 0,
+    "top_propagation_paths": [
+      {
+        "nodes": [
+          "Role:AdminRole",
+          "Role:BackdoorRole"
+        ],
+        "edge_types": [
+          "CreateRole"
+        ],
+        "impact_score": 0.35
+      }
+    ]
+  }
+}
