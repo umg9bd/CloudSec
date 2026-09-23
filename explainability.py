@@ -268,3 +268,335 @@ class FeatureAblation:
             data[t].edge_attr = originals[t]
 
         return dict(sorted(results.items(), key=lambda x: -x[1]))
+
+# ============================================================================
+# Standalone runner
+# ============================================================================
+
+if __name__ == "__main__":
+    import argparse
+    from types import SimpleNamespace
+
+    from offline_pipeline import load_offline
+    from data_loader import stratified_edge_split
+    from train import build_model
+
+    parser = argparse.ArgumentParser(
+        description="Run edge-level explainability and feature ablation."
+    )
+
+    parser.add_argument(
+        "--checkpoint",
+        default="./checkpoints_hgt_corrected/best_HGT.pt",
+        help="Path to trained HGT checkpoint",
+    )
+
+    parser.add_argument(
+        "--csv",
+        default="./graph_construction/cloudtrail_structural.csv",
+        help="Structural CloudTrail CSV",
+    )
+
+    parser.add_argument(
+        "--method",
+        choices=["gradient", "gnnexplainer"],
+        default="gradient",
+        help="Explanation method",
+    )
+
+    parser.add_argument(
+        "--top-k",
+        type=int,
+        default=5,
+        help="Number of highest-confidence test edges to explain",
+    )
+
+    parser.add_argument(
+        "--threshold",
+        type=float,
+        default=0.5,
+        help="Classification threshold for F1 evaluation",
+    )
+
+    parser.add_argument(
+        "--no-ablation",
+        action="store_true",
+        help="Skip feature ablation",
+    )
+
+    args_cli = parser.parse_args()
+
+    # ------------------------------------------------------------------------
+    # 1. Device
+    # ------------------------------------------------------------------------
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+
+    print("=" * 80)
+    print("OVERALL EXPLAINABILITY")
+    print("=" * 80)
+    print(f"Device     : {device}")
+    print(f"CSV        : {args_cli.csv}")
+    print(f"Checkpoint : {args_cli.checkpoint}")
+    print(f"Method     : {args_cli.method}")
+    print()
+
+    # ------------------------------------------------------------------------
+    # 2. Load the exact offline graph
+    # ------------------------------------------------------------------------
+    print("[1/5] Loading graph...")
+
+    data, meta = load_offline(
+        args_cli.csv,
+        device=device,
+    )
+
+    print(f"       Node types : {data.node_types}")
+    print(f"       Edge types : {data.edge_types}")
+
+    # ------------------------------------------------------------------------
+    # 3. Recreate the same stratified split
+    # ------------------------------------------------------------------------
+    print("\n[2/5] Creating stratified train/val/test split...")
+
+    train_masks, val_masks, test_masks = stratified_edge_split(
+        data,
+        seed=42,
+    )
+
+    # ------------------------------------------------------------------------
+    # 4. Rebuild HGT using the same architecture
+    # ------------------------------------------------------------------------
+    print("\n[3/5] Loading HGT model...")
+
+    model_args = SimpleNamespace(
+        hidden=128,
+        layers=2,
+        heads=4,
+        dropout=0.3,
+        attn_dropout=0.1,
+        hgt_group="sum",
+    )
+
+    model = build_model(
+        "hgt",
+        meta,
+        model_args,
+    ).to(device)
+
+    checkpoint = torch.load(
+        args_cli.checkpoint,
+        map_location=device,
+        weights_only=False,
+    )
+
+    # Support either a bare state_dict or a wrapped checkpoint.
+    if isinstance(checkpoint, dict):
+        if "state_dict" in checkpoint:
+            state_dict = checkpoint["state_dict"]
+        elif "model_state_dict" in checkpoint:
+            state_dict = checkpoint["model_state_dict"]
+        else:
+            # A bare state_dict is itself a dict of tensors.
+            state_dict = checkpoint
+    else:
+        raise TypeError(
+            f"Unsupported checkpoint type: {type(checkpoint)}"
+        )
+
+    model.load_state_dict(state_dict)
+    model.eval()
+
+    print("       HGT checkpoint loaded successfully.")
+
+    # ------------------------------------------------------------------------
+    # 5. Edge-level explainability
+    # ------------------------------------------------------------------------
+    print("\n[4/5] Running edge-level explainability...")
+    print("-" * 80)
+
+    explainer = EdgeExplainer(
+        model,
+        method=args_cli.method,
+    )
+
+    results = explainer.explain_top_k(
+        data,
+        test_masks,
+        k=args_cli.top_k,
+    )
+
+    # Compute predictions once so probabilities can be printed.
+    with torch.no_grad():
+        logits = model(data)
+        probs = torch.sigmoid(logits).cpu().numpy()
+
+    target_to_prob = {}
+    offset = 0
+
+    for triple in sorted(data.edge_types):
+        n = data[triple].y.shape[0]
+
+        for i in range(n):
+            target_to_prob[(triple, i)] = float(
+                probs[offset + i]
+            )
+
+        offset += n
+
+    print(f"\nTop {len(results)} highest-confidence test predictions:\n")
+
+    for rank, (target, importance) in enumerate(
+        results.items(),
+        start=1,
+    ):
+        triple = target.triple
+        local_index = target.local_index
+
+        probability = target_to_prob[
+            (triple, local_index)
+        ]
+
+        print(f"#{rank}")
+        print(f"  Edge          : {triple}")
+        print(f"  Local index   : {local_index}")
+        print(f"  Attack prob   : {probability:.4f}")
+
+        edge_data = data[triple]
+
+        if hasattr(edge_data, "log_id"):
+            try:
+                print(
+                    f"  log_id        : "
+                    f"{edge_data.log_id[local_index]}"
+                )
+            except Exception:
+                pass
+
+        print("  Feature importance:")
+
+        for feature, score in importance.items():
+            print(
+                f"    {feature:<40} {score:.6f}"
+            )
+
+        print()
+
+    # ------------------------------------------------------------------------
+    # 6. Feature ablation
+    # ------------------------------------------------------------------------
+    if not args_cli.no_ablation:
+
+        print("\n[5/5] Running feature ablation...")
+        print("-" * 80)
+
+        def evaluate_fn(model, data, mask_dict):
+            model.eval()
+
+            with torch.no_grad():
+                logits = model(data)
+
+            y_true = []
+            y_pred = []
+
+            offset = 0
+
+            for triple in sorted(data.edge_types):
+
+                y = data[triple].y
+                n = y.shape[0]
+
+                mask = mask_dict.get(triple)
+
+                if mask is None:
+                    offset += n
+                    continue
+
+                mask = mask.to(device)
+
+                triple_logits = logits[
+                    offset:offset + n
+                ]
+
+                triple_probs = torch.sigmoid(
+                    triple_logits
+                )
+
+                pred = (
+                    triple_probs >= args_cli.threshold
+                ).long()
+
+                y_true.extend(
+                    y[mask].detach().cpu().long().tolist()
+                )
+
+                y_pred.extend(
+                    pred[mask].detach().cpu().long().tolist()
+                )
+
+                offset += n
+
+            if not y_true:
+                return {"f1": 0.0}
+
+            tp = sum(
+                1
+                for yt, yp in zip(y_true, y_pred)
+                if yt == 1 and yp == 1
+            )
+
+            fp = sum(
+                1
+                for yt, yp in zip(y_true, y_pred)
+                if yt == 0 and yp == 1
+            )
+
+            fn = sum(
+                1
+                for yt, yp in zip(y_true, y_pred)
+                if yt == 1 and yp == 0
+            )
+
+            precision = (
+                tp / (tp + fp)
+                if (tp + fp) > 0
+                else 0.0
+            )
+
+            recall = (
+                tp / (tp + fn)
+                if (tp + fn) > 0
+                else 0.0
+            )
+
+            f1 = (
+                2 * precision * recall
+                / (precision + recall)
+                if (precision + recall) > 0
+                else 0.0
+            )
+
+            return {"f1": f1}
+
+        ablator = FeatureAblation(model)
+
+        ablation_results = ablator.run(
+            data,
+            test_masks,
+            evaluate_fn,
+        )
+
+        print("\nFeature ablation results:")
+        print(
+            "(positive ΔF1 means removing the feature reduced F1)\n"
+        )
+
+        for feature, drop in ablation_results.items():
+            print(
+                f"  {feature:<40} "
+                f"ΔF1 = {drop:+.6f}"
+            )
+
+    print("\n" + "=" * 80)
+    print("EXPLAINABILITY COMPLETE")
+    print("=" * 80)
+
