@@ -92,6 +92,24 @@ ATTACK_CHAINS = {
     # is read_only so they land in exactly that under-represented triple.
     # DescribeParameters and GetParameters appeared in NO chain before, despite
     # being 72% of real attack edges.
+    # ── genuine privilege ESCALATION (privilege_gain > 0) ──────────────────
+    # privilege_features.privilege_gain() = rank(current action) - rank(the
+    # AssumeRole that granted the role). AssumeRole is rank 3 (Write); the
+    # permissions-management actions below are rank 4, so these chains are the
+    # only ones that yield a POSITIVE gain. Every pre-existing chain either put
+    # AssumeRole last (nothing follows as the role) or followed it with
+    # read-only theft (rank 1, gain -2), so "privilege escalation" was a label
+    # the corpus asserted but its own structural feature never witnessed.
+    "assume_then_attach_admin": [
+        {"event_name": "AssumeRole",       "event_source": "sts.amazonaws.com", "attack_technique": "privilege-escalation", "read_only": False, "target_key": "role"},
+        {"event_name": "AttachRolePolicy", "event_source": "iam.amazonaws.com", "attack_technique": "privilege-escalation", "read_only": False, "target_key": "role"},
+        {"event_name": "AttachUserPolicy", "event_source": "iam.amazonaws.com", "attack_technique": "privilege-escalation", "read_only": False, "target_key": "user"},
+    ],
+    "assume_then_backdoor_key": [
+        {"event_name": "AssumeRole",      "event_source": "sts.amazonaws.com", "attack_technique": "privilege-escalation", "read_only": False, "target_key": "role"},
+        {"event_name": "CreateAccessKey", "event_source": "iam.amazonaws.com", "attack_technique": "persistence",          "read_only": False, "target_key": "user"},
+        {"event_name": "PutUserPolicy",   "event_source": "iam.amazonaws.com", "attack_technique": "privilege-escalation", "read_only": False, "target_key": "user"},
+    ],
     "ssm_parameter_harvest": [
         {"event_name": "DescribeParameters", "event_source": "ssm.amazonaws.com",  "attack_technique": "credential-access", "read_only": True, "target_key": "parameter"},
         {"event_name": "GetParameters",      "event_source": "ssm.amazonaws.com",  "attack_technique": "credential-access", "read_only": True, "target_key": "parameter"},
@@ -384,10 +402,26 @@ def generate_benign_iamuser(n_events=15):
     return rows
 
 
+# Each service-linked role is assumed by the AWS service that owns it. Without
+# the assumption event these roles ACT but are never ASSUMED, so
+# privilege_features.hop_count() -- which asks "was this Role the target of an
+# ASSUMES edge?" -- returns 1 for every edge they emit, and privilege_gain is
+# undefined for all of them. Real CloudTrail always shows the pairing (e.g.
+# resource-explorer-2 assumes AWSServiceRoleForResourceExplorer, then that role
+# does the work), so the missing half was a generator artefact, not a property
+# of AWS.
+BENIGN_ROLE_OWNERS = {
+    "AWSServiceRoleForEC2": "ec2.amazonaws.com",
+    "LambdaExecutionRole":  "lambda.amazonaws.com",
+    "ECSTaskRole":          "ecs-tasks.amazonaws.com",
+    "CodeDeployRole":       "codedeploy.amazonaws.com",
+    "AutoScalingRole":      "autoscaling.amazonaws.com",
+}
+
+
 def generate_benign_assumed_role(n_events=12):
     account_id = rand_account()
-    role_name  = random.choice(["AWSServiceRoleForEC2", "LambdaExecutionRole",
-                                 "ECSTaskRole", "CodeDeployRole", "AutoScalingRole"])
+    role_name  = random.choice(list(BENIGN_ROLE_OWNERS))
     session_id = rand_str(16)
     source_ip  = random.choice(["AWS Internal", rand_ip()])
     access_key = rand_role_key()
@@ -395,7 +429,17 @@ def generate_benign_assumed_role(n_events=12):
     t          = datetime(2024, random.randint(1,12), random.randint(1,28),
                           random.randint(7,19), 0, 0, tzinfo=timezone.utc)
     arn        = f"arn:aws:sts::{account_id}:assumed-role/{role_name}/{session_id}"
-    rows = []
+    owner      = BENIGN_ROLE_OWNERS[role_name]
+    # The assumption itself, emitted by the owning service. This is the edge
+    # that makes role_name a 2-hop node in the propagation graph.
+    rows = [{"timestamp": t.isoformat(), "event_name": "AssumeRole",
+        "event_source": "sts.amazonaws.com", "aws_region": "us-east-1",
+        "source_ip": owner, "error_code": None, "label": 0,
+        "attack_technique": None, "read_only": True, "user_agent": owner,
+        "access_key_id": None, "mfa_authenticated": None,
+        "target_resource": role_name, "request_params_raw": None,
+        "principal_type": "AWSService", "principal_arn": None,
+        "username": owner, "session_label": 0, "synthetic": True}]
     for name, source, ro in _weighted_sample(ASSUMED_ROLE_BENIGN, n_events):
         t += jitter(1, 30)
         ec = random.choice(_benign_err_pool) if random.random() < 0.08 else None
@@ -470,16 +514,40 @@ ROOT_BILLING_EVENTS_WEIGHTED = [
 ]
 
 
+# Work the service-linked role performs once it has been assumed. Mirrors what
+# resource-explorer's role actually does in the real capture (read-only
+# inventory sweeps), so the second leg of the chain is realistic rather than
+# invented.
+SERVICE_ROLE_FOLLOWUP = [
+    ("ListResources",  "resource-explorer-2.amazonaws.com", True, 5),
+    ("Search",         "resource-explorer-2.amazonaws.com", True, 3),
+    ("ListIndexes",    "resource-explorer-2.amazonaws.com", True, 2),
+]
+
+# The service-linked role each AWS service assumes. One STABLE name per service,
+# not a fresh random one per event: previously every AssumeRole here minted a
+# throwaway `role-xxxxxx` that appeared exactly once and never acted, so the
+# graph filled with thousands of dead-end Role targets that could never be the
+# first leg of a privilege chain.
+SERVICE_LINKED_ROLES = {
+    "resource-explorer-2.amazonaws.com": "AWSServiceRoleForResourceExplorer",
+    "cloudtrail.amazonaws.com":          "AWSServiceRoleForCloudTrail",
+}
+
+
 def generate_service_noise_session(n_events=10):
     rows = []
+    account_id = rand_account()
     t = datetime(2024, random.randint(1,12), random.randint(1,28), random.randint(0,23), 0, 0, tzinfo=timezone.utc)
+    assumed = {}  # invoked_by -> (role_name, session_arn), set on first AssumeRole
     for _ in range(n_events):
         name, source, invoked_by = random.choices(
             [(n, s, i) for n, s, i, _ in SERVICE_NOISE_EVENTS_WEIGHTED],
             weights=[w for *_, w in SERVICE_NOISE_EVENTS_WEIGHTED], k=1)[0]
         t += jitter(30, 300)
+        role_name = SERVICE_LINKED_ROLES.get(invoked_by, "AWSServiceRoleForResourceExplorer")
         # AWSService rows are ALWAYS non-null for target_resource in real data
-        target = f"role-{rand_str(6)}" if name == "AssumeRole" else f"data-{rand_str(6)}-bucket"
+        target = role_name if name == "AssumeRole" else f"data-{rand_str(6)}-bucket"
         rows.append({"timestamp": t.isoformat(), "event_name": name, "event_source": source,
             "aws_region": "us-east-1", "source_ip": invoked_by, "error_code": None,
             "label": 0, "attack_technique": None, "read_only": True, "user_agent": invoked_by,
@@ -487,6 +555,30 @@ def generate_service_noise_session(n_events=10):
             "target_resource": target, "request_params_raw": None,
             "principal_type": "AWSService", "principal_arn": None,
             "username": invoked_by, "session_label": 0, "synthetic": True})
+
+        # Second leg, emitted ONCE per service per session: the role it just
+        # assumed does the actual work. Without this the assumption is a dead
+        # end and hop_count never reaches 2. Emitting it on every AssumeRole
+        # (AssumeRole is 64% of this stream) over-produced AssumedRole rows by
+        # ~3x and wrecked the principal_type calibration, so it fires only on
+        # the first assumption.
+        if name == "AssumeRole" and invoked_by not in assumed:
+            role_arn = f"arn:aws:sts::{account_id}:assumed-role/{role_name}/{rand_str(16)}"
+            assumed[invoked_by] = (role_name, role_arn)
+            for fname, fsource, fro in _weighted_sample(SERVICE_ROLE_FOLLOWUP, random.randint(1, 2)):
+                t += jitter(5, 45)
+                rows.append({"timestamp": t.isoformat(), "event_name": fname,
+                    "event_source": fsource, "aws_region": "us-east-1",
+                    "source_ip": invoked_by, "error_code": None, "label": 0,
+                    "attack_technique": None, "read_only": fro, "user_agent": invoked_by,
+                    "access_key_id": rand_role_key(), "mfa_authenticated": None,
+                    # Explicit, never null: real AWSService/AssumedRole rows
+                    # always carry a target_resource, and _benign_target_resource
+                    # would default an unlisted source to 80% null.
+                    "target_resource": f"index/{rand_str(8)}",
+                    "request_params_raw": None,
+                    "principal_type": "AssumedRole", "principal_arn": role_arn,
+                    "username": role_name, "session_label": 0, "synthetic": True})
     return rows
 
 
