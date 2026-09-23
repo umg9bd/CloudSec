@@ -53,6 +53,42 @@ def _absent_or_present(value):
     return value
 
 
+# Canonicalizes a requestParameters dict into one consistent target-node identity, so the same
+# logical IAM entity doesn't become a different graph node depending on which field the
+# triggering API call happened to use (e.g. AssumeRole's roleArn vs CreateRole/AttachRolePolicy's
+# roleName both collapse onto the same arn:aws:iam::ACCOUNT:role/NAME node).
+def _canonicalize_target_from_params(params, account_id):
+    if not isinstance(params, dict):
+        return None
+
+    role_arn = params.get('roleArn')
+    if role_arn:
+        return role_arn
+
+    # roleName/userName checked before policyArn: AttachRolePolicy/AttachUserPolicy/PutRolePolicy/
+    # PutUserPolicy carry BOTH an identity name and a policyArn, and the identity being modified
+    # (the role/user) is the canonical target -- it's what needs to collapse onto the same node as
+    # AssumeRole/CreateRole/CreateUser. policyArn is only the target for policy-only calls
+    # (CreatePolicyVersion, DeletePolicy, ...) that carry no roleName/userName at all.
+    role_name = params.get('roleName')
+    if role_name:
+        return f"arn:aws:iam::{account_id or 'unknown'}:role/{role_name}"
+
+    user_name = params.get('userName')
+    if user_name:
+        return f"arn:aws:iam::{account_id or 'unknown'}:user/{user_name}"
+
+    policy_arn = params.get('policyArn')
+    if policy_arn:
+        return policy_arn
+
+    bucket_name = params.get('bucketName')
+    if bucket_name:
+        return f"arn:aws:s3:::{bucket_name}"
+
+    return None
+
+
 def normalize_cloudtrail_row(row):
     """Map raw CloudTrail fields onto the internal schema."""
 
@@ -75,7 +111,16 @@ def normalize_cloudtrail_row(row):
         if isinstance(request_params, (dict, list)):
             request_params = json.dumps(request_params)
 
+    recipient_account_id = row.get('recipient_account_id') or row.get('recipientAccountId')
+    account_id = str(recipient_account_id) if recipient_account_id else _extract_account_id(principal_arn)
+
+    # Prefer an already-enriched target_resource alias when present; otherwise dig into
+    # requestParameters (real CloudTrail often puts the actual target there -- e.g. AssumeRole's
+    # roleArn -- rather than in the generic `resources` array), and only fall back to
+    # `resources[0]` after that.
     target_resource = row.get('target_resource')
+    if not target_resource:
+        target_resource = _canonicalize_target_from_params(_parse_json_text(request_params), account_id)
     if not target_resource:
         resources = row.get('resources') or []
         if isinstance(resources, str):
@@ -85,7 +130,6 @@ def normalize_cloudtrail_row(row):
             if isinstance(first_resource, dict):
                 target_resource = first_resource.get('ARN') or first_resource.get('arn') or first_resource.get('name')
 
-    
     read_only = _absent_or_present(row.get('read_only'))
     if read_only is None:
         read_only = _absent_or_present(row.get('readOnly'))
@@ -93,8 +137,6 @@ def normalize_cloudtrail_row(row):
     mfa_authenticated = _absent_or_present(row.get('mfa_authenticated'))
     if mfa_authenticated is None:
         mfa_authenticated = _absent_or_present(session_attributes.get('mfaAuthenticated'))
-
-    recipient_account_id = row.get('recipient_account_id') or row.get('recipientAccountId')
 
     normalized = {
         'timestamp': row.get('timestamp') or row.get('eventTime'),
