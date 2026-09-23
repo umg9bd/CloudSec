@@ -1,3 +1,4 @@
 neo4j==5.28.1
 pandas==2.2.3
 policy_sentry
+networkx>=3.2
