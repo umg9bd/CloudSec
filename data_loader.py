@@ -391,6 +391,16 @@ class PrivilegePropagationGraphLoader:
                 UNREACHABLE_DISTANCE_SENTINEL
             )
 
+        # pandas 3.x raises instead of silently upcasting when `.loc` writes a
+        # float64 value into an existing int64 column (previously just a
+        # FutureWarning) — out_degree/in_degree/unique_targets/etc. arrive
+        # here as non-null ints, so their columns are int64 at this point.
+        # Widen only those specific columns' dtype first; the `.loc`
+        # assignment on the next line is otherwise unchanged.
+        int_num_cols = [c for c in num_cols if df[c].dtype.kind in "iu"]
+        if int_num_cols:
+            df = df.astype({c: "float64" for c in int_num_cols})
+
         df.loc[:, num_cols] = df[num_cols].fillna(0).astype(float)
 
         scaler = StandardScaler()
