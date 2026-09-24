@@ -78,6 +78,19 @@ TECHNIQUES = [
         "cost_note": "Creates its own throwaway CloudTrail trail during warmup - "
                       "does not touch stratus-redteam-trail.",
     },
+    {
+        # NOT a Stratus technique -- emitted by run_escalation_detonation.py.
+        # Stratus's AWS catalog has only one atomic privesc technique, so the
+        # genuine multi-hop assume-then-escalate chain (User -> AssumeRole ->
+        # Role -> AttachUserPolicy) is produced by our own detonation script.
+        # Listed here so collect_real_logs.py verifies its logs the same way.
+        "id": "custom.privilege-escalation.assume-role-escalate-user",
+        "tactic": "privilege-escalation",
+        "expected_events": ["AssumeRole", "AttachUserPolicy"],
+        "cost_note": "Creates a throwaway IAM role + user, deletes both immediately. "
+                      "No standing cost. If cleanup fails, run "
+                      "run_escalation_detonation.py --cleanup-only.",
+    },
 ]
 
 TECHNIQUE_IDS = [t["id"] for t in TECHNIQUES]

@@ -126,6 +126,46 @@ Check `manifest_<your_name>_verified.csv` afterward: each row should eventually 
 the AWS console for that technique before running more — it means something may not have been
 cleaned up.
 
+## 10b. Run the genuine privilege-escalation chain (IMPORTANT)
+
+Stratus's AWS catalog has only **one** privilege-escalation technique, and it is a single atomic
+event — it never produces the multi-hop, multi-principal chain this whole project is about:
+
+```
+User  --AssumeRole-->  Role  --AttachUserPolicy-->  User (now has admin)
+```
+
+That chain is what makes `privilege_gain > 0` in the feature engine, and until now the real capture
+contained **none** of it. `run_escalation_detonation.py` emulates it end to end on your own sandbox
+account — create an over-permissioned role + a throwaway user, assume the role, use it to grant the
+user a powerful policy, then detach and delete everything. Same warmup→detonate→revert→cleanup
+lifecycle and same manifest as the Stratus runner.
+
+First, always do a dry run (touches nothing in AWS):
+```
+python run_escalation_detonation.py --collector <your_name> --dry-run
+```
+Then a single real chain to confirm your setup and cleanup work:
+```
+python run_escalation_detonation.py --collector <your_name> --reps 1
+```
+Watch that it prints `detonate ok  (AssumeRole + AttachUserPolicy emitted)` and `cleanup ok`. Then
+run a few more across different days/times, like the Stratus runner:
+```
+python run_escalation_detonation.py --collector <your_name> --reps 3
+```
+Rows land in the same `manifest_<your_name>.csv`, so `collect_real_logs.py` picks them up with no
+extra steps.
+
+**If a run is ever interrupted or `cleanup_status` shows anything but `ok`**, sweep leftovers:
+```
+python run_escalation_detonation.py --collector <your_name> --cleanup-only
+```
+This deletes every `stratus-escalation-*` role and user on the account. Safe to run any time.
+
+Everything it creates is prefixed `stratus-escalation-` and is deleted seconds after creation — no
+standing resources, no cost. **Own sandbox account only**, exactly like the Stratus techniques.
+
 ## 11. How many sessions, and when
 
 Team target: **~18 reps per technique in total, pooled across everyone.** Coordinate loosely (a quick
