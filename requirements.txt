@@ -17,6 +17,7 @@ py2neo>=2021.2.4
 
 # Machine Learning
 scikit-learn>=1.4.0
+xgboost>=2.0.0
 
 # AWS IAM action access-level data (offline; see privilege_features.py's
 # ActionAccessLevelResolver docstring -- without this, action access-level

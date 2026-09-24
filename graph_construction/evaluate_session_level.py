@@ -37,14 +37,15 @@ from utils import evaluate
 
 LOG_ID_RE = re.compile(r"^(.*):(\d+)$")
 
-# Rhino/GuardDuty-style 11-rule set, imported rather than restated so it can
-# never drift from evaluate_baselines.py's definition. This file lives in
-# graph_construction/, one level below the repo root.
+# Curated 11-rule IAM rule set, imported rather than restated so it can never drift from
+# evaluate_baselines.py's definition. This file lives in graph_construction/, one level below
+# the repo root. NOTE: this rule set is inspired by AWS GuardDuty's public finding-type docs, but
+# was never validated against real GuardDuty output -- see evaluate_baselines.py's RULES comment.
 _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(_REPO_ROOT, "datasets", "privilege-escalation"))
 from evaluate_baselines import RULES  # noqa: E402
 
-GUARDDUTY = "GuardDuty-style (11 rules)"
+GUARDDUTY = "Curated IAM rule baseline (11 rules)"
 N_BOOTSTRAP = 10000
 
 
@@ -158,9 +159,9 @@ def report_baseline_comparison(raw_df, sessions_true, y_true, y_model):
     lo, hi = np.percentile(deltas, [2.5, 97.5])
     p_two_sided = 2 * min(float(np.mean(deltas <= 0)), float(np.mean(deltas >= 0)))
 
-    print(f"\n{'':<28}{'P':>8}{'R':>8}{'F1':>8}")
-    print(f"{'GNN (session-level)':<28}{mp:>8.3f}{mr:>8.3f}{mf:>8.3f}")
-    print(f"{GUARDDUTY:<28}{bp:>8.3f}{br:>8.3f}{bf:>8.3f}   <- computed on THESE {n} sessions")
+    print(f"\n{'':<38}{'P':>8}{'R':>8}{'F1':>8}")
+    print(f"{'GNN (session-level)':<38}{mp:>8.3f}{mr:>8.3f}{mf:>8.3f}")
+    print(f"{GUARDDUTY:<38}{bp:>8.3f}{br:>8.3f}{bf:>8.3f}   <- computed on THESE {n} sessions")
     print(f"\nPAIRED bootstrap on (GNN - rule) F1: {mf - bf:+.4f}  "
           f"95% CI [{lo:+.4f}, {hi:+.4f}]  two-sided p = {p_two_sided:.4f}")
     if lo > 0:

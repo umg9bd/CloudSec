@@ -219,9 +219,9 @@ Sessions: 238 total | 236 have >=1 in-schema edge | 2 have ZERO in-schema edges 
 
 SESSION-LEVEL @ threshold=0.65: P=0.874  R=0.830  F1=0.851
 
-                                   P       R      F1
-GNN (session-level)            0.874   0.830   0.851
-GuardDuty-style (11 rules)     0.878   0.650   0.747   <- computed on THESE 238 sessions
+                                          P       R      F1
+GNN (session-level)                   0.874   0.830   0.851
+Curated IAM rule baseline (11 rules)  0.878   0.650   0.747   <- computed on THESE 238 sessions
 
 PAIRED bootstrap on (GNN - rule) F1: +0.1042  95% CI [+0.0403, +0.1711]  two-sided p = 0.0008
 The improvement is significant at the 5% level.
@@ -260,7 +260,7 @@ scored on:
 ```powershell
 python datasets/privilege-escalation/evaluate_baselines.py
 ```
-Reports on the **combined** set: Minimal SIEM F1=0.504, GuardDuty-style F1=0.732,
+Reports on the **combined** set: Minimal SIEM F1=0.504, Curated IAM rule baseline F1=0.732,
 Post-incident (unfair upper bound) F1=0.913.
 
 ⚠️ **Do not quote 0.732 as the number the model beats.** On the test split alone
@@ -316,7 +316,7 @@ complete, real, end-to-end pipeline — real red-team attack data collected
 across 4 independent AWS accounts, a validated synthetic data generator, a
 heterogeneous GNN trained on privilege-propagation graphs. Evaluated
 honestly against real attack data, session-level F1=0.851, beating an
-11-rule GuardDuty-style baseline's F1=0.747 on the same sessions (paired
+11-rule curated IAM rule baseline's F1=0.747 on the same sessions (paired
 +0.104, p=0.0008) — checked with a dev-only
 selected threshold, a bootstrap confidence interval, and a control for the
 one confound we found along the way. Getting there required real diagnostic

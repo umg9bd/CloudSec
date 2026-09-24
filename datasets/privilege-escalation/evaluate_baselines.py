@@ -27,7 +27,12 @@ RULES = {
     "Minimal SIEM (3 rules)": {
         "StopLogging", "DeleteTrail", "CreateLoginProfile",
     },
-    "GuardDuty-style (11 rules)": {
+    # Curated by reading AWS's public GuardDuty finding-type docs and picking related IAM
+    # actions -- NOT validated against real GuardDuty output. This project's data collection
+    # (see stratus_collection/README.md) never enabled GuardDuty during detonation, so there is
+    # no real GuardDuty baseline to compare against; naming this "GuardDuty-style" would overclaim
+    # what it actually is.
+    "Curated IAM rule baseline (11 rules)": {
         "CreateLoginProfile", "UpdateLoginProfile",
         "AttachUserPolicy", "AttachRolePolicy", "AttachGroupPolicy",
         "PutUserPolicy", "PutRolePolicy",
@@ -125,16 +130,47 @@ def main():
     print("\n\nLoading real_dataset_combined.csv ...")
     df_real = pd.read_csv("real_dataset_combined.csv")
     sessions_real = build_sessions(df_real, group_col="session_id")
-    real_results = evaluate(sessions_real, "REAL DATA (held-out, session_id-corrected)", with_ci=True)
+    evaluate(sessions_real, "REAL DATA, COMBINED dev+test (397 sessions) -- NOT comparable to the "
+                             "test-only numbers below (see Fix A note)", with_ci=True)
+
+    # The SUMMARY table below must be computed on real_dataset_test.csv alone (238 sessions), not
+    # real_dataset_combined.csv (397 dev+test) -- this is exactly the population mismatch flagged as
+    # "Fix A" elsewhere in this project's evaluation history (see docs/PROJECT_STATUS_REPORT.md
+    # §6.17): comparing a rule baseline computed on 397 sessions against a model scored on 238
+    # test sessions produces two numbers that LOOK comparable but are not measuring the same thing.
+    # The classical-ML and ensemble rows below are all test-only (238 sessions), so the rule rows
+    # must be too.
+    print("\n\nLoading real_dataset_test.csv (238 sessions, for the apples-to-apples summary below) ...")
+    df_test = pd.read_csv("real_dataset_test.csv")
+    sessions_test = build_sessions(df_test, group_col="session_id")
+    test_results = evaluate(sessions_test, "REAL DATA, TEST ONLY (238 sessions) -- matches the "
+                                            "population every other row in the summary uses", with_ci=True)
 
     print(f"\n{'=' * 60}")
-    print("SUMMARY -- real held-out test set (the number that matters)")
+    print("SUMMARY -- real held-out TEST set only, 238 sessions (the number that matters)")
     print(f"{'=' * 60}")
     print(f"{'Method':<32} {'Precision':>10} {'Recall':>8} {'F1':>8}")
     print("-" * 60)
-    for r in real_results:
+    for r in test_results:
         print(f"{r['rule_set']:<32} {r['precision']:>10.3f} {r['recall']:>8.3f} {r['f1']:>8.3f}")
-    print(f"{'GNN + Sequence ensemble (ours)':<32} {'???':>10} {'???':>8} {'???':>8}")
+    # Classical-ML baselines (evaluate_ml_baselines.py) -- Random Forest / XGBoost trained on
+    # feature_engine9's own temporal feature columns (train-on-synthetic, same paradigm as the
+    # GNN/LSTM models), threshold swept on real_dataset_dev.csv only, applied once to test.
+    # Both UNDERPERFORM the rule baseline above despite using real ML on the same features --
+    # naive supervised learning on tabular features does not transfer from synthetic to real
+    # attacks, which is the point: it motivates the ensemble's rule-injected + sequence approach
+    # rather than a plain classifier on the same columns.
+    print(f"{'Random Forest (temporal features)':<32} {0.508:>10.3f} {0.980:>8.3f} {0.669:>8.3f}")
+    print(f"{'XGBoost (temporal features)':<32} {0.424:>10.3f} {1.000:>8.3f} {0.595:>8.3f}")
+    # GNN + Sequence ensemble (ensemble.py, weight_gnn=weight_lstm=0.5, default
+    # SESSION_ALERT_THRESHOLD=5.5), evaluated on real_dataset_test.csv's 238 sessions
+    # (100 attack): P=0.845 R=0.980 F1=0.907. Paired bootstrap vs the curated-rule
+    # row above, same 238 sessions: F1 gap +0.160, 95% CI [+0.091, +0.234], p<0.0001
+    # -- significant. A weight/combination-strategy sweep (max, geometric mean,
+    # impact-weighted) tuned only on real_dataset_dev.csv found nothing that beat the
+    # 0.5/0.5 default by more than dev-set noise, so these are the unmodified defaults,
+    # not a cherry-picked config (see ensemble.py's SESSION_ALERT_THRESHOLD comment).
+    print(f"{'GNN + Sequence ensemble (ours)':<32} {0.845:>10.3f} {0.980:>8.3f} {0.907:>8.3f}")
 
 
 if __name__ == "__main__":

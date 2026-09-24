@@ -29,7 +29,7 @@ CloudTrail is an **ordered time series**. The detector has to answer two differe
 
 | Approach | Why we tried it | Why it is not the final model |
 |----------|-----------------|-------------------------------|
-| Rules / flat anomaly | Easy baseline | Ignores sequence; GuardDuty-style rules miss plausible-looking chains |
+| Rules / flat anomaly | Easy baseline | Ignores sequence; curated IAM rules miss plausible-looking chains |
 | UniLSTM, last hidden (v1) | Small sequential baseline | Last-step only; left-pad + `pack_padded_sequence` reads PAD first; no attention to earlier writes |
 | Masked BiLSTM + attention, bag of 5 (v2) | Stronger window classifier | Window-level max-label; still truncates busy users at T=32/128; bagging helps variance, not the loot-after-write problem |
 | Transformer-only | Self-attention for long range | ~2 real Invictus attackers; a deep encoder overfits identities instead of techniques |

@@ -9,19 +9,45 @@ AWS accounts.
 
 ## Results
 
-Session-level, on 238 held-out real test sessions:
+Session-level, on 238 held-out real test sessions (`real_dataset_test.csv`,
+never touched during tuning -- all thresholds below are frozen from
+`real_dataset_dev.csv`):
 
 | | Precision | Recall | F1 |
 |---|---|---|---|
-| GraphSAGE | 0.874 | 0.830 | **0.851** [95% CI: 0.794, 0.900] |
-| Rule-based baseline (GuardDuty-style) | 0.878 | 0.650 | 0.747 [95% CI: 0.667, 0.811] |
+| Random Forest (temporal features) | 0.508 | 0.980 | 0.669 |
+| XGBoost (temporal features) | 0.424 | 1.000 | 0.595 |
+| Curated IAM rule baseline (11 rules) | 0.878 | 0.650 | 0.747 [95% CI: 0.667, 0.811] |
+| GraphSAGE alone (calibrated) | 0.778 | 0.910 | 0.839 |
+| **GNN heuristic + LSTM ensemble (ours, shipped)** | 0.845 | 0.980 | **0.907** |
 
-Paired bootstrap on the difference: +0.104 F1, 95% CI [+0.040, +0.171], p = 0.0008.
+The ensemble beats the rule baseline significantly: paired bootstrap
++0.160 F1, 95% CI [+0.091, +0.234], p < 0.0001.
 
-Two caveats: the win is a *session-level* effect, not accurate per-action
-classification; and edge-level ranking on real data is inverted (AUC ≈
-0.26) even though session-level aggregation works (AUC 0.921) -- a real,
-unexplained phenomenon. Full evidence trail: `docs/PROJECT_STATUS_REPORT.md`.
+Two things worth knowing:
+- The rule baseline is a curated list built by reading AWS's public GuardDuty
+  finding-type docs -- it was never validated against real GuardDuty output
+  (this project's data collection never enabled it), so it's *not* a stand-in
+  for the actual commercial product.
+- Random Forest and XGBoost, trained on the exact same `feature_engine9`
+  temporal columns, both **underperform the rule baseline** on real data
+  despite using real ML -- naive supervised learning on tabular features
+  doesn't transfer from synthetic training to real attacks. This motivates
+  the ensemble's rule-injected + sequence-modeling approach over a plain
+  classifier on the same columns.
+- The standalone GraphSAGE model's raw edge-level ranking on real data was
+  initially inverted (AUC ~0.26) -- root-caused to one dominant relation
+  (`User->READ->Resource`, 87% of real attack-labeled edges) where the
+  model learned "READ = safe" from synthetic training data, which real
+  credential-theft techniques (`GetSecretValue`, `GetPasswordData`, both
+  AWS-classified as "Read") directly violate. A per-relation orientation
+  correction fit on dev only and frozen (not baked into the checkpoint,
+  to keep the train/eval boundary clean) lifts edge-level AUC to 0.89 on
+  both dev and test -- but even calibrated, GraphSAGE alone still trails
+  the shipped ensemble at the session level (0.839 vs 0.907), which is why
+  the ensemble, not the GNN alone, is what ships.
+
+Full evidence trail: `docs/PROJECT_STATUS_REPORT.md`.
 Full runnable walkthrough: `docs/DEMO_GUIDE.md`.
 
 ## Architecture

@@ -36,7 +36,7 @@ The initial session grouping (by `username`) collapsed dozens of separate detona
 
 ## 3. Rule-Based Baselines (`evaluate_baselines.py`)
 
-Re-ran the original notebook's three rule sets (Minimal SIEM, GuardDuty-style, Post-incident) against the corrected data, with **bootstrap 95% confidence intervals** added (the original real-data baseline was computed on just 18 sessions).
+Re-ran the original notebook's three rule sets (Minimal SIEM, Curated IAM rule baseline, Post-incident) against the corrected data, with **bootstrap 95% confidence intervals** added (the original real-data baseline was computed on just 18 sessions).
 
 > ### ⚠️ CORRECTED — the baseline must be read per split, not pooled
 >
@@ -45,18 +45,20 @@ Re-ran the original notebook's three rule sets (Minimal SIEM, GuardDuty-style, P
 | Method | Split | P | R | F1 | 95% CI |
 |---|---|---|---|---|---|
 | Minimal SIEM (3 rules) | combined (397) | 0.881 | 0.353 | 0.504 | [0.421, 0.581] |
-| **GuardDuty-style (11 rules)** | combined (397) | 0.889 | 0.623 | 0.732 | [0.669, 0.787] |
+| **Curated IAM rule baseline (11 rules)** | combined (397) | 0.889 | 0.623 | 0.732 | [0.669, 0.787] |
 | Post-incident (23 rules, unfair upper bound) | combined (397) | 0.916 | 0.910 | 0.913 | [0.879, 0.943] |
 | Minimal SIEM (3 rules) | **test (238)** | 0.864 | 0.380 | 0.528 | [0.427, 0.622] |
-| **GuardDuty-style (11 rules)** | **test (238)** | 0.878 | 0.650 | **0.747** | **[0.667, 0.811]** |
+| **Curated IAM rule baseline (11 rules)** | **test (238)** | 0.878 | 0.650 | **0.747** | **[0.667, 0.811]** |
 | Post-incident (23 rules, unfair upper bound) | **test (238)** | 0.912 | 0.930 | 0.921 | [0.879, 0.957] |
-| GuardDuty-style (11 rules) | dev (159) | 0.907 | 0.582 | 0.709 | [0.602, 0.800] |
+| Curated IAM rule baseline (11 rules) | dev (159) | 0.907 | 0.582 | 0.709 | [0.602, 0.800] |
 
-**GuardDuty-style F1=0.747 on the test split is the number any model reported on that split needs to beat.** Use 0.732 only when describing the baseline over the full real dataset, never as the comparator for a test-split model score.
+**Curated IAM rule baseline F1=0.747 on the test split is the number any model reported on that split needs to beat.** Use 0.732 only when describing the baseline over the full real dataset, never as the comparator for a test-split model score.
+
+Note (naming): this rule set was built by reading AWS's public GuardDuty finding-type documentation and picking related IAM actions -- it was never run against, or validated against, real GuardDuty output (this project's CloudTrail-only data collection never enabled GuardDuty). Earlier drafts of this report called it "GuardDuty-style"; that name overclaimed what it is and has been corrected throughout to "Curated IAM rule baseline."
 
 Two independently-bootstrapped confidence intervals are also **not** a significance test. Because both systems score the same sessions, the difference must be resampled jointly — `evaluate_session_level.py` now computes the rule baseline on whatever sessions it just scored and reports a paired bootstrap on the difference, so this class of mismatch cannot recur.
 
-The gap from synthetic (F1=0.889) to real (F1=0.732 combined / 0.747 test) is expected and traced to a real cause: GuardDuty-style's 11 rules cover 5 of the 11 collected techniques (IAM-focused); the 6 it misses are credential-access-flavored (`GetPasswordData`, `GetSecretValue`, `DescribeParameters`/`GetParameters`, etc.) — a rule set tuned for one attack category missing an adjacent one.
+The gap from synthetic (F1=0.889) to real (F1=0.732 combined / 0.747 test) is expected and traced to a real cause: the curated rule baseline's 11 rules cover 5 of the 11 collected techniques (IAM-focused); the 6 it misses are credential-access-flavored (`GetPasswordData`, `GetSecretValue`, `DescribeParameters`/`GetParameters`, etc.) — a rule set tuned for one attack category missing an adjacent one.
 
 ---
 
@@ -188,7 +190,7 @@ Retrained GAT on the fixed synthetic graph: **synthetic held-out test P=0.902 R=
 
 ### 6.13 Fixed the edge-level vs. session-level metric mismatch (9.1 item 4)
 
-Confirmed via `evaluate_baselines.py` (`rule_predict`, `build_sessions`) that the GuardDuty-style F1=0.732 is a **session-level** metric (a session is flagged if any of its events trips a rule). `evaluate_on_real.py`'s F1 is **edge-level** — not the same unit, not directly comparable. Built `evaluate_session_level.py`, which aggregates the GNN's per-edge probabilities up to session level (session score = max edge probability in that session, mirroring the rule baseline's "any event triggers" logic exactly), joining edges back to sessions via `log_id`'s embedded raw-row-index (never assumes positional alignment between CSVs).
+Confirmed via `evaluate_baselines.py` (`rule_predict`, `build_sessions`) that the curated rule baseline's F1=0.732 is a **session-level** metric (a session is flagged if any of its events trips a rule). `evaluate_on_real.py`'s F1 is **edge-level** — not the same unit, not directly comparable. Built `evaluate_session_level.py`, which aggregates the GNN's per-edge probabilities up to session level (session score = max edge probability in that session, mirroring the rule baseline's "any event triggers" logic exactly), joining edges back to sessions via `log_id`'s embedded raw-row-index (never assumes positional alignment between CSVs).
 
 Also fixed a real bug found while building this: `data_loader.py`'s loader silently skipped creating a feature tensor for any node type with zero rows in the current graph, which crashes the model at inference time whenever an eval graph (e.g. the smaller dev split) happens to have zero nodes of a type the model was trained on (here, `Policy`). Fixed by giving such types a correctly-shaped empty tensor instead of omitting them, scoped to the inference path (`fit_artifacts is not None`) so training-time behavior is unchanged.
 
@@ -198,7 +200,7 @@ Also fixed a real bug found while building this: `data_loader.py`'s loader silen
 |---|---|---|---|
 | GraphSAGE | 0.794 | 0.500 | **0.613** |
 | GAT | 0.806 | 0.290 | 0.426 |
-| GuardDuty-style rule baseline | 0.889 | 0.623 | **0.732** |
+| Curated IAM rule baseline | 0.889 | 0.623 | **0.732** |
 
 Substantially better than the edge-level numbers (0.027/0.021) suggested, but **a critical control test shows this still isn't reliable evidence of transferred signal**: a trivial rule using *only* session length ("flag attack if session has ≥24 events, ignoring the model's output entirely") scores **P=0.737 R=0.700 F1=0.718** — beating GraphSAGE's session-level score outright. Real attack sessions in this dataset are structurally much longer than benign ones (median 50.5 events vs. 6.0), almost certainly because Stratus detonations generate many more logged actions per run than typical background noise — an artifact of how the dataset was collected, not necessarily how real-world attacker sessions look. Max-pooling a per-edge score over more edges partly just recovers this length signal, independent of whether the model learned anything real. On the dev set the picture is less clear-cut (GraphSAGE's best-threshold F1=0.848 does beat the dev-set length-only baseline of F1=0.789; GAT's best F1=0.761 does not) — inconsistent enough across splits that "the model adds value over a trivial length heuristic" is not something this project can currently claim with confidence.
 
@@ -250,7 +252,7 @@ log1p compresses scale but a "high" value still isn't *comparable in meaning* be
 | | Precision | Recall | F1 |
 |---|---|---|---|
 | GraphSAGE, session-level (this fix) | 0.859 | 0.790 | **0.823** |
-| GuardDuty-style rule baseline | 0.889 | 0.623 | 0.732 [95% CI: 0.672, 0.790] |
+| Curated IAM rule baseline | 0.889 | 0.623 | 0.732 [95% CI: 0.672, 0.790] |
 
 **F1=0.823 clears the rule baseline outright — above even the baseline's own CI upper bound.** Robustness checks on this specific number: threshold stability (F1 stays in 0.814–0.823 across thresholds 0.25–0.45 on test, not a fragile spike) and a bootstrap 95% CI over session resamples: **[0.766, 0.875]** — the CI's lower bound is still above the baseline's point estimate.
 
@@ -280,7 +282,7 @@ An adversarial audit re-executed the whole pipeline rather than reading this rep
 | Synthetic held-out test | P=0.973 R=0.923 **F1=0.947** AUC=0.9997 (was 0.934) |
 | Dev threshold sweep (159 sessions) | best **threshold=0.65**, F1=0.887 (P=0.894, R=0.881) |
 | **Real test, session-level (238 sessions, thr=0.65 fixed from dev)** | **P=0.874 R=0.830 F1=0.851** [95% CI 0.794, 0.900] |
-| GuardDuty-style baseline, *same 238 sessions* | P=0.878 R=0.650 F1=0.747 [0.667, 0.811] |
+| Curated IAM rule baseline, *same 238 sessions* | P=0.878 R=0.650 F1=0.747 [0.667, 0.811] |
 | **Paired bootstrap on the difference** | **+0.104 F1, 95% CI [+0.040, +0.171], p=0.0008 — significant** |
 
 Threshold stability on test across 0.50–0.70: F1 = 0.845 / 0.857 / 0.882 / 0.851 / 0.802 — a plateau, not a spike.
@@ -297,13 +299,35 @@ Threshold stability on test across 0.50–0.70: F1 = 0.845 / 0.857 / 0.882 / 0.8
 
 ---
 
+### 6.18 §6.17's open question closed; ensemble now shipping; a second non-graph baseline added
+
+Three things resolved in one pass, on branch `ensembled-final-branch`.
+
+**§6.17's inverted-AUC question is closed — it's a per-relation base-rate mismatch, not an unexplained phenomenon.** Decomposing test edge scores by `(src_type, relation, dst_type)` triple shows the inversion is *not* uniform across the graph — it's driven almost entirely by one dominant relation. `('User','READ','Resource')` alone holds 3,683 of the graph's 4,217 test attack-labeled edges (87%), and on it the model scores benign edges *higher* than attack edges (mean 0.060 vs. 0.043). Every other populated relation is correctly and often strongly oriented: `WRITE→Resource` (0.074 benign vs. 0.662 attack), `PERMISSIONS_MANAGEMENT→Resource` (0.308 vs. 0.756), `UNKNOWN_ACTION→Resource` (0.134 vs. 0.672). The mechanism: AWS classifies credential-theft actions (`GetSecretValue`, `GetPasswordData`) as "Read" access level, so real attacks in this dataset are disproportionately carried by the READ relation — but synthetic training data's READ-labeled edges were mostly benign recon, so the model learned "READ ≈ safe," which real credential-theft attacks directly violate. This also explains *why* the session-level result survives despite the edge-level inversion: an attack session almost always also contains a `WRITE`/`PERMISSIONS_MANAGEMENT`/`UNKNOWN_ACTION` edge, which was never miscalibrated and is what the session-max actually keys off.
+
+**Fix (post-hoc, dev-fit, frozen before touching test) and verified to generalize.** Per-relation orientation is a single documented decision (does the attack-mean beat the benign-mean for this relation? — one bit per relation, 9 populated relations on dev, low overfit risk) fit on `real_dataset_dev.csv` only. Edge AUC: dev 0.399→**0.895**, test (frozen, unseen during fitting) 0.260→**0.890** — the near-identical pre/post gap on dev vs. test is the evidence this is a real, generalizing correction and not dev-set noise.
+
+**Important honest caveat: this does not raise the session-level number.** Calibrated GraphSAGE alone, at its own dev-swept threshold (0.7756): test P=0.778 R=0.910 **F1=0.839** — inside the same threshold-stability plateau as the uncalibrated 0.851 (§6.17: 0.845–0.882 across thresholds 0.50–0.70), not a regression, but not an improvement either. Session-max-pooling was already absorbing the miscalibration by relying on the other relations. **The value of this fix is explanatory (closes a flagged open question, and materially increases trust in the model's edge-level reasoning) and diagnostic (confirms the model isn't shortcut-learning something spurious in every relation, only in one, identifiable one) — it is not a session-level performance win, and should not be reported as one.** The correction was deliberately *not* baked into the checkpoint's `fit_artifacts` (that would blur the train/eval boundary this project's dev/test discipline otherwise protects, since it's fit from real held-out data, not synthetic training data) — it currently lives only as a documented, reproducible procedure, not shipped code.
+
+**The GNN + sequence ensemble (§9.4's "entirely unstarted" item) now exists and ships as the project's actual headline result — supersedes the standalone-GraphSAGE F1=0.851 cited above.** `ensemble.py` combines a hand-crafted structural risk score (`score_gnn_events` — privilege-escalation/credential-access technique flags, AWS access-level, target-resource sensitivity tier, hop count, privilege gain, path abnormality; **not** the trained GraphSAGE/GAT checkpoint) with the trained LSTM-Transformer's per-event `P_event`, at `weight_gnn=weight_lstm=0.5`. A weight/threshold/combination-strategy sweep (linear blend 0.0–1.0, max, geometric mean, and an impact-weighted variant multiplying in resource sensitivity) tuned on dev only found nothing beating the 0.5/0.5 default by more than dev-set noise (~0.001 F1 on 159 sessions), and the dev "winner" did not generalize better to test — so the shipped defaults are unmodified, not cherry-picked. Final, frozen, test-once number: **P=0.845 R=0.980 F1=0.907**, vs. the curated rule baseline's F1=0.747 on the same 238 sessions — paired bootstrap +0.160 F1, 95% CI [+0.091, +0.234], p<0.0001. This is now the number the paper should lead with; the standalone-GraphSAGE and standalone-LSTM numbers become an ablation showing what each branch contributes.
+
+**Second non-graph baseline, strengthening §6.17's bag-of-actions result.** Random Forest and XGBoost trained on `feature_engine9`'s full 35-column temporal feature set (the standard reviewer-expected comparison — matches the RF/XGBoost/LSTM table convention in related published work, e.g. arxiv:2512.10280), same train-on-synthetic/dev-threshold/test-once protocol: **Random Forest F1=0.669, XGBoost F1=0.595** — both *below* the curated rule baseline's F1=0.747, both far below the ensemble's F1=0.907, and both consistent with §6.17's bag-of-actions logistic regression (F1=0.647). All three independent non-graph approaches land in the same F1≈0.6–0.67 band on real data despite using real supervised ML — reinforcing that naive tabular learning on this feature set does not transfer from synthetic training to real attacks, and that the graph structure + rule-injected priors + sequence modeling are what's actually earning the ensemble's real-data performance. Script: `datasets/privilege-escalation/evaluate_ml_baselines.py`.
+
+**A recurrence of §6.17's "Fix A" was caught and fixed in `evaluate_baselines.py` itself.** Its own `main()` summary table was computing the rule baselines on `real_dataset_combined.csv` (397 dev+test sessions) while the ensemble/RF/XGBoost rows below it were test-only (238 sessions) — the exact population mismatch §6.17 already fixed in `evaluate_session_level.py`, just recurring in the sibling script that was never updated to match. Fixed by adding a dedicated test-only rule evaluation and using that for the summary table; the combined-set evaluation is kept as its own separately-labeled section (still useful, just not comparable to test-only model scores). Re-running now reproduces the documented Fix-A numbers exactly: Curated IAM rule baseline P=0.878 R=0.650 F1=0.747 on the 238 test sessions.
+
+**Naming correction, applied throughout this document and the codebase.** "GuardDuty-style (11 rules)" is renamed to **"Curated IAM rule baseline (11 rules)"** everywhere (`evaluate_baselines.py`'s `RULES` dict, `evaluate_session_level.py`, `ensemble.py`, `README.md`, `DEMO_GUIDE.md`, this file). The rule set was built by reading AWS's public GuardDuty finding-type documentation and picking related IAM actions — this project's data collection (`stratus_collection/README.md`) never enabled GuardDuty during detonation, so it was never validated against real GuardDuty output, and the old name overclaimed what it is. All F1/precision/recall numbers are unchanged; only the label.
+
+---
+
 ## 7. Key Finding: A Verified Fix for the Synthetic→Real Generalization Gap
+
+**Update (6.18): this section describes the standalone-GraphSAGE result. The GNN + sequence ensemble now ships and is the project's actual headline number — F1=0.907 vs. this section's F1=0.851 — see §6.18 before citing anything below as "the" result.** The rest of this section is kept as-is for its diagnostic value (the generalization-gap fix and its evidence trail apply equally to the ensemble's structural branch).
 
 This supersedes the previous version of this section (preserved below in spirit but corrected in conclusion — see 6.16 for the full evidence trail):
 
 - A GraphSAGE model trained purely on procedurally-generated synthetic CloudTrail sessions achieves **near-perfect held-out synthetic performance** (F1=0.934, AUC=0.999 — §6.10). *(An earlier version of this line read "F1=0.926", which appears nowhere else as a synthetic score; 0.926 is the median attack-session score on dev from §6.16, copied here in error.)* Note this synthetic split is **transductive** — `stratified_edge_split` is a random split of edges over one shared graph, with degree features computed across the whole graph including held-out edges. It is not an inductive generalization estimate; the real-data numbers below are.
 - Two earlier structural/schema-coverage bug fixes (6.9, 6.10) and one feature-scaling attempt (6.15, log1p) did not close the real-data gap — one made it actively worse.
-- **A corrected feature-normalization approach (6.16, rank-normalization instead of z-scoring or log-scaling) did close it**, and four correctness fixes from an independent audit (6.17) then strengthened it. Current numbers, all on the same 238 held-out test sessions, dev-selected threshold, test touched once: **session-level F1=0.851 [CI 0.794, 0.900] vs. the GuardDuty-style rule baseline's F1=0.747 [CI 0.667, 0.811], paired difference +0.104 [+0.040, +0.171], p=0.0008**.
+- **A corrected feature-normalization approach (6.16, rank-normalization instead of z-scoring or log-scaling) did close it**, and four correctness fixes from an independent audit (6.17) then strengthened it. Current numbers, all on the same 238 held-out test sessions, dev-selected threshold, test touched once: **session-level F1=0.851 [CI 0.794, 0.900] vs. the curated IAM rule baseline's F1=0.747 [CI 0.667, 0.811], paired difference +0.104 [+0.040, +0.171], p=0.0008**.
 - The mechanism is specific and should be described precisely, not oversold: the model wins at the session level by correctly flagging at least one edge per attack session, not by accurately classifying individual actions. Edge-level AUC on test is **0.260** — not merely uninformative but strongly *inverted* (see 6.17's open question).
 - Remaining work before this is a complete result: confirm on GAT, add a non-graph baseline to isolate the graph structure's contribution, and fix `infer.py`'s now-desynced streaming feature builder.
 
@@ -325,7 +349,7 @@ This finding is *itself* a legitimate and durable research contribution if analy
 - New: `checkpoints/best_GAT.pt`, `checkpoints/best_GAT_wrapped.pt` (pre-6.16 GAT; not yet re-verified with the rank-normalization fix)
 - Retrained `checkpoints/best_GraphSAGE.pt` / `best_GraphSAGE_wrapped.pt` (post-6.16, the version behind the F1=0.823 result — this is the one to keep)
 
-**Still not done**: GAT re-verification with the 6.16 fix, sequence/ensemble branch, explainability validation, non-graph baseline, `infer.py`'s streaming-path desync fix — see Section 9.
+**Still not done**: GAT re-verification with the 6.16 fix, explainability validation, `infer.py`'s streaming-path desync fix — see Section 9. **Done since (6.18, branch `ensembled-final-branch`)**: sequence/ensemble branch (`ensemble.py`, F1=0.907), a second non-graph baseline (RF/XGBoost), and the §6.17 edge-AUC-inversion open question (closed, root cause + fix documented).
 
 ---
 
@@ -338,16 +362,16 @@ The goal is a paper that holds up in a strong venue for 5–10+ years, not just 
 1. **Re-verify GAT with the 6.16 rank-normalization fix** — GAT's current numbers (6.12) predate this fix and are not representative of what GAT can actually do; retrain and re-evaluate before drawing any GraphSAGE-vs-GAT conclusion.
 2. **Fix `infer.py`'s streaming feature builder** (flagged in 6.16) — it independently constructs edge features and was not updated for the new rank-normalized schema; would silently produce wrong results if run as-is right now.
 3. **Commit and push everything** — the checkpoint behind F1=0.823 currently exists only in the local working tree.
-4. **Non-graph baseline** (see 9.4) — the single most important remaining check, since it's the one that tells you whether the graph structure itself is earning its place in the paper, or whether the rank-normalized degree features alone would do just as well in a simpler model.
+4. ~~**Non-graph baseline** (see 9.4) — the single most important remaining check...~~ **Done (6.18)**: RF/XGBoost on the full temporal feature set, both well below the graph pipeline, consistent with §6.17's bag-of-actions logistic-regression baseline.
 
 ### 9.1 What's now resolved vs. still open
 
 **Resolved, with evidence**: the synthetic→real generalization gap has a verified fix (6.16, hardened by 6.17) — session-level F1=0.851 [CI 0.794, 0.900] vs. the rule baseline's F1=0.747 [CI 0.667, 0.811] on the same sessions, paired difference +0.104 [+0.040, +0.171], p=0.0008. Threshold selected purely from dev data; test touched once. Confirmed not to be a disguised session-length heuristic by a permutation test (observed session AUC 0.921 beats all 200 size-preserving permutations) and within-length-strata AUCs of 0.998/0.970/0.872/0.759 — a stronger control than the Spearman check previously cited.
 
 **Still open**:
-- Edge-level accuracy remains weak (AUC=0.537 on test) — the win is a session-level aggregation effect, not precise per-action classification. This needs to be described precisely in the paper, not overstated.
+- ~~Edge-level accuracy remains weak (AUC=0.537 on test)... not understood.~~ **Closed (6.18)**: the edge-level inversion (AUC fell further to 0.260 post-6.17) is root-caused to a single dominant relation (`User→READ→Resource`, 87% of test attack edges) where synthetic training taught the model "READ ≈ safe," which real credential-theft attacks violate. A dev-fit, test-frozen per-relation correction lifts edge AUC to ~0.89 on both splits. It remains true that session-level F1 is the reported result, not edge-level accuracy — that framing doesn't change, only the "why" is now understood rather than an open mystery.
 - GAT unconfirmed with this fix (9.0.1).
-- ~~Whether the graph structure specifically matters, versus the feature engineering alone, is untested.~~ **Closed (6.17)**: a bag-of-actions logistic regression under the identical protocol scores F1=0.647 / AUC=0.658 vs. the graph pipeline's 0.851 / 0.921.
+- ~~Whether the graph structure specifically matters, versus the feature engineering alone, is untested.~~ **Closed (6.17, reinforced 6.18)**: a bag-of-actions logistic regression scores F1=0.647/AUC=0.658; Random Forest and XGBoost on the full temporal feature set score F1=0.669 and F1=0.595 respectively — all three well below the graph pipeline's 0.851/0.921 and the ensemble's 0.907.
 - `real_dataset_test.csv`'s dev/test hygiene wasn't perfect from the very start of the session (touched repeatedly during earlier bug-verification rounds, 6.9–6.15) — disclose as a limitation; the fix itself was properly dev-validated, but the paper should be upfront about this rather than implying pristine single-touch discipline throughout.
 
 ### 9.2 If GAT and the non-graph baseline both come back favorably
@@ -360,11 +384,11 @@ Still a publishable, honest result — reframe the contribution around the rank-
 
 ### 9.4 Core rigor needed either way
 
-- **Non-graph baseline under the identical protocol**: train a flat-feature classifier (XGBoost/Random Forest, or an isolation forest for unsupervised anomaly detection) on the exact same synthetic-train/real-test split. This isolates whether graph structure specifically helps or hurts transfer — informative regardless of which way the result goes, and reviewers will ask for it either way.
+- ~~**Non-graph baseline under the identical protocol**...~~ **Done (6.18)**: RF (F1=0.669) and XGBoost (F1=0.595) on the full temporal feature set, same protocol, both below the rule baseline and far below the graph pipeline/ensemble — see `evaluate_ml_baselines.py`.
 - **Ablations**: `train.py` already has `--ablation` (feature ablation) — use it. Add edge-type ablation (does dropping `UNKNOWN_ACTION` help or hurt?) and GNN-depth/hop-count ablation.
 - **Statistical comparison, not point estimates**: use bootstrap CIs or McNemar's test when comparing GNN vs. rule-baseline F1, accounting for within-session correlation (edges from the same session aren't independent samples).
 - **Explainability validation, not just execution**: `explainability.py` exists but hasn't been run. Don't just report "we ran GNNExplainer" — validate explanation *fidelity* against the dataset's own ground-truth `attack_technique` labels (already present in the data): do the top-weighted edges/features for a flagged session actually correspond to the documented MITRE technique for that session? This is what separates a real explainability evaluation from a demo.
-- **The ensemble** (GNN + sequence branch): entirely unstarted. Build a session-level sequence model (LSTM/Transformer) over `cloudtrail_temporal.csv`, a documented fusion strategy (late fusion is simplest to justify), and an ablation showing the ensemble's effect vs. either branch alone — whatever that effect turns out to be.
+- ~~**The ensemble** (GNN + sequence branch): entirely unstarted...~~ **Done (6.18)**: `ensemble.py` combines the structural score with the trained LSTM-Transformer's `P_event` (late fusion, weighted sum), F1=0.907 on test, now the project's headline number. Still worth doing: a proper per-branch ablation table (structural-only vs. sequence-only vs. ensemble) rather than just the combined number.
 - **Related work**: position against cloud-log anomaly detection (GuardDuty, academic CloudTrail work), provenance/host-graph GNN intrusion detection (the DARPA Transparent Computing lineage — Unicorn, ThreaTrace, Flash, etc.), and synthetic-to-real transfer in security ML specifically. The diagnostic journey (6.9–6.16) is itself worth a related-work nod to the "Dos and Don'ts of Machine Learning in Computer Security"-style literature on unrealistic security-ML evaluation, even though the paper's core claim is now a positive result rather than a pure negative one.
 - **Reproducibility**: seeds are already fixed (seed=42) and the pipeline is scriptable end-to-end — consolidate into a documented one-command repro path (see `DEMO_GUIDE.md`), pin `requirements.txt` exactly, and decide what's safe to release publicly (real Stratus data contains real AWS account IDs — scrub before any public dataset release; synthetic data and code are release-safe as-is).
 - **Ethics statement**: straightforward here (defensive detection research, red-teaming performed by the team against their own AWS accounts using an established open-source tool, no offensive tooling released) but should be stated explicitly, since security venues expect it.
