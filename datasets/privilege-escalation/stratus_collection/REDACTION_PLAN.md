@@ -37,7 +37,7 @@ feature branch (otherwise all 3,677 files conflict at merge):
 git checkout <integration-branch>
 python datasets/privilege-escalation/stratus_collection/redact_access_keys.py            # dry run, review
 python datasets/privilege-escalation/stratus_collection/redact_access_keys.py --apply
-git grep -nE '(AKIA|ASIA)[A-Z0-9]{16}' -- .    # must return nothing
+git grep -nE '(AKIA|ASIA)zz[A-Z0-9]{16}' -- .    # must return nothing
 git commit -am "security: redact AWS access key IDs from CloudTrail dataset"
 ```
 

@@ -2147,8 +2147,8 @@ real_dataset_dev.csv:2144,arn:aws:iam::536697249497:root,stratus-redteam,ListSig
 real_dataset_dev.csv:2145,arn:aws:iam::536697249497:root,stratus-redteam,GetLoginProfile,0,98,4,0.0603587962962963,4,0.0638,4,0
 real_dataset_dev.csv:2146,arn:aws:iam::536697249497:root,aws_service,DescribeOrganization,0,99,46,0.0603587962962963,4,0.0747,2,0
 real_dataset_dev.csv:2147,arn:aws:iam::536697249497:root,stratus-redteam,ListMFADevices,0,100,5,0.0603587962962963,4,0.0823,4,0
-real_dataset_dev.csv:2148,arn:aws:iam::536697249497:root,AKIAXZ5NGD3MTKGGKJER,GetAccessKeyLastUsed,0,101,1,0.06037037037037037,4,0.0876,4,0
-real_dataset_dev.csv:2149,arn:aws:iam::536697249497:root,AKIAXZ5NGD3MQUGZJYPU,GetAccessKeyLastUsed,0,102,1,0.06037037037037037,4,0.0913,4,0
+real_dataset_dev.csv:2148,arn:aws:iam::536697249497:root,REDACTEDAK34c9224bc6,GetAccessKeyLastUsed,0,101,1,0.06037037037037037,4,0.0876,4,0
+real_dataset_dev.csv:2149,arn:aws:iam::536697249497:root,REDACTEDAKba1a1f26b7,GetAccessKeyLastUsed,0,102,1,0.06037037037037037,4,0.0913,4,0
 real_dataset_dev.csv:2150,arn:aws:iam::536697249497:root,stratus-redteam,ListGroupsForUser,0,103,6,0.060381944444444446,4,0.0707,4,0
 real_dataset_dev.csv:2151,arn:aws:iam::536697249497:root,stratus-redteam,ListMFADevices,0,104,7,0.060381944444444446,4,0.0795,4,0
 real_dataset_dev.csv:2152,arn:aws:iam::536697249497:root,stratus-redteam,ListUserPolicies,0,105,8,0.060381944444444446,4,0.0857,4,0
@@ -2156,12 +2156,12 @@ real_dataset_dev.csv:2153,arn:aws:iam::536697249497:root,stratus-redteam,ListAcc
 real_dataset_dev.csv:2154,arn:aws:iam::536697249497:root,aws_service,ListPolicies,0,107,47,0.060381944444444446,4,0.0489,4,0
 real_dataset_dev.csv:2155,arn:aws:iam::536697249497:root,stratus-redteam,ListAttachedUserPolicies,0,108,10,0.060381944444444446,4,0.0378,4,0
 real_dataset_dev.csv:2156,arn:aws:iam::536697249497:root,stratus-redteam,ListUserTags,0,109,11,0.060381944444444446,4,0.0565,4,0
-real_dataset_dev.csv:2157,arn:aws:iam::536697249497:root,AKIAXZ5NGD3MQUGZJYPU,GetAccessKeyLastUsed,0,110,2,0.060381944444444446,4,0.0695,4,0
-real_dataset_dev.csv:2158,arn:aws:iam::536697249497:root,AKIAXZ5NGD3MTKGGKJER,GetAccessKeyLastUsed,0,111,2,0.060381944444444446,4,0.0787,4,0
+real_dataset_dev.csv:2157,arn:aws:iam::536697249497:root,REDACTEDAKba1a1f26b7,GetAccessKeyLastUsed,0,110,2,0.060381944444444446,4,0.0695,4,0
+real_dataset_dev.csv:2158,arn:aws:iam::536697249497:root,REDACTEDAK34c9224bc6,GetAccessKeyLastUsed,0,111,2,0.060381944444444446,4,0.0787,4,0
 real_dataset_dev.csv:2159,arn:aws:iam::536697249497:root,stratus-redteam,GetUser,0,112,12,0.060381944444444446,4,0.0572,4,0
-real_dataset_dev.csv:2160,arn:aws:iam::536697249497:root,AKIAXZ5NGD3MTKGGKJER,GetAccessKeyLastUsed,0,113,3,0.06039351851851852,4,0.0701,4,0
+real_dataset_dev.csv:2160,arn:aws:iam::536697249497:root,REDACTEDAK34c9224bc6,GetAccessKeyLastUsed,0,113,3,0.06039351851851852,4,0.0701,4,0
 real_dataset_dev.csv:2161,arn:aws:iam::536697249497:root,arn:aws:iam::536697249497:user/stratus-redteam,ListPolicyGenerations,0,114,1,0.06039351851851852,4,0.079,2,0
-real_dataset_dev.csv:2162,arn:aws:iam::536697249497:root,AKIAXZ5NGD3MQUGZJYPU,GetAccessKeyLastUsed,0,115,3,0.06039351851851852,4,0.0853,4,0
+real_dataset_dev.csv:2162,arn:aws:iam::536697249497:root,REDACTEDAKba1a1f26b7,GetAccessKeyLastUsed,0,115,3,0.06039351851851852,4,0.0853,4,0
 real_dataset_dev.csv:2163,arn:aws:iam::536697249497:root,AFCNPACEcWzH8hKsfutDQGyJVbu7T/Y4AFdQ7aXH2DmrF7ujhvgo0/8GyR7FJz6QRAJV++6swXlSmaS4JLcHPW5/jUz24UhGUyzOaf2oB6WqBt46AOw1iEyIVOuFS3+BWgf7,ListPolicies,0,116,1,0.060405092592592594,4,0.0641,4,0
 real_dataset_dev.csv:2164,arn:aws:iam::536697249497:root,100,ListManagedNotificationEvents,0,117,6,0.06166666666666667,4,0.0497,2,0
 real_dataset_dev.csv:2165,unknown_principal,arn:aws:iam::536697249497:role/aws-service-role/resource-explorer-2.amazonaws.com/AWSServiceRoleForResourceExplorer,AssumeRole,0,95,12,1.0,1,0.0224,2,0

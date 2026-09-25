@@ -842,8 +842,8 @@
     "arn:aws:iam::482745810921:user/stratus-redteam1||stratus-red-team-retrieve-secret-9": 4,
     "arn:aws:iam::482745810921:user/stratus-redteam1||stratus-red-team-update-login-profile-user": 95,
     "arn:aws:iam::536697249497:root||100": 45,
-    "arn:aws:iam::536697249497:root||AKIAXZ5NGD3MQUGZJYPU": 2,
-    "arn:aws:iam::536697249497:root||AKIAXZ5NGD3MTKGGKJER": 2,
+    "arn:aws:iam::536697249497:root||REDACTEDAKba1a1f26b7": 2,
+    "arn:aws:iam::536697249497:root||REDACTEDAK34c9224bc6": 2,
     "arn:aws:iam::536697249497:root||MONTHLY": 3,
     "arn:aws:iam::536697249497:root||aws_service": 13,
     "arn:aws:iam::536697249497:root||eventTypeCategory": 3,
@@ -2959,14 +2959,14 @@
       "last_seen": "2023-07-10T12:29:14+00:00",
       "privilege_tier": 0
     },
-    "AKIAXZ5NGD3MQUGZJYPU": {
+    "REDACTEDAKba1a1f26b7": {
       "degree": 2,
       "first_seen": "2026-07-06T10:54:40+00:00",
       "historical_risk": 0.0,
       "last_seen": "2026-07-06T10:54:40+00:00",
       "privilege_tier": 0
     },
-    "AKIAXZ5NGD3MTKGGKJER": {
+    "REDACTEDAK34c9224bc6": {
       "degree": 2,
       "first_seen": "2026-07-06T10:54:40+00:00",
       "historical_risk": 0.0,
