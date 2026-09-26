@@ -1,49 +1,112 @@
-# Real-Time GraphSAGE Privilege Escalation Detection
+# Real-Time Privilege Escalation Detection for AWS CloudTrail
 
-Detects AWS privilege-escalation attacks from CloudTrail logs using a
-heterogeneous Graph Neural Network (GraphSAGE), Neo4j, and an LSTM
-sequence model. Trained on synthetic CloudTrail sessions, validated
-against real attack data collected with
-[Stratus Red Team](https://stratus-red-team.cloud/) across 4 independent
-AWS accounts.
+Detects AWS privilege-escalation attacks in CloudTrail logs as they arrive.
+Two models score every event in parallel: a heterogeneous graph transformer
+(HGT) over the principal/resource graph, and an LSTM-Transformer over each
+principal's recent activity. An ensemble combines the two scores into one
+risk score per event. Both models are trained on synthetic CloudTrail and
+validated on real attacks collected with
+[Stratus Red Team](https://stratus-red-team.cloud/) across 4 independent AWS
+accounts.
+
+## Architecture
+
+``` text
+                        +-> structural row -> graph (rolling 24 h window) -> HGT  -> p_graph ----+
+incoming/<file> -> feature_engine9                                                               +-> ensemble -> alert
+ (CloudTrail JSON,      +-> temporal row   -> the principal's last hour   -> LSTM -> p_sequence -+   0.4 p_graph + 0.6 p_sequence
+  JSONL, or CSV)                                                                                     alert at >= 5.92/10
+```
+
+`pipeline.py` runs this. It watches `incoming/` and scores each new file's
+events. It writes alerts to `alerts/alert_<id>.json` (one per principal per
+file) and every event's scores to `output/risk_scores.csv`. Processed files
+are moved to `incoming/processed/`.
+
+- **Same scores as batch.** Each event gets the score a batch run over the same
+  events would give it:
+  - The LSTM branch matches a single batch pass on real dev to 3e-7.
+  - The graph is rebuilt with the batch code on every file.
+  - The Neo4j-free graph builder (`graph_construction/offline_graph.py`) is
+    tensor-identical to the Neo4j loader on real dev and on the synthetic
+    training graph.
+  - `tests/test_pipeline.py` guards all of this.
+- **Frozen at inference time.** Live traffic never changes the model's inputs:
+  feature_engine9's vocabulary and risk priors are frozen from training, and
+  both models use their training-time scalers.
+- **Settings.** The ensemble weight, alert threshold, checkpoints and graph
+  window live in `pipeline_config.json`. Its weight and threshold were chosen
+  on `real_dataset_dev.csv` only, by
+  `datasets/privilege-escalation/evaluate_pipeline.py`.
+
+## Run it
+
+PyTorch runs in Docker: Windows Smart App Control blocks torch's unsigned
+DLLs on the development machine.
+
+``` bash
+docker build -t cloudsec .
+docker run --rm -v "$PWD:/app" cloudsec python pipeline.py --watch incoming
+# then drop CloudTrail files into incoming/, e.g.
+cp samples/cloudtrail/synthetic_attack_chain.json incoming/
+```
+
+``` text
+[FAST-LANE ALERT] 2026-07-30 09:00:45+00:00 session1 StopLogging: CloudTrail logging disabled
+[ALERT] session1: 9 event(s), max risk 9.91/10 (top: SetDefaultPolicyVersion)
+[PIPELINE] synthetic_attack_chain.json: 10 events scored, 9 above threshold (0.5s)
+```
+
+Other commands:
+
+- Score files once: `python pipeline.py --files a.json b.json`.
+- Start with no per-principal history: add `--reset-state`.
+- Tests: `python tests/run_tests.py` (101 tests).
+- Re-tune on dev (add `--test` for the single held-out test run):
+  `python datasets/privilege-escalation/evaluate_pipeline.py`.
 
 ## Results
 
-Session-level, on 238 held-out real test sessions (`real_dataset_test.csv`,
-never touched during tuning -- all thresholds below are frozen from
-`real_dataset_dev.csv`):
+Session-level results on 238 held-out real test sessions
+(`real_dataset_test.csv`). A session is flagged if any of its events alerts.
+Every configuration and threshold was frozen on `real_dataset_dev.csv` before
+test was used, and each system was run on test once.
 
-| | Precision | Recall | F1 |
+| | Precision | Recall | F1 [95% CI] |
 |---|---|---|---|
-| Logistic regression (bag of actions) | 0.706 | 0.960 | 0.814 [95% CI: 0.756, 0.864] |
-| Random Forest (temporal features) | 0.838 | 0.830 | 0.834 [95% CI: 0.777, 0.886] |
-| XGBoost (temporal features) | 0.823 | 0.930 | 0.873 [95% CI: 0.822, 0.917] |
-| Curated IAM rule baseline (11 rules) | 0.878 | 0.650 | 0.747 [95% CI: 0.667, 0.811] |
-| GraphSAGE alone (retrained with credential-access chains) | 0.829 | 0.920 | 0.872 |
-| **Ensemble candidate A** -- `ensemble.py`, fixed 0.5/0.5 sum | 0.845 | 0.980 | **0.907** |
-| **Ensemble candidate B** -- `ensemble1.py`, stacked meta-learner | 0.838 | 0.980 | **0.903** |
+| **Real-time pipeline** (HGT + LSTM, `pipeline.py`) | 0.780 | 0.920 | **0.844** [0.788, 0.893] |
+| Random Forest (temporal features) | 0.827 | 0.860 | 0.843 [0.786, 0.893] |
+| XGBoost (temporal features) | 0.817 | 0.850 | 0.833 [0.772, 0.885] |
+| Logistic regression (bag of actions) | 0.706 | 0.960 | 0.814 [0.756, 0.864] |
+| Curated IAM rule baseline (11 rules) | 0.878 | 0.650 | 0.747 [0.671, 0.815] |
+| GraphSAGE alone (batch, retrained with credential-access chains) | 0.829 | 0.920 | 0.872 |
 
-Two ensemble candidates are kept as peers until a final choice is made. They
-share the same GNN-heuristic and LSTM per-event scorers, CLI, and output
-columns, and differ only in how the two branches are combined. With the
-pre-leak-fix LSTM checkpoint (see the first note below -- these figures do not
-hold with a clean LSTM), each beat the rule baseline significantly (paired
-bootstrap: A +0.160 F1, 95% CI [+0.091,
-+0.234]; B +0.156, [+0.086, +0.231]; both p < 0.0001); the difference between
-them is not significant (B - A = -0.004, 95% CI [-0.019, +0.009], p = 0.79).
-Reproduce the head-to-head with `datasets/privilege-escalation/compare_ensembles.py`.
+The pipeline beats the rule baseline significantly (paired bootstrap +0.097
+F1, 95% CI [+0.028, +0.168], p = 0.008). It is statistically tied with the
+classical ML baselines: vs Random Forest +0.001 (p = 0.98), vs XGBoost +0.011
+(p = 0.65), vs logistic regression +0.030 (p = 0.21).
+
+On dev, the ensemble beats each of its branches:
+
+| Real dev | F1 |
+|---|---|
+| HGT alone | 0.868 |
+| LSTM alone | 0.894 |
+| Ensemble | 0.908 |
+
+The earlier topology-heuristic ensemble (`ensemble.py`, `ensemble1.py`) is
+superseded. With a leak-clean LSTM it scored 0.769 on test.
 
 Worth knowing:
-- **The ensemble rows above are not publishable as-is.** They use an LSTM
-  checkpoint that predates the sequence track's leak fix: it trained on the
-  real Invictus capture and selected its epoch on a real attack user. Retrained
-  on the leakage-clean, synthetic-only data, the ensembles score **A 0.769 /
-  B 0.722** on the same test sessions -- **not significantly better than the
-  rule baseline (A - rules = +0.021, 95% CI [-0.060, +0.104])**, and
-  **significantly worse than the classical ML baselines above** (XGBoost - A =
-  +0.105, 95% CI [+0.054, +0.159], p < 0.0001). See
-  `docs/PROJECT_STATUS_REPORT.md` §6.20-6.22; which system the paper reports
-  is an open decision.
+- **What the pipeline's numbers do and don't show.** The ML baselines run on
+  the same feature_engine9 features and synthetic training data, and they tie
+  the pipeline. So the paper cannot yet claim that HGT + LSTM beats standard
+  ML. The LSTM still carries known problems (`docs/PROJECT_STATUS_REPORT.md`
+  §6.21-6.23), fixing them is the next lever, and each fix must be tuned on
+  dev before test is used again.
+- The superseded `ensemble.py` / `ensemble1.py` rows (0.907 / 0.903 in older
+  versions of this file) used an LSTM checkpoint that had trained on real
+  Invictus data. Retrained leak-clean, they score 0.769 / 0.722 (§6.21).
 - The rule baseline is a curated list built by reading AWS's public GuardDuty
   finding-type docs -- it was never validated against real GuardDuty output
   (this project's data collection never enabled it), so it's *not* a stand-in
@@ -54,8 +117,9 @@ Worth knowing:
   less data and on three features the synthetic generator hardcodes for
   attacks (MFA fields, request-parameter length). It scored RF 0.669 /
   XGBoost 0.595, and its conclusion that "ML on these features doesn't
-  transfer" was wrong. On equal footing XGBoost reaches 0.873, the best
-  real-test result in the project so far.
+  transfer" was wrong. The numbers in the table above come from
+  re-running them on the data merged from `feat/credential-access-chains`
+  (§6.23).
 - The standalone GraphSAGE model's raw edge-level ranking on real data was
   initially inverted (AUC ~0.26) -- root-caused to one dominant relation
   (`User->READ->Resource`, 87% of real attack-labeled edges) where the
@@ -64,69 +128,35 @@ Worth knowing:
   AWS-classified as "Read") directly violate. A per-relation orientation
   correction fit on dev only and frozen (not baked into the checkpoint,
   to keep the train/eval boundary clean) lifts edge-level AUC to 0.89 on
-  both dev and test -- but even calibrated, GraphSAGE alone still trails
-  both ensemble candidates at the session level (0.839 vs 0.903-0.907),
-  which is why an ensemble, not the GNN alone, is the final system.
+  both dev and test. The pipeline uses HGT rather than GraphSAGE. Trained on
+  the same corrected schema, HGT's per-event ranking on real dev is healthier
+  (event AUC 0.713 vs GraphSAGE's 0.517), which is what matters for an
+  ensemble that combines per-event scores.
 
 Full evidence trail: `docs/PROJECT_STATUS_REPORT.md`.
 Full runnable walkthrough: `docs/DEMO_GUIDE.md`.
 
-## Architecture
-
-Every reported result comes from the batch path (streaming is not
-operational -- see below):
-
-``` text
-Raw CloudTrail (CSV / JSON)
-    │
-    ▼
-feature_engine9.py
-    │
-    ├──→ structural.csv → build_graph.py → Neo4j → data_loader.py → GraphSAGE → evaluate_session_level.py
-    │                                                                            (session-level F1, reported results)
-    └──→ temporal.csv → LSTMTransformerV5
-```
-
-`ensemble.py` is a third consumer of the same two feature CSVs: it
-combines a pure-topology GNN score (not the trained checkpoint's edge
-probability -- see its module docstring for why) with the LSTM's
-per-event probability into one `risk_score` per event.
-
-## Streaming inference: not operational
-
-`graph_construction/infer.py`'s live path is broken (feature-schema
-desync, and the incremental updater doesn't reproduce the batch graph --
-details in `docs/PROJECT_STATUS_REPORT.md` §6.9/§6.16). Don't claim
-real-time inference works until both are fixed. Use the batch commands
-below, or `ensemble.py --watch` (works today, see below).
-
 ## Repository
 
--   `feature_engine9.py` -- raw CloudTrail -> structural.csv (GNN) + temporal.csv (LSTM), plus fast-lane alerts
--   `ensemble.py` -- combined GNN + LSTM risk score, one 0-10 `risk_score` per event
+-   `pipeline.py` -- the real-time detector (watch `incoming/`, HGT + LSTM, ensemble, alerts); settings in `pipeline_config.json`
+-   `Dockerfile` -- the runtime everything torch-based runs in
+-   `feature_engine9.py` -- raw CloudTrail -> structural rows (graph) + temporal rows (LSTM), plus fast-lane alerts
+-   `graph_construction/offline_graph.py`, `gnn_scorer.py`, `model_hgt.py` -- Neo4j-free graph building and HGT/GraphSAGE/GAT scoring
+-   `ensemble.py`, `ensemble1.py` -- the earlier batch ensembles (superseded by `pipeline.py`)
+-   `samples/cloudtrail/` -- example CloudTrail files to drop into `incoming/`
 -   `leakage_guard.py` -- audits any file for train/test contamination
 -   `datasets/privilege-escalation/` -- synthetic data generator, rule baselines, raw/derived datasets
--   `graph_construction/` -- models, training, Neo4j graph construction, evaluation, streaming inference
+-   `graph_construction/` -- models (HGT, GraphSAGE, GAT), training (`train.py --model hgt --offline-csv ...`), graph construction, evaluation. `infer.py`'s incremental Neo4j path is legacy and not used by the pipeline.
 -   `tests/run_tests.py` -- test suites
 -   `docs/PROJECT_STATUS_REPORT.md` -- full evaluation history and evidence
 -   `docs/DEMO_GUIDE.md` -- runnable demo with expected output
 
-## Setup
+## Setup without Docker
 
 ``` bash
 pip install -r requirements.txt
 ```
 
-## Run
-
-``` bash
-python ensemble.py
-```
-
-Runs the full pipeline end-to-end (feature engineering → GNN + LSTM →
-ensemble) on `datasets/privilege-escalation/synthetic_cloudtrail.csv`,
-printing a `[FAST-LANE ALERT]` immediately on any defense-evasion action
-and writing `risk_scores.csv` with one 0-10 `risk_score` per event.
-No Neo4j required. For any other input, watch mode, training, evaluation,
-tests, or the leakage audit, see `docs/DEMO_GUIDE.md` and each script's
-own `--help`.
+The batch tools (`feature_engine9.py`, the rule and ML baselines) run
+natively. Anything that loads a torch checkpoint needs a machine where
+PyTorch can load, or the Docker image above.

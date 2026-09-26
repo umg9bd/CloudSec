@@ -418,6 +418,56 @@ Dev-selected: LR `C=0.1`, binary bag; RF artifacts dropped, ordinal IDs, `max_de
 
 **Status: on current evidence the paper cannot claim the proposed system beats classical ML baselines.**
 
+### 6.23 Real-time pipeline: HGT + LSTM in parallel, ensemble, alerts (branch `realtime-pipeline`)
+
+**Merged in.**
+- `feat/credential-access-chains`: credential-access synthetic chains and a retrained GraphSAGE (real test F1 0.872).
+- From `GNN-final`: the HGT model code only. Its checkpoint was trained on the pre-audit feature schema: z-scored node features, `edge_type` as a raw ordinal, and no `<UNK>` class. §6.15–6.17 showed that schema fails on real data, and it had only ever been evaluated on synthetic data. So HGT was retrained on the corrected schema with `train.py --model hgt --offline-csv datasets/privilege-escalation/cloudtrail_structural.csv` (synthetic held-out F1 0.984).
+
+**Design (`pipeline.py`).** Files landing in `incoming/` go through `feature_engine9` (stateful, with training vocabulary and priors frozen), then split into two branches:
+- The structural row joins a graph rebuilt over a rolling 24 h window and is scored by HGT.
+- The temporal row is scored by the leak-clean LSTM, using that principal's last hour of events.
+
+The ensemble is `0.4·p_graph + 0.6·p_sequence`, falling back to the LSTM score for events whose node/relation triple HGT never saw in training. Alerts are grouped per principal per file into `alerts/*.json`, and every event goes to `output/risk_scores.csv`.
+
+**Neo4j-free and batch-exact.**
+- `graph_construction/offline_graph.py` runs the builder's own feature code (`compute_graph`, split out of `build_graph`) and the unmodified `load()`, swapping only the two Cypher reads. It is **tensor-identical** to the Neo4j path on real dev (16,838 edges) and on the synthetic training graph (11,425 edges): every node feature, edge feature, label and endpoint.
+- Streaming LSTM scores equal a single batch pass on all of real dev (max difference 3e-7), and `tests/test_pipeline.py` guards that.
+
+**Bugs found on the way.**
+1. **Duplicated edges in Neo4j.** The builder matched edge endpoints by `key` only. A key shared by a Role node and a Resource node made one event into two edges (53 of dev's 16,838). Endpoints are now matched by label and key.
+2. **Quadratic graph build.** `hop_count`/`privilege_gain` rescanned every edge for a graph-wide set. Building dev's graph took 177 s and now takes 6.4 s.
+3. **Unstable timestamp sorts in the LSTM code.** Real CloudTrail has many same-second events, so a tie's history depended on sort luck (up to 0.79 apart in P_event, batch vs streaming).
+4. **Truncated history.** A truncated history window gave the first event in it a Δt of 0. The pipeline now carries each principal's true predecessor.
+
+**Dev** (real dev replayed in 250-event files, fresh state):
+
+| Real dev | Session AUC | Best F1 |
+|---|---|---|
+| HGT alone | 0.939 | 0.868 |
+| LSTM alone | 0.928 | 0.894 |
+| Ensemble (dev sweep over w) | | 0.908 at w = 0.4, threshold 5.92/10 |
+
+Unlike §6.21's topology-heuristic ensemble, blending helps here.
+
+**Test, run once with the config frozen and committed first** (`evaluate_pipeline.py --test`): **P 0.780, R 0.920, F1 0.844 [95% CI 0.788, 0.893]**, session AUC 0.921.
+
+| Paired bootstrap, pipeline − other | ΔF1 [95% CI] | p |
+|---|---|---|
+| Curated rule baseline (0.747) | **+0.097 [+0.028, +0.168]** | **0.008** |
+| Random Forest (0.843) | +0.001 [−0.042, +0.044] | 0.98 |
+| XGBoost (0.833) | +0.011 [−0.035, +0.057] | 0.65 |
+| LR, bag of actions (0.814) | +0.030 [−0.017, +0.079] | 0.21 |
+
+The ML baselines were re-run as part of this (same frozen protocol). Their numbers differ from §6.22 (RF 0.834 → 0.843, XGBoost 0.873 → 0.833) because the merge brought in regenerated `real_dataset_{dev,test}_temporal.csv` files.
+
+**Caveats.**
+- Those committed real temporal files were built from an **older snapshot** of the frozen vocabulary and risk-prior files. Three columns (`principal_type_prior_risk`, `action_risk_prior`, `event_name_idx`) differ from what the current files give, so the ML baselines see slightly stale values for those columns. The pipeline featurizes with the current files. Regenerating the real temporal files, and the LSTM's training table (which also predates the credential-access merge), is housekeeping for the next retrain.
+- The LSTM problems from §6.21–6.22 still apply, except the `<UNK>` plumbing: the pipeline now passes real event names through the LSTM's own vocabulary. The remaining problems are generator-artifact features, the recon label convention, missing SSM parameter theft in the synthetic data, and an untrained unknown token.
+- torch is blocked natively on the development machine by Windows Smart App Control (since 2026-09-26). Everything torch-based runs in the `Dockerfile` image.
+
+**Status: a working real-time product that significantly beats the rule baseline and ties classical ML on the same features.** Beating classical ML is the open research question; the LSTM fixes are the next lever.
+
 ---
 
 ## 7. Key Finding: A Verified Fix for the Synthetic→Real Generalization Gap

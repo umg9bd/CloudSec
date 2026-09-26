@@ -58,6 +58,8 @@ FAST_SUITES = [
     "test_models",                # logit/label alignment contract
     "test_evaluation_integrity",  # edge->session join, guards, paired baseline
     "test_model_hgt",             # HGT output shape/order contract
+    # ── real-time pipeline ───────────────────────────────────────────────
+    "test_pipeline",              # streaming == batch (LSTM), fallback, alert schema
     # ── shared: the train/eval boundary both tracks must respect ─────────
     "test_leakage_guard",         # held-out detection, label-derived prior freeze
 ]
