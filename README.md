@@ -94,8 +94,10 @@ On dev, the ensemble beats each of its branches:
 | LSTM alone | 0.894 |
 | Ensemble | 0.908 |
 
-The earlier topology-heuristic ensemble (`ensemble.py`, `ensemble1.py`) is
-superseded. With a leak-clean LSTM it scored 0.769 on test.
+`pipeline.py` is the only ensemble. The earlier `ensemble.py` /
+`ensemble1.py` were removed: their graph side was a hand-written topology
+rule, not a trained GNN, and with a leak-clean LSTM they scored 0.769 / 0.722
+on test (§6.21; the code is in git history at commit `2fe5977`).
 
 Worth knowing:
 - **What the pipeline's numbers do and don't show.** The ML baselines run on
@@ -104,9 +106,9 @@ Worth knowing:
   ML. The LSTM still carries known problems (`docs/PROJECT_STATUS_REPORT.md`
   §6.21-6.23), fixing them is the next lever, and each fix must be tuned on
   dev before test is used again.
-- The superseded `ensemble.py` / `ensemble1.py` rows (0.907 / 0.903 in older
-  versions of this file) used an LSTM checkpoint that had trained on real
-  Invictus data. Retrained leak-clean, they score 0.769 / 0.722 (§6.21).
+- Older versions of this README reported 0.907 / 0.903 for those removed
+  ensembles. Those numbers came from an LSTM checkpoint that had trained on
+  real Invictus data, so they are not valid.
 - The rule baseline is a curated list built by reading AWS's public GuardDuty
   finding-type docs -- it was never validated against real GuardDuty output
   (this project's data collection never enabled it), so it's *not* a stand-in
@@ -142,7 +144,6 @@ Full runnable walkthrough: `docs/DEMO_GUIDE.md`.
 -   `Dockerfile` -- the runtime everything torch-based runs in
 -   `feature_engine9.py` -- raw CloudTrail -> structural rows (graph) + temporal rows (LSTM), plus fast-lane alerts
 -   `graph_construction/offline_graph.py`, `gnn_scorer.py`, `model_hgt.py` -- Neo4j-free graph building and HGT/GraphSAGE/GAT scoring
--   `ensemble.py`, `ensemble1.py` -- the earlier batch ensembles (superseded by `pipeline.py`)
 -   `samples/cloudtrail/` -- example CloudTrail files to drop into `incoming/`
 -   `leakage_guard.py` -- audits any file for train/test contamination
 -   `datasets/privilege-escalation/` -- synthetic data generator, rule baselines, raw/derived datasets

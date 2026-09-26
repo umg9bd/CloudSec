@@ -158,7 +158,7 @@ def main():
     # stopped being true). The scripts that compute them, on these same 238 test sessions:
     print("-" * 60)
     print("Classical-ML baselines (LR / Random Forest / XGBoost): evaluate_ml_baselines.py")
-    print("Proposed system (ensemble candidates):                 compare_ensembles.py")
+    print("Proposed system (real-time HGT + LSTM pipeline):       evaluate_pipeline.py")
 
 
 if __name__ == "__main__":

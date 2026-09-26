@@ -466,6 +466,8 @@ The ML baselines were re-run as part of this (same frozen protocol). Their numbe
 - The LSTM problems from §6.21–6.22 still apply, except the `<UNK>` plumbing: the pipeline now passes real event names through the LSTM's own vocabulary. The remaining problems are generator-artifact features, the recon label convention, missing SSM parameter theft in the synthetic data, and an untrained unknown token.
 - torch is blocked natively on the development machine by Windows Smart App Control (since 2026-09-26). Everything torch-based runs in the `Dockerfile` image.
 
+**Cleanup.** `ensemble.py`, `ensemble1.py`, `compare_ensembles.py` and the cached `ensemble1` meta-models were removed, leaving `pipeline.py` as the only ensemble; batch scoring is `pipeline.py --files`. Their graph side was the hand-written topology rule, not a trained GNN, and they loaded the Invictus-exposed LSTM by default. §6.18–6.21 describe them, and the code is in git history at `2fe5977`.
+
 **Status: a working real-time product that significantly beats the rule baseline and ties classical ML on the same features.** Beating classical ML is the open research question; the LSTM fixes are the next lever.
 
 ---

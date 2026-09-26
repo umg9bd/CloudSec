@@ -4,10 +4,9 @@ model_hgt.py  (v3 — Privilege Propagation Graph)
 THIRD MODEL — Heterogeneous Graph Transformer (HGTConv) for edge-level
 attack detection, added alongside GraphSAGEAnomalyDetector (primary,
 model_graphsage.py) and GATAnomalyDetector (comparison baseline,
-model_gat.py). GraphSAGE operates over the complete graph; HGT operates
-over a ranked, sampled "important-region" heterogeneous subgraph (see
-node_importance.py) at training/batch-evaluation time. The two are
-combined by model_ensemble.py.
+model_gat.py). In this repository it is trained on the full graph
+(train.py --model hgt) and is the structural branch of the real-time
+pipeline (pipeline.py), which combines its per-event score with the LSTM's.
 
 WHY THIS FILE LOOKS LIKE model_gat.py, NOT model_graphsage.py
 ─────────────────────────────────────────────────────────────────────────

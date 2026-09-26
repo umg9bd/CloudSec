@@ -435,9 +435,8 @@ def build_graph():
           f"{ppg.graph.number_of_nodes()} nodes | {ppg.graph.number_of_edges()} edges")
 
     # Imported here, not at module level: everything above this line is pure
-    # graph topology and has no Neo4j dependency (see ensemble.py, which
-    # imports this module for that path without a running Neo4j or even the
-    # neo4j package installed).
+    # graph topology and has no Neo4j dependency (see compute_graph above, which
+    # offline_graph.py and the real-time pipeline use without a running Neo4j).
     from neo4j import GraphDatabase
     driver = GraphDatabase.driver(URI, auth=(USER, PASSWORD))
     with driver.session() as session:
