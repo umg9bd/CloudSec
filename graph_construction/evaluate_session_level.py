@@ -174,7 +174,7 @@ def report_baseline_comparison(raw_df, sessions_true, y_true, y_model):
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("--checkpoint", required=True)
-    p.add_argument("--model", choices=["sage", "gat"], required=True)
+    p.add_argument("--model", choices=["sage", "gat", "hgt"], required=True)
     p.add_argument("--raw-csv", required=True, help="e.g. real_dataset_test.csv or real_dataset_dev.csv")
     p.add_argument("--neo4j-uri", default="bolt://localhost:7687")
     p.add_argument("--neo4j-user", default="neo4j")

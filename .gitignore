@@ -67,3 +67,10 @@ risk_scores*.csv
 
 # Build output
 .dist/
+
+# real-time pipeline (pipeline.py) runtime output
+/runtime/
+/alerts/
+/output/
+/incoming/processed/
+/incoming/failed/

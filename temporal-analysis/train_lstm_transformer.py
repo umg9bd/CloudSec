@@ -117,7 +117,7 @@ def attach_pe_context(df: pd.DataFrame, pe_ids: set[int]) -> pd.DataFrame:
     log_dt = {}
     horizon = 600.0
     for _, g in df.groupby("username", sort=False):
-        g = g.sort_values("timestamp")
+        g = g.sort_values("timestamp", kind="stable")
         last_pe_ns = None
         for log_id, t_ns, ev in zip(
             g["log_id"].astype(str),
@@ -221,7 +221,7 @@ def build_event_sequences(
     window_ns = int(pd.Timedelta(minutes=window_minutes) / pd.Timedelta(nanoseconds=1))
     seqs: list[EventSeq] = []
     for username, g in df.groupby("username", sort=False):
-        g = g.sort_values("timestamp").reset_index(drop=True)
+        g = g.sort_values("timestamp", kind="stable").reset_index(drop=True)
         if g.empty:
             continue
         feats_all = add_extra_feats(g, feature_cols)
@@ -264,7 +264,7 @@ def build_fusion_windows(
     window_ns = int(window_td / pd.Timedelta(nanoseconds=1))
     rows: list[dict] = []
     for username, g in df.groupby("username", sort=False):
-        g = g.sort_values("timestamp").reset_index(drop=True)
+        g = g.sort_values("timestamp", kind="stable").reset_index(drop=True)
         ts = g["timestamp"]
         ts_ns = ts.astype("int64").to_numpy()
         log_ids = g["log_id"].astype(str).to_numpy()

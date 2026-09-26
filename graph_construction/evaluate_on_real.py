@@ -40,8 +40,12 @@ def build_model_from_args(name: str, model_args: dict):
         from model_gat import GATAnomalyDetector
         return GATAnomalyDetector(
             node_feat_dims=node_feat_dims, edge_types=edge_types, edge_feat_dim=edge_feat_dim,
-            hidden_dim=hidden_dim, heads=4, num_gat_layers=model_args["num_sage_layers"], dropout=dropout,
+            hidden_dim=hidden_dim, heads=model_args.get("heads", 4),
+            num_gat_layers=model_args.get("num_gat_layers", model_args["num_sage_layers"]), dropout=dropout,
         )
+    elif name == "hgt":
+        from model_hgt import build_hgt_from_args
+        return build_hgt_from_args(model_args)
     raise ValueError(f"Unknown model: {name}")
 
 

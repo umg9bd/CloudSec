@@ -405,6 +405,13 @@ class PrivilegePropagationGraph:
     # ── hop_count ────────────────────────────────────────────────────────
 
     def roles_reached_via_assume(self) -> set:
+        # compute_all_edge_features pins this graph-wide set while it walks the edges: recomputing
+        # it for every edge (twice -- hop_count and privilege_gain) made graph building quadratic,
+        # ~3 min for real dev's 16.8k events. Outside that walk the graph may be mutated directly
+        # (infer.py, incremental_updater.py), so it is recomputed on every call as before.
+        pinned = getattr(self, "_pinned_assumed_roles", None)
+        if pinned is not None:
+            return pinned
         return {
             v for _, v, d in self.graph.edges(data=True)
             if d["relation"] == "ASSUMES"
@@ -566,6 +573,14 @@ class PrivilegePropagationGraph:
         """
         pattern_freq = self.path_pattern_frequencies()
 
+        self._pinned_assumed_roles = None
+        self._pinned_assumed_roles = self.roles_reached_via_assume()  # graph is not mutated below
+        try:
+            return self._edge_feature_records(pattern_freq)
+        finally:
+            self._pinned_assumed_roles = None
+
+    def _edge_feature_records(self, pattern_freq) -> pd.DataFrame:
         records = []
         for u, v, k, d in self.graph.edges(keys=True, data=True):
             hop = self.hop_count(u)

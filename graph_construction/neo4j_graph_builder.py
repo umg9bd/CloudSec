@@ -255,10 +255,14 @@ _NODE_MERGE_TEMPLATES = {
 
 _RELATION_TYPES = ["ASSUMES", "LIST", "READ", "WRITE", "TAGGING", "PERMISSIONS_MANAGEMENT", "UNKNOWN_ACTION"]
 
+# Endpoints are matched by label AND key: a key alone is not unique across node
+# types (a Role and a Resource can share one), and a label-less MATCH then turned
+# one CloudTrail event into two edges -- 53 of real dev's 16,838 events.
+# {src_label}/{dst_label} are filled from the fixed node-type set, never user input.
 _EDGE_CREATE_TEMPLATES = {
     rel: f"""
-        MATCH (src {{key: $src_key}}) MATCH (dst {{key: $dst_key}})
-        CREATE (src)-[r:{rel} {{
+        MATCH (src:{{src_label}} {{{{key: $src_key}}}}) MATCH (dst:{{dst_label}} {{{{key: $dst_key}}}})
+        CREATE (src)-[r:{rel} {{{{
             log_id: $log_id, edge_type: $edge_type, relation: $relation,
             access_level: $access_level, is_privilege_escalation_technique: $is_priv_esc,
             hop_count: $hop_count, privilege_gain: $privilege_gain,
@@ -266,7 +270,7 @@ _EDGE_CREATE_TEMPLATES = {
             abnormal_path_frequency: $abnormal_path_frequency,
             action_global_frequency: $action_global_frequency,
             is_attack: $is_attack
-        }}]->(dst)
+        }}}}]->(dst)
     """
     for rel in _RELATION_TYPES
 }
@@ -277,7 +281,7 @@ def merge_node(session, node_key: pf.GraphNodeKey, props: dict):
     session.run(template, key=node_key.key, props=props)
 
 
-def create_edge(session, relation: str, src_key: str, dst_key: str, **props):
+def create_edge(session, relation: str, src_key: str, dst_key: str, src_label: str, dst_label: str, **props):
     # NOTE: unrelated to the log_id migration — pre-existing bug found
     # during end-to-end verification. `relation` selects which Cypher
     # template to use, but the template also references it as the
@@ -286,22 +290,22 @@ def create_edge(session, relation: str, src_key: str, dst_key: str, **props):
     # than left for the caller to supply (the caller supplying it caused
     # a "multiple values for argument 'relation'" conflict against this
     # function's own positional `relation` parameter).
-    session.run(_EDGE_CREATE_TEMPLATES[relation], src_key=src_key, dst_key=dst_key, relation=relation, **props)
+    assert src_label in _NODE_MERGE_TEMPLATES and dst_label in _NODE_MERGE_TEMPLATES
+    query = _EDGE_CREATE_TEMPLATES[relation].format(src_label=src_label, dst_label=dst_label)
+    session.run(query, src_key=src_key, dst_key=dst_key, relation=relation, **props)
 
 
 # ══════════════════════════════════════════════════════════════════════════
 # Main builder
 # ══════════════════════════════════════════════════════════════════════════
 
-def build_graph():
-    print(f"Loading {CSV_PATH} …")
-    df = pd.read_csv(CSV_PATH)
-    missing = REQUIRED_COLUMNS - set(df.columns)
-    if missing:
-        raise ValueError(f"CSV is missing required columns {missing}")
+def compute_graph(df: pd.DataFrame) -> dict:
+    """Every node and edge property build_graph() stores, computed purely in Python.
 
+    Split out of build_graph() so the Neo4j-free path (offline_graph.py -- training/evaluation
+    without a database, and the real-time pipeline) runs this exact code rather than a copy.
+    """
     resolver = pf.ActionAccessLevelResolver()
-    print(f"Action access-level resolver: {resolver.source}")
 
     principal_infos = df["source_node"].apply(parse_principal)
     target_infos     = df["target_node"].apply(parse_target)
@@ -371,6 +375,62 @@ def build_graph():
         else:
             sensitivity_lookup[n] = -1  # principals aren't scored for sensitivity
 
+    return {
+        "df": df, "resolver": resolver, "src_keys": src_keys, "dst_keys": dst_keys, "ppg": ppg,
+        "edge_features": edge_features, "edge_feature_rows": edge_features.to_dict("index"),
+        "attacker_principals": attacker_principals,
+        "action_freq": action_freq, "sensitivity_lookup": sensitivity_lookup,
+        "node_out_degree": node_out_degree, "node_in_degree": node_in_degree,
+        "node_unique_targets": node_unique_targets, "node_unique_sources": node_unique_sources,
+        "node_unique_actions": node_unique_actions,
+    }
+
+
+def node_properties(g: dict, n) -> dict:
+    """The property dict build_graph() stores on node `n` (a (label, key) tuple)."""
+    label, key = n
+    props = {
+        "out_degree": g["node_out_degree"].get(n, 0),
+        "in_degree": g["node_in_degree"].get(n, 0),
+        "unique_targets": len(g["node_unique_targets"].get(n, set())),
+        "unique_principals": len(g["node_unique_sources"].get(n, set())),
+        "unique_actions": len(g["node_unique_actions"].get(n, set())),
+        "role_transition_count": g["ppg"].role_transition_count(n),
+        "resource_sensitivity": g["sensitivity_lookup"].get(n, -1),
+        "distance_to_sensitive_resource": g["ppg"].distance_to_sensitive_resource(n, g["sensitivity_lookup"]),
+    }
+    if label in ("User", "Role", "UnresolvedPrincipal"):
+        props["is_known_attacker_identity"] = key in g["attacker_principals"]
+    return props
+
+
+def edge_properties(g: dict, i: int, row) -> tuple:
+    """(relation, src GraphNodeKey, dst GraphNodeKey, property dict) build_graph() stores for row i."""
+    resolver, feats = g["resolver"], g["edge_feature_rows"][row["log_id"]]
+    edge_type = str(row["edge_type"])
+    return pf.resolve_relation_type(edge_type, resolver), g["src_keys"][i], g["dst_keys"][i], dict(
+        log_id=str(row["log_id"]), edge_type=edge_type,
+        access_level=resolver.access_level(edge_type),
+        is_priv_esc=edge_type in PRIVILEGE_ESCALATION_TECHNIQUES,
+        hop_count=int(feats["hop_count"]),
+        privilege_gain=float(feats["privilege_gain"]),
+        privilege_gain_defined=bool(feats["privilege_gain_defined"]),
+        abnormal_path_frequency=float(feats["abnormal_path_frequency"]),
+        action_global_frequency=int(g["action_freq"][row["edge_type"]]),
+        is_attack=int(row["label"]),
+    )
+
+
+def build_graph():
+    print(f"Loading {CSV_PATH} …")
+    df = pd.read_csv(CSV_PATH)
+    missing = REQUIRED_COLUMNS - set(df.columns)
+    if missing:
+        raise ValueError(f"CSV is missing required columns {missing}")
+
+    g = compute_graph(df)
+    print(f"Action access-level resolver: {g['resolver'].source}")
+    ppg = g["ppg"]
     print(f"  {len(df):,} rows | {df['label'].sum()} labelled attack | "
           f"{ppg.graph.number_of_nodes()} nodes | {ppg.graph.number_of_edges()} edges")
 
@@ -407,41 +467,14 @@ def build_graph():
                 continue
             seen_nodes.add(n)
             label, key = n
-            props = {
-                "out_degree": node_out_degree.get(n, 0),
-                "in_degree": node_in_degree.get(n, 0),
-                "unique_targets": len(node_unique_targets.get(n, set())),
-                "unique_principals": len(node_unique_sources.get(n, set())),
-                "unique_actions": len(node_unique_actions.get(n, set())),
-                "role_transition_count": ppg.role_transition_count(n),
-                "resource_sensitivity": sensitivity_lookup.get(n, -1),
-                "distance_to_sensitive_resource": ppg.distance_to_sensitive_resource(n, sensitivity_lookup),
-            }
-            if label in ("User", "Role", "UnresolvedPrincipal"):
-                props["is_known_attacker_identity"] = key in attacker_principals
+            props = node_properties(g, n)
             merge_node(session, pf.GraphNodeKey(label, key), props)
 
         print(f"Ingesting {len(df):,} typed edges …")
         for i, row in df.iterrows():
-            src, dst = src_keys[i], dst_keys[i]
-            relation = pf.resolve_relation_type(str(row["edge_type"]), resolver)
-            # log_id is a unique opaque string (Feature Engine schema) — the
-            # edge_features DataFrame is indexed by that same string (see
-            # rows_for_graph above), so this is a plain, un-coerced lookup.
-            feats = edge_features.loc[row["log_id"]]
-            create_edge(
-                session, relation,
-                src_key=src.key, dst_key=dst.key,
-                log_id=str(row["log_id"]), edge_type=str(row["edge_type"]),
-                access_level=resolver.access_level(str(row["edge_type"])),
-                is_priv_esc=str(row["edge_type"]) in PRIVILEGE_ESCALATION_TECHNIQUES,
-                hop_count=int(feats["hop_count"]),
-                privilege_gain=float(feats["privilege_gain"]),
-                privilege_gain_defined=bool(feats["privilege_gain_defined"]),
-                abnormal_path_frequency=float(feats["abnormal_path_frequency"]),
-                action_global_frequency=int(action_freq[row["edge_type"]]),
-                is_attack=int(row["label"]),
-            )
+            relation, src, dst, props = edge_properties(g, i, row)
+            create_edge(session, relation, src_key=src.key, dst_key=dst.key,
+                        src_label=src.label, dst_label=dst.label, **props)
             if (i + 1) % 500 == 0:
                 print(f"  … {i+1:,} rows processed")
 
