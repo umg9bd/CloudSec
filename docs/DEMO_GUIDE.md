@@ -5,9 +5,9 @@ output at every step so nothing on screen is a surprise. Commands are
 PowerShell (your primary shell) run from the repo root, `C:\CloudSec\CloudSec`.
 
 **Read this first:** the headline result is now a real, verified win —
-session-level F1=0.851 on real held-out test data, beating the rule-based
-baseline's 0.747 on the SAME sessions by a paired +0.104 [+0.040, +0.171],
-p=0.0008 — checked with proper dev/test discipline, threshold stability, and
+session-level F1=0.872 on real held-out test data, beating the rule-based
+baseline's 0.747 on the SAME sessions by a paired +0.125 [+0.059, +0.197],
+p=0.0004 — checked with proper dev/test discipline, threshold stability, and
 a paired bootstrap. Getting there required
 diagnosing and fixing a genuine synthetic-to-real generalization gap first —
 that diagnostic journey is *part of the pitch*, not something to hide. One
@@ -210,34 +210,36 @@ part of the result."
 ## 5. Session-level result — the verified win
 
 ```powershell
-python graph_construction/evaluate_session_level.py --checkpoint checkpoints/best_GraphSAGE_wrapped.pt --model sage --raw-csv datasets/privilege-escalation/real_dataset_test.csv --threshold 0.65
+python graph_construction/evaluate_session_level.py --checkpoint checkpoints/best_GraphSAGE_wrapped.pt --model sage --raw-csv datasets/privilege-escalation/real_dataset_test.csv --threshold 0.50
 ```
 
 **Expect:**
 ```
 Sessions: 238 total | 236 have >=1 in-schema edge | 2 have ZERO in-schema edges (predicted benign by default)
 
-SESSION-LEVEL @ threshold=0.65: P=0.874  R=0.830  F1=0.851
+SESSION-LEVEL @ threshold=0.5: P=0.829  R=0.920  F1=0.872
 
                                           P       R      F1
-GNN (session-level)                   0.874   0.830   0.851
+GNN (session-level)                   0.829   0.920   0.872
 Curated IAM rule baseline (11 rules)  0.878   0.650   0.747   <- computed on THESE 238 sessions
 
-PAIRED bootstrap on (GNN - rule) F1: +0.1042  95% CI [+0.0403, +0.1711]  two-sided p = 0.0008
+PAIRED bootstrap on (GNN - rule) F1: +0.1249  95% CI [+0.0592, +0.1968]  two-sided p = 0.0004
 The improvement is significant at the 5% level.
 ```
 
 **Say:** "Aggregated to session level — the same unit the rule baseline uses
-— F1=0.851, beating the baseline's 0.747 on the same sessions. This threshold (0.65) was selected
+— F1=0.872, beating the baseline's 0.747 on the same sessions. This threshold (0.50) was selected
 entirely on a separate dev set, then checked exactly once here, so this isn't
 picking the best-looking number after the fact. We also bootstrapped a
-confidence interval — [0.794, 0.900]. More importantly, because both systems
-score the *same* sessions, we bootstrapped the *paired difference*: +0.104
-[+0.040, +0.171], p=0.0008. Comparing two separate intervals isn't a
+confidence interval. More importantly, because both systems
+score the *same* sessions, we bootstrapped the *paired difference*: +0.125
+[+0.059, +0.197], p=0.0004. Comparing two separate intervals isn't a
 significance test; this is. And we checked it isn't just re-deriving session
 length — not with a correlation, but with a permutation test: shuffle the
 per-edge scores while keeping every session's size identical, and session AUC
-collapses to ~0.73. The real value, 0.921, beats all 200 permutations. Within
+collapses to ~0.73. The real value, 0.921, beats all 200 permutations. (NOTE:
+this permutation check was run against the pre-credential-access model; re-run
+it before citing it in a submission.) Within
 length bands, where length carries no information, the model still scores AUC
 0.998 / 0.970 / 0.872 / 0.759."
 
@@ -271,18 +273,18 @@ citing a remembered number.
 
 **GAT instead of GraphSAGE** — same commands, substitute the checkpoint and
 `--model gat`. Worth knowing before you're asked: the current GAT checkpoint
-predates the fixes behind the F1=0.851 result and has not yet been re-trained
+predates the fixes behind the F1=0.872 result and has not yet been re-trained
 and re-checked with it — if asked, say GAT is still being re-verified rather
 than citing its old (worse) numbers as current.
 
-**Threshold sweep on dev data, showing how 0.35 was selected** (needs the dev
+**Threshold sweep on dev data, showing how 0.50 was selected** (needs the dev
 graph loaded via
 `python graph_construction/build_graph.py datasets/privilege-escalation/real_dataset_dev_structural.csv`):
 ```powershell
 python graph_construction/evaluate_session_level.py --checkpoint checkpoints/best_GraphSAGE_wrapped.pt --model sage --raw-csv datasets/privilege-escalation/real_dataset_dev.csv --sweep
 ```
-Shows a broad F1=0.86-0.90 plateau across thresholds 0.25-0.45 (best
-F1=0.901 at 0.35) — good material if asked "how did you pick the threshold,"
+Shows a broad F1=0.86-0.89 plateau across thresholds 0.45-0.60 (best
+F1=0.887 at 0.50) — good material if asked "how did you pick the threshold,"
 since it demonstrates the choice wasn't fit to the test set.
 
 ---
@@ -315,9 +317,9 @@ Lead with the result, then the journey that earned it: **"We built a
 complete, real, end-to-end pipeline — real red-team attack data collected
 across 4 independent AWS accounts, a validated synthetic data generator, a
 heterogeneous GNN trained on privilege-propagation graphs. Evaluated
-honestly against real attack data, session-level F1=0.851, beating an
-11-rule curated IAM rule baseline's F1=0.747 on the same sessions (paired
-+0.104, p=0.0008) — checked with a dev-only
+honestly against real attack data, session-level F1=0.872, beating an
+11-rule Curated IAM rule baseline's F1=0.747 on the same sessions (paired
++0.125, p=0.0004) — checked with a dev-only
 selected threshold, a bootstrap confidence interval, and a control for the
 one confound we found along the way. Getting there required real diagnostic
 work: two structural bugs found and fixed, one plausible fix tested and

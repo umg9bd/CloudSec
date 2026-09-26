@@ -188,6 +188,7 @@ class PrivilegePropagationGraphLoader:
         device: str = "cpu",
         fit_artifacts: dict = None,
         model_node_types=None,
+        add_reverse_edges: bool = False,
     ):
         """fit_artifacts (optional): {"edge_scaler", "node_scalers",
         "label_encoders"} from a PRIOR load() call (e.g. saved in a
@@ -209,6 +210,7 @@ class PrivilegePropagationGraphLoader:
         self.device = torch.device(device)
         self._fit_artifacts = fit_artifacts
         self._model_node_types = set(model_node_types) if model_node_types is not None else None
+        self._add_reverse_edges = add_reverse_edges
         self.label_encoders: Dict[str, LabelEncoder] = {}
         self.node_scalers: Dict[str, StandardScaler] = {}
         self.edge_scaler = StandardScaler()
@@ -363,7 +365,35 @@ class PrivilegePropagationGraphLoader:
                 log_id_to_global_index[lid] = len(edge_order)
                 edge_order.append((src_type, rel, dst_type, local_i))
 
-        populated_triples = sorted(data.edge_types)  # actual (src,rel,dst) triples, not just relation names
+        # ── Reverse edges (optional) ────────────────────────────────────────
+        # The privilege-propagation graph is directed principal -> target, so
+        # User and UnresolvedPrincipal never appear as a DESTINATION type and
+        # therefore receive no messages during aggregation: their embeddings
+        # are a bare linear projection of their own 4 features, with no
+        # neighbourhood information at all. PyG warns about this every run.
+        #
+        # For the typical scored edge (User, READ, Resource) that means only
+        # the destination side carries graph structure -- half the classifier's
+        # input is effectively pre-GNN. Adding a mirrored edge lets a principal
+        # aggregate from the resources it touched.
+        #
+        # These are NOT observations. Each is a mirror of a real edge already
+        # scored in its forward direction, so it gets edge_index and edge_attr
+        # (GAT's conv reads edge_attr) but deliberately no `y` and no `log_id`
+        # -- scored_edge_types() keys on exactly that to exclude them.
+        if self._add_reverse_edges:
+            for (src_type, rel, dst_type) in list(data.edge_types):
+                if is_reverse_triple((src_type, rel, dst_type)):
+                    continue
+                rev = (dst_type, f"{REVERSE_RELATION_PREFIX}{rel}", src_type)
+                fwd = data[(src_type, rel, dst_type)]
+                data[rev].edge_index = fwd.edge_index.flip(0)
+                data[rev].edge_attr = fwd.edge_attr
+            log.info("Reverse edges: added %d mirrored triples for message passing "
+                      "(not scored -- no labels attached)",
+                      sum(1 for t in data.edge_types if is_reverse_triple(t)))
+
+        populated_triples = scored_edge_types(data)  # SCORED triples only (excludes reverse)
         log.info("Populated (src,rel,dst) triples: %d | total edges: %d",
                   len(populated_triples), len(edge_order))
 
@@ -379,6 +409,11 @@ class PrivilegePropagationGraphLoader:
             "source_csv": source_csv,   # which CSV built this graph; None on pre-provenance graphs
             "node_counts": {k: v.x.shape[0] for k, v in data.node_items()},
             "populated_triples": populated_triples,
+            # Every triple the ENCODER needs a weight matrix for, reverse
+            # included. model_args["edge_types"] is built from this, so the
+            # model can message-pass over reverse edges even though
+            # populated_triples (what gets scored) excludes them.
+            "encoder_triples": sorted(data.edge_types),
             "edge_order": edge_order,                       # global order, list of (src,rel,dst,local_idx)
             "log_id_to_global_index": log_id_to_global_index,
             "node_idx": node_idx,
@@ -593,6 +628,34 @@ class PrivilegePropagationGraphLoader:
 # as chronological).
 # ══════════════════════════════════════════════════════════════════════════
 
+# Reverse edges added purely so message passing can reach principal nodes are
+# tagged with this relation prefix. They carry edge_index (and edge_attr, which
+# GAT's conv consumes) but deliberately NO `y` and NO `log_id`, because they are
+# not observations -- each one is a mirror of a real edge that is already
+# scored in its forward direction. Scoring both would double-count every
+# observation and corrupt every metric.
+REVERSE_RELATION_PREFIX = "REV_"
+
+
+def is_reverse_triple(triple) -> bool:
+    return str(triple[1]).startswith(REVERSE_RELATION_PREFIX)
+
+
+def scored_edge_types(data: HeteroData):
+    """The triples that are PREDICTIONS, in canonical order.
+
+    This is the single source of truth for "what gets scored", and it is what
+    global_labels / flatten_mask_dict / the models' forward() / the evaluation
+    scripts all key on. Reverse edges participate in the encoder (message
+    passing) but are excluded here, so labels and logits stay index-aligned
+    exactly as they were before reverse edges existed.
+
+    Keyed on the presence of `y` rather than on the name alone, so a triple can
+    never be silently scored without labels."""
+    return sorted(t for t in data.edge_types
+                  if not is_reverse_triple(t) and "y" in data[t])
+
+
 def global_labels(data: HeteroData) -> np.ndarray:
     """
     Flattens `y` across every populated triple in sorted(data.edge_types)
@@ -605,14 +668,14 @@ def global_labels(data: HeteroData) -> np.ndarray:
     """
     if not data.edge_types:
         return np.array([], dtype=int)
-    return np.concatenate([data[t].y.cpu().numpy() for t in sorted(data.edge_types)])
+    return np.concatenate([data[t].y.cpu().numpy() for t in scored_edge_types(data)])
 
 
 def flatten_mask_dict(data: HeteroData, mask_dict: Dict[tuple, torch.Tensor]) -> torch.Tensor:
     """Flattens a {triple: BoolTensor[local E]} dict into one global BoolTensor, same order as global_labels/model output."""
     if not data.edge_types:
         return torch.tensor([], dtype=torch.bool)
-    return torch.cat([mask_dict[t] for t in sorted(data.edge_types)])
+    return torch.cat([mask_dict[t] for t in scored_edge_types(data)])
 
 
 def stratified_edge_split(
@@ -632,7 +695,7 @@ def stratified_edge_split(
     `principal_disjoint_split` for the inductive alternative and its
     limitations at this dataset's scale.
     """
-    triples = sorted(data.edge_types)
+    triples = scored_edge_types(data)
     triple_lengths = [data[t].y.shape[0] for t in triples]
     offsets = np.cumsum([0] + triple_lengths[:-1])
     n = sum(triple_lengths)

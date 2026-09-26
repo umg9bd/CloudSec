@@ -276,21 +276,37 @@ def wrap_checkpoint(
     the fit_artifacts key is populated. Call this once after training;
     afterwards use the wrapped checkpoint for all inference runs.
     """
-    from data_loader import PrivilegePropagationGraphLoader, compute_class_weights, stratified_edge_split
+    from data_loader import (PrivilegePropagationGraphLoader, REVERSE_RELATION_PREFIX,
+                             compute_class_weights, stratified_edge_split)
     log.info("Wrapping checkpoint %s …", original_ckpt_path)
-
-    loader = PrivilegePropagationGraphLoader(uri=neo4j_uri, user=neo4j_user, password=neo4j_pass)
-    data, meta = loader.load()
 
     state_dict = torch.load(original_ckpt_path, map_location="cpu")
     if isinstance(state_dict, dict) and "state_dict" in state_dict:
         state_dict = state_dict["state_dict"]
 
+    # Whether this model was trained with reverse edges is a property of the
+    # weights themselves -- a reverse-trained model has HeteroConv sub-modules
+    # keyed on REV_* relations. Reading it off the state_dict rather than
+    # taking it as a flag means the wrapped checkpoint can never disagree with
+    # the weights it wraps (a mismatch would silently change message passing).
+    trained_with_reverse = any(REVERSE_RELATION_PREFIX in str(k) for k in state_dict)
+    log.info("Checkpoint %s reverse edges (inferred from state_dict)",
+             "USES" if trained_with_reverse else "does not use")
+
+    loader = PrivilegePropagationGraphLoader(
+        uri=neo4j_uri, user=neo4j_user, password=neo4j_pass,
+        add_reverse_edges=trained_with_reverse,
+    )
+    data, meta = loader.load()
+
     wrapped = {
         "state_dict": state_dict,
         "model_args": {
             "node_feat_dims": meta["node_feat_dim"],
-            "edge_types": meta["populated_triples"],
+            # encoder_triples, not populated_triples: the model carries a weight
+            # matrix per triple it MESSAGE-PASSES over, which includes reverse
+            # edges; populated_triples is the smaller set it SCORES.
+            "edge_types": meta.get("encoder_triples") or meta["populated_triples"],
             "edge_feat_dim": meta["edge_feat_dim"],
             "hidden_dim": hidden_dim,
             "num_sage_layers": num_sage_layers,

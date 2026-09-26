@@ -103,6 +103,10 @@ def parse_args():
                         "for testing inductive generalisation; HIGH VARIANCE on this dataset "
                         "(only 13 principal-side identities, 2 with attack edges) — see "
                         "data_loader.py's principal_disjoint_split docstring.")
+    p.add_argument("--reverse-edges", action="store_true",
+                   help="Add mirrored reverse edges so principal nodes (User, "
+                        "UnresolvedPrincipal) receive messages during aggregation. "
+                        "They are never scored -- see scored_edge_types().")
     p.add_argument("--seed",     type=int,   default=42, help="Split random seed")
     p.add_argument("--neo4j_uri",  default="bolt://localhost:7687")
     p.add_argument("--neo4j_user", default="neo4j")
@@ -116,7 +120,11 @@ def parse_args():
 
 def build_model(name: str, meta: dict, args) -> nn.Module:
     node_feat_dims = meta["node_feat_dim"]        # {ntype: dim}
-    edge_types     = meta["populated_triples"]    # [(src,rel,dst), ...]
+    # encoder_triples, not populated_triples: the model needs a weight matrix
+    # for every triple it message-passes over, which includes reverse edges when
+    # they are enabled. forward() still only SCORES the forward triples --
+    # see scored_edge_types() in data_loader.py.
+    edge_types     = meta.get("encoder_triples") or meta["populated_triples"]
     e_feat         = meta["edge_feat_dim"]
 
     if name == "sage":
@@ -277,6 +285,7 @@ def main():
 
     # ── 1. Load data ──────────────────────────────────────────────────────────
     loader = PrivilegePropagationGraphLoader(
+        add_reverse_edges=args.reverse_edges,
         uri=args.neo4j_uri, user=args.neo4j_user, password=args.neo4j_pass,
         device=args.device,
     )

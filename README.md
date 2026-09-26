@@ -19,7 +19,7 @@ never touched during tuning -- all thresholds below are frozen from
 | Random Forest (temporal features) | 0.838 | 0.830 | 0.834 [95% CI: 0.777, 0.886] |
 | XGBoost (temporal features) | 0.823 | 0.930 | 0.873 [95% CI: 0.822, 0.917] |
 | Curated IAM rule baseline (11 rules) | 0.878 | 0.650 | 0.747 [95% CI: 0.667, 0.811] |
-| GraphSAGE alone (calibrated) | 0.778 | 0.910 | 0.839 |
+| GraphSAGE alone (retrained with credential-access chains) | 0.829 | 0.920 | 0.872 |
 | **Ensemble candidate A** -- `ensemble.py`, fixed 0.5/0.5 sum | 0.845 | 0.980 | **0.907** |
 | **Ensemble candidate B** -- `ensemble1.py`, stacked meta-learner | 0.838 | 0.980 | **0.903** |
 

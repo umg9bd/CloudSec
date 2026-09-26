@@ -247,3 +247,57 @@ class TestDeterminism(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+
+
+class TestReverseEdges(unittest.TestCase):
+    """Reverse edges exist so principal nodes (User, UnresolvedPrincipal) --
+    which are never a DESTINATION type in this graph and therefore receive no
+    messages -- can aggregate from the resources they touched.
+
+    The invariant that matters: they must participate in the ENCODER but never
+    be SCORED. Each one mirrors a real edge already scored in its forward
+    direction, so scoring both would double-count every observation and
+    desynchronise logits from labels."""
+
+    def _graph_with_reverse(self, seed=0):
+        from data_loader import REVERSE_RELATION_PREFIX
+        d = _graph(seed=seed)
+        for (s, r, t) in list(d.edge_types):
+            rev = (t, f"{REVERSE_RELATION_PREFIX}{r}", s)
+            d[rev].edge_index = d[(s, r, t)].edge_index.flip(0)
+            d[rev].edge_attr = d[(s, r, t)].edge_attr
+            # deliberately no .y and no .log_id
+        return d
+
+    def test_reverse_triples_are_not_scored(self):
+        from data_loader import scored_edge_types, is_reverse_triple
+        d = self._graph_with_reverse()
+        scored = scored_edge_types(d)
+        self.assertTrue(len(scored) > 0)
+        self.assertFalse(any(is_reverse_triple(t) for t in scored))
+
+    def test_logits_match_labels_when_reverse_edges_present(self):
+        """The regression that matters: adding reverse edges must not change
+        how many predictions come out."""
+        from data_loader import global_labels
+        d = self._graph_with_reverse()
+        model = _sage(TRIPLES)
+        with torch.no_grad():
+            logits = model(d)
+        self.assertEqual(logits.shape[0], len(global_labels(d)))
+
+    def test_reverse_edges_do_not_change_prediction_count(self):
+        model = _sage(TRIPLES)
+        plain, with_rev = _graph(seed=5), self._graph_with_reverse(seed=5)
+        with torch.no_grad():
+            self.assertEqual(model(plain).shape[0], model(with_rev).shape[0])
+
+    def test_reverse_edges_actually_change_embeddings(self):
+        """If the encoder ignored them this would silently be a no-op, and the
+        whole experiment would be measuring nothing."""
+        from data_loader import REVERSE_RELATION_PREFIX
+        rev_types = [(t, f"{REVERSE_RELATION_PREFIX}{r}", s) for (s, r, t) in TRIPLES]
+        model = _sage(TRIPLES + rev_types)
+        plain, with_rev = _graph(seed=9), self._graph_with_reverse(seed=9)
+        with torch.no_grad():
+            self.assertFalse(torch.allclose(model(plain), model(with_rev)))

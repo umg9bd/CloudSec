@@ -19,7 +19,7 @@ import argparse
 
 import torch
 
-from data_loader import PrivilegePropagationGraphLoader
+from data_loader import PrivilegePropagationGraphLoader, scored_edge_types
 from utils import evaluate
 
 
@@ -69,6 +69,12 @@ def main():
         uri=args.neo4j_uri, user=args.neo4j_user, password=args.neo4j_pass,
         fit_artifacts=fit_artifacts,
         model_node_types=set(model_args["node_feat_dims"]),
+        # Inferred from the checkpoint, not passed by hand: if the model was
+        # trained with reverse edges it has conv weights keyed on those triples
+        # and MUST be given them at evaluation too, or message passing silently
+        # differs from training. Reading it off the checkpoint makes the two
+        # impossible to get out of sync.
+        add_reverse_edges=any(str(t[1]).startswith("REV_") for t in model_args["edge_types"]),
     )
     data, meta = loader.load()
 
@@ -83,7 +89,7 @@ def main():
     # and report how much real-world coverage that excludes -- an honest
     # generalization-gap number, not something to paper over.
     trained_triples = set(tuple(t) for t in model_args["edge_types"])
-    real_triples = set(data.edge_types)
+    real_triples = set(scored_edge_types(data))
     untrained_triples = real_triples - trained_triples
     total_real_edges = sum(data[t].y.shape[0] for t in real_triples)
     excluded_edges = sum(data[t].y.shape[0] for t in untrained_triples)
@@ -104,7 +110,7 @@ def main():
 
     # Evaluate on every remaining (in-schema) edge -- there's no train/val
     # split to make on a held-out evaluation graph, every edge is "test".
-    all_true_masks = {t: torch.ones(data[t].y.shape[0], dtype=torch.bool) for t in data.edge_types}
+    all_true_masks = {t: torch.ones(data[t].y.shape[0], dtype=torch.bool) for t in scored_edge_types(data)}
 
     print("\n" + "=" * 60)
     print(f"REAL-DATA EVALUATION -- {args.model.upper()} (trained on synthetic)")
