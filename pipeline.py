@@ -55,7 +55,7 @@ for _p in (ROOT, os.path.join(ROOT, "graph_construction"), os.path.join(ROOT, "t
 
 import feature_engine9 as fe9                 # noqa: E402
 import prod.scorer as lstm_scorer             # noqa: E402
-import train_lstm_transformer as tlt          # noqa: E402
+import lstm_inference as tlt                  # noqa: E402  (scoring only -- nothing trains here)
 from gnn_scorer import GNNScorer              # noqa: E402
 
 CONFIG_PATH = os.path.join(ROOT, "pipeline_config.json")
