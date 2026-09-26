@@ -15,26 +15,47 @@ never touched during tuning -- all thresholds below are frozen from
 
 | | Precision | Recall | F1 |
 |---|---|---|---|
-| Random Forest (temporal features) | 0.508 | 0.980 | 0.669 |
-| XGBoost (temporal features) | 0.424 | 1.000 | 0.595 |
+| Logistic regression (bag of actions) | 0.706 | 0.960 | 0.814 [95% CI: 0.756, 0.864] |
+| Random Forest (temporal features) | 0.838 | 0.830 | 0.834 [95% CI: 0.777, 0.886] |
+| XGBoost (temporal features) | 0.823 | 0.930 | 0.873 [95% CI: 0.822, 0.917] |
 | Curated IAM rule baseline (11 rules) | 0.878 | 0.650 | 0.747 [95% CI: 0.667, 0.811] |
 | GraphSAGE alone (calibrated) | 0.778 | 0.910 | 0.839 |
-| **GNN heuristic + LSTM ensemble (ours, shipped)** | 0.845 | 0.980 | **0.907** |
+| **Ensemble candidate A** -- `ensemble.py`, fixed 0.5/0.5 sum | 0.845 | 0.980 | **0.907** |
+| **Ensemble candidate B** -- `ensemble1.py`, stacked meta-learner | 0.838 | 0.980 | **0.903** |
 
-The ensemble beats the rule baseline significantly: paired bootstrap
-+0.160 F1, 95% CI [+0.091, +0.234], p < 0.0001.
+Two ensemble candidates are kept as peers until a final choice is made. They
+share the same GNN-heuristic and LSTM per-event scorers, CLI, and output
+columns, and differ only in how the two branches are combined. With the
+pre-leak-fix LSTM checkpoint (see the first note below -- these figures do not
+hold with a clean LSTM), each beat the rule baseline significantly (paired
+bootstrap: A +0.160 F1, 95% CI [+0.091,
++0.234]; B +0.156, [+0.086, +0.231]; both p < 0.0001); the difference between
+them is not significant (B - A = -0.004, 95% CI [-0.019, +0.009], p = 0.79).
+Reproduce the head-to-head with `datasets/privilege-escalation/compare_ensembles.py`.
 
-Two things worth knowing:
+Worth knowing:
+- **The ensemble rows above are not publishable as-is.** They use an LSTM
+  checkpoint that predates the sequence track's leak fix: it trained on the
+  real Invictus capture and selected its epoch on a real attack user. Retrained
+  on the leakage-clean, synthetic-only data, the ensembles score **A 0.769 /
+  B 0.722** on the same test sessions -- **not significantly better than the
+  rule baseline (A - rules = +0.021, 95% CI [-0.060, +0.104])**, and
+  **significantly worse than the classical ML baselines above** (XGBoost - A =
+  +0.105, 95% CI [+0.054, +0.159], p < 0.0001). See
+  `docs/PROJECT_STATUS_REPORT.md` §6.20-6.22; which system the paper reports
+  is an open decision.
 - The rule baseline is a curated list built by reading AWS's public GuardDuty
   finding-type docs -- it was never validated against real GuardDuty output
   (this project's data collection never enabled it), so it's *not* a stand-in
   for the actual commercial product.
-- Random Forest and XGBoost, trained on the exact same `feature_engine9`
-  temporal columns, both **underperform the rule baseline** on real data
-  despite using real ML -- naive supervised learning on tabular features
-  doesn't transfer from synthetic training to real attacks. This motivates
-  the ensemble's rule-injected + sequence-modeling approach over a plain
-  classifier on the same columns.
+- The classical ML baselines (`evaluate_ml_baselines.py`) train on exactly
+  the synthetic table the LSTM trains on, and each gets its configuration
+  chosen on dev, as the proposed system did. An earlier version trained on
+  less data and on three features the synthetic generator hardcodes for
+  attacks (MFA fields, request-parameter length). It scored RF 0.669 /
+  XGBoost 0.595, and its conclusion that "ML on these features doesn't
+  transfer" was wrong. On equal footing XGBoost reaches 0.873, the best
+  real-test result in the project so far.
 - The standalone GraphSAGE model's raw edge-level ranking on real data was
   initially inverted (AUC ~0.26) -- root-caused to one dominant relation
   (`User->READ->Resource`, 87% of real attack-labeled edges) where the
@@ -44,8 +65,8 @@ Two things worth knowing:
   correction fit on dev only and frozen (not baked into the checkpoint,
   to keep the train/eval boundary clean) lifts edge-level AUC to 0.89 on
   both dev and test -- but even calibrated, GraphSAGE alone still trails
-  the shipped ensemble at the session level (0.839 vs 0.907), which is why
-  the ensemble, not the GNN alone, is what ships.
+  both ensemble candidates at the session level (0.839 vs 0.903-0.907),
+  which is why an ensemble, not the GNN alone, is the final system.
 
 Full evidence trail: `docs/PROJECT_STATUS_REPORT.md`.
 Full runnable walkthrough: `docs/DEMO_GUIDE.md`.

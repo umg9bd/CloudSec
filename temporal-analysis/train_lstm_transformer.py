@@ -17,6 +17,7 @@ P_seq for fusion = max(event probability) inside each 10-min / stride-2 window.
 
 from __future__ import annotations
 
+import argparse
 import json
 import math
 import random
@@ -156,7 +157,9 @@ def relabel_campaign(df: pd.DataFrame, sec_ids: set[int], extra_ids: set[int]) -
 def load_and_validate(path: Path) -> tuple[pd.DataFrame, list[str], int]:
     df = pd.read_csv(path)
     assert df.shape[1] == 40, df.shape
-    df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True)
+    # Nanosecond resolution explicitly: every time computation below treats astype("int64") as
+    # ns, but pandas >= 3 parses these strings at microsecond resolution by default.
+    df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True).astype("datetime64[ns, UTC]")
     for col in ["username", "timestamp", "event_name_idx", "label"]:
         assert df[col].isna().sum() == 0, col
     assert int(df["event_name_idx"].min()) >= 1
@@ -482,12 +485,18 @@ def group_split_v4(seqs: list[EventSeq], seed=SEED):
     for s in seqs:
         by_user.setdefault(s.username, []).append(s)
 
-    locked_test = {BERT_JAN}
-    locked_val = {STRATUS_ATTACKER, VAL_INV_CLEAN}
+    # The locked Invictus users only exist in the pre-leak-fix data (see leakage_guard.py); the
+    # clean training set is synthetic-only, where fe:/syn: users alone are split below. Behaviour
+    # is unchanged whenever Invictus rows are present, so the old split stays reproducible.
+    has_inv = any(u.startswith("inv:") for u in by_user)
+    locked_test = {BERT_JAN} if has_inv else set()
+    locked_val = {STRATUS_ATTACKER, VAL_INV_CLEAN} if has_inv else set()
     locked = locked_test | locked_val
     missing = sorted(u for u in locked if u not in by_user)
     if missing:
         raise SystemExit(f"split missing locked users: {missing}")
+    if not has_inv:
+        print("no inv: users in data (leakage-clean, synthetic-only): no locked Invictus users in the split")
 
     pos_users = [u for u, xs in by_user.items() if any(s.label for s in xs) and u not in locked]
     neg_users = [u for u in by_user if u not in set(pos_users) and u not in locked]
@@ -513,9 +522,10 @@ def group_split_v4(seqs: list[EventSeq], seed=SEED):
     val_u = set(va_syn + va_fe + va_neg) | locked_val
     test_u = set(te_fe + te_neg + te_syn) | locked_test
     take = lambda u: [s for s in seqs if s.username in u]
+    n_lock = 1 if has_inv else 0
     print(
-        f"attack-users train/val/test={len(tr_syn)+len(tr_fe)}/{len(va_syn)+len(va_fe)+1}/{len(te_fe)+1} "
-        f"clean-users={len(tr_neg)}/{len(va_neg)+1}/{len(te_neg)}"
+        f"attack-users train/val/test={len(tr_syn)+len(tr_fe)}/{len(va_syn)+len(va_fe)+n_lock}/{len(te_fe)+n_lock} "
+        f"clean-users={len(tr_neg)}/{len(va_neg)+n_lock}/{len(te_neg)}"
     )
     print(f"inv locked val={sorted(locked_val)} test={sorted(locked_test)}")
     print(f"syn attack-users train/val/test={len(tr_syn)}/{len(va_syn)}/{len(te_syn)}")
@@ -762,6 +772,7 @@ def prepare_score_frame(
     out["timestamp"] = pd.to_datetime(out["timestamp"], utc=True, errors="coerce")
     if out["timestamp"].isna().any():
         raise ValueError("timestamp contains unparseable values")
+    out["timestamp"] = out["timestamp"].astype("datetime64[ns, UTC]")  # ns, as in load_and_validate
     if out["username"].isna().any():
         raise ValueError("username contains nulls")
     out["username"] = out["username"].astype(str)
@@ -801,14 +812,25 @@ def score_events_to_windows(
 
 
 def main():
+    ap = argparse.ArgumentParser(description="Train LSTMTransformerV5 on CSV_PATH.")
+    ap.add_argument("--out-dir", type=Path, default=OUT_DIR,
+                    help=f"Where to write the checkpoint and artifacts (default: {OUT_DIR})")
+    out_dir = ap.parse_args().out_dir
     set_seed()
-    OUT_DIR.mkdir(parents=True, exist_ok=True)
+    out_dir.mkdir(parents=True, exist_ok=True)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"device={device}", flush=True)
     print("model=LSTMTransformerV5 (campaign-gated secrets + PE context)", flush=True)
 
     df, feature_cols, vocab_size = load_and_validate(CSV_PATH)
     vocab = json.loads(VOCAB_PATH.read_text(encoding="utf-8")) if VOCAB_PATH.exists() else {}
+    if vocab:
+        # Size the embedding to the whole vocab, not just the indices present in training: the real
+        # data this model scores contains event names absent from the leakage-clean training set,
+        # and an index past the embedding table crashes inference.
+        vocab_size = max(vocab_size, max(int(v) for v in vocab.values()) + 1)
+        print(f"embedding vocab_size={vocab_size} (covers the full event_name vocab)")
+    has_inv = bool(df["username"].str.startswith("inv:").any())
     pe_ids, sec_ids, extra_ids = vocab_id_sets(vocab)
     df = attach_pe_context(df, pe_ids)
     df = relabel_campaign(df, sec_ids, extra_ids)
@@ -823,6 +845,9 @@ def main():
     )
 
     train_s, val_s, test_s = group_split_v4(seqs)
+    # Recorded in the checkpoint so downstream stacking can use only users this model never saw.
+    split_users = {name: sorted({s.username for s in ss})
+                   for name, ss in (("train", train_s), ("val", val_s), ("test", test_s))}
     train_s = subsample_fe_positives(train_s)
     print(f"split events train/val/test={len(train_s)}/{len(val_s)}/{len(test_s)}", flush=True)
     risk_idx = feature_cols.index("action_risk_prior") if "action_risk_prior" in feature_cols else None
@@ -848,13 +873,15 @@ def main():
     _print_split("Val", val_s)
     test_evt = _print_split("Test", test_s)
     bj = [s for s in test_s if s.username == BERT_JAN]
-    _, p_bj = predict(model, make_loader(bj), device)
-    bj_camp = metrics_dict(np.array([s.label for s in bj]), p_bj, threshold)
-    bj_orig = orig_label_metrics(bj, p_bj, threshold)
-    bj_orig_05 = orig_label_metrics(bj, p_bj, 0.5)
-    print("=== bert-jan CAMPAIGN labels ===", bj_camp, flush=True)
-    print("=== bert-jan ORIGINAL labels @tuned ===", bj_orig, flush=True)
-    print("=== bert-jan ORIGINAL labels @0.5 ===", bj_orig_05, flush=True)
+    bj_camp = bj_orig = bj_orig_05 = None
+    if bj:  # absent from the leakage-clean data
+        _, p_bj = predict(model, make_loader(bj), device)
+        bj_camp = metrics_dict(np.array([s.label for s in bj]), p_bj, threshold)
+        bj_orig = orig_label_metrics(bj, p_bj, threshold)
+        bj_orig_05 = orig_label_metrics(bj, p_bj, 0.5)
+        print("=== bert-jan CAMPAIGN labels ===", bj_camp, flush=True)
+        print("=== bert-jan ORIGINAL labels @tuned ===", bj_orig, flush=True)
+        print("=== bert-jan ORIGINAL labels @0.5 ===", bj_orig_05, flush=True)
 
     event_df = score_seqs(model, seqs, device)
     fusion_rows = build_fusion_windows(df)
@@ -884,6 +911,7 @@ def main():
             "test_metrics": test_win_m,
             "test_event_metrics": test_evt,
             "event_name_vocab": vocab,
+            "split_users": split_users,
             "config": {
                 "model": "LSTMTransformerV5",
                 "dataset": str(CSV_PATH.relative_to(ROOT)).replace("\\", "/"),
@@ -894,7 +922,8 @@ def main():
                 "stride_minutes": STRIDE_MINUTES,
                 "train_unit": "event (10-min history, loss on last step)",
                 "p_seq": "max(P_event) in fusion window",
-                "split": "v4 users: bert-jan test, stratus+benjamin val, syn train/val",
+                "split": ("v4 users: bert-jan test, stratus+benjamin val, syn train/val" if has_inv
+                          else "v4 users, synthetic-only (leakage-clean): fe train/val/test, syn train/val"),
                 "secret_ids": sorted(sec_ids),
                 "anti_overfit": {
                     "token_drop": TOKEN_DROP,
@@ -912,13 +941,13 @@ def main():
                 },
             },
         },
-        OUT_DIR / "temporal_lstm_transformer.pt",
+        out_dir / "temporal_lstm_transformer.pt",
     )
-    pd.DataFrame(history).to_csv(OUT_DIR / "training_history.csv", index=False)
-    event_df.to_csv(OUT_DIR / "P_event.csv", index=False)
+    pd.DataFrame(history).to_csv(out_dir / "training_history.csv", index=False)
+    event_df.to_csv(out_dir / "P_event.csv", index=False)
     pseq["pred"] = (pseq["P_seq"] >= win_thr).astype(int)
-    pseq.to_csv(OUT_DIR / "P_seq.csv", index=False)
-    with open(OUT_DIR / "test_metrics.json", "w", encoding="utf-8") as f:
+    pseq.to_csv(out_dir / "P_seq.csv", index=False)
+    with open(out_dir / "test_metrics.json", "w", encoding="utf-8") as f:
         json.dump(
             {
                 "test_event": test_evt,
@@ -937,8 +966,8 @@ def main():
                 "window_threshold": win_thr,
                 "protocol": {
                     "model": "LSTMTransformerV5",
-                    "test_attacker": BERT_JAN,
-                    "val_inv": [STRATUS_ATTACKER, VAL_INV_CLEAN],
+                    "test_attacker": BERT_JAN if has_inv else None,
+                    "val_inv": [STRATUS_ATTACKER, VAL_INV_CLEAN] if has_inv else [],
                     "fe_pos_keep": FE_POS_KEEP,
                     "early_stop": "val_f1",
                     "campaign_relabel": True,

@@ -1,3 +1,5 @@
+# Ensemble candidate A: fixed weighted sum of the GNN heuristic and LSTM scores. Candidate B is
+# ensemble1.py (stacked meta-learner); datasets/privilege-escalation/compare_ensembles.py compares them.
 from __future__ import annotations
 
 import argparse
@@ -289,9 +291,11 @@ def run(input_path: str, weight_gnn: float = 0.5, weight_lstm: float = 0.5,
 # ── Watch mode: re-score the full pipeline as new log files land ────────────
 
 # Watches a directory and re-runs the full scoring pipeline each time a new log file arrives.
+# score_fn(structural_df, temporal_df) -> risk table overrides the default weighted-sum scoring,
+# so ensemble1.py can reuse this whole watch loop with its own combiner.
 def watch(directory: str, weight_gnn: float = 0.5, weight_lstm: float = 0.5,
           out_path: str = "risk_scores.csv", freeze_vocab: bool = False,
-          gnn_source: str = "csv") -> None:
+          gnn_source: str = "csv", score_fn=None) -> None:
     from watchdog.events import FileSystemEventHandler
     from watchdog.observers import Observer
 
@@ -315,9 +319,12 @@ def watch(directory: str, weight_gnn: float = 0.5, weight_lstm: float = 0.5,
         temporal_df = pd.read_csv(fe9.TEMPORAL_OUT)
         n = len(structural_df)
         print(f"[ENSEMBLE] rescoring {n} accumulated events...", flush=True)
-        gnn_df = score_gnn_events(structural_df, source=gnn_source, resolver=resolver)
-        lstm_df = score_lstm_events(temporal_df, fe9.EVENT_NAME_VOCAB_FILE)
-        result = combine_events(structural_df, temporal_df, gnn_df, lstm_df, weight_gnn, weight_lstm)
+        if score_fn is not None:
+            result = score_fn(structural_df, temporal_df)
+        else:
+            gnn_df = score_gnn_events(structural_df, source=gnn_source, resolver=resolver)
+            lstm_df = score_lstm_events(temporal_df, fe9.EVENT_NAME_VOCAB_FILE)
+            result = combine_events(structural_df, temporal_df, gnn_df, lstm_df, weight_gnn, weight_lstm)
         result.to_csv(out_path, index=False)
         print(f"[ENSEMBLE] {len(result)} events scored -> {out_path}", flush=True)
 

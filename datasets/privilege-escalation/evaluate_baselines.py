@@ -153,24 +153,12 @@ def main():
     print("-" * 60)
     for r in test_results:
         print(f"{r['rule_set']:<32} {r['precision']:>10.3f} {r['recall']:>8.3f} {r['f1']:>8.3f}")
-    # Classical-ML baselines (evaluate_ml_baselines.py) -- Random Forest / XGBoost trained on
-    # feature_engine9's own temporal feature columns (train-on-synthetic, same paradigm as the
-    # GNN/LSTM models), threshold swept on real_dataset_dev.csv only, applied once to test.
-    # Both UNDERPERFORM the rule baseline above despite using real ML on the same features --
-    # naive supervised learning on tabular features does not transfer from synthetic to real
-    # attacks, which is the point: it motivates the ensemble's rule-injected + sequence approach
-    # rather than a plain classifier on the same columns.
-    print(f"{'Random Forest (temporal features)':<32} {0.508:>10.3f} {0.980:>8.3f} {0.669:>8.3f}")
-    print(f"{'XGBoost (temporal features)':<32} {0.424:>10.3f} {1.000:>8.3f} {0.595:>8.3f}")
-    # GNN + Sequence ensemble (ensemble.py, weight_gnn=weight_lstm=0.5, default
-    # SESSION_ALERT_THRESHOLD=5.5), evaluated on real_dataset_test.csv's 238 sessions
-    # (100 attack): P=0.845 R=0.980 F1=0.907. Paired bootstrap vs the curated-rule
-    # row above, same 238 sessions: F1 gap +0.160, 95% CI [+0.091, +0.234], p<0.0001
-    # -- significant. A weight/combination-strategy sweep (max, geometric mean,
-    # impact-weighted) tuned only on real_dataset_dev.csv found nothing that beat the
-    # 0.5/0.5 default by more than dev-set noise, so these are the unmodified defaults,
-    # not a cherry-picked config (see ensemble.py's SESSION_ALERT_THRESHOLD comment).
-    print(f"{'GNN + Sequence ensemble (ours)':<32} {0.845:>10.3f} {0.980:>8.3f} {0.907:>8.3f}")
+    # Other methods' numbers are deliberately not copied in here: a hardcoded copy goes stale
+    # silently (this table used to print the pre-leak-fix ensemble's F1=0.907 as "ours" after it
+    # stopped being true). The scripts that compute them, on these same 238 test sessions:
+    print("-" * 60)
+    print("Classical-ML baselines (LR / Random Forest / XGBoost): evaluate_ml_baselines.py")
+    print("Proposed system (ensemble candidates):                 compare_ensembles.py")
 
 
 if __name__ == "__main__":

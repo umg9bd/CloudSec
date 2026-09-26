@@ -311,17 +311,110 @@ Three things resolved in one pass, on branch `ensembled-final-branch`.
 
 **The GNN + sequence ensemble (§9.4's "entirely unstarted" item) now exists and ships as the project's actual headline result — supersedes the standalone-GraphSAGE F1=0.851 cited above.** `ensemble.py` combines a hand-crafted structural risk score (`score_gnn_events` — privilege-escalation/credential-access technique flags, AWS access-level, target-resource sensitivity tier, hop count, privilege gain, path abnormality; **not** the trained GraphSAGE/GAT checkpoint) with the trained LSTM-Transformer's per-event `P_event`, at `weight_gnn=weight_lstm=0.5`. A weight/threshold/combination-strategy sweep (linear blend 0.0–1.0, max, geometric mean, and an impact-weighted variant multiplying in resource sensitivity) tuned on dev only found nothing beating the 0.5/0.5 default by more than dev-set noise (~0.001 F1 on 159 sessions), and the dev "winner" did not generalize better to test — so the shipped defaults are unmodified, not cherry-picked. Final, frozen, test-once number: **P=0.845 R=0.980 F1=0.907**, vs. the curated rule baseline's F1=0.747 on the same 238 sessions — paired bootstrap +0.160 F1, 95% CI [+0.091, +0.234], p<0.0001. This is now the number the paper should lead with; the standalone-GraphSAGE and standalone-LSTM numbers become an ablation showing what each branch contributes.
 
-**Second non-graph baseline, strengthening §6.17's bag-of-actions result.** Random Forest and XGBoost trained on `feature_engine9`'s full 35-column temporal feature set (the standard reviewer-expected comparison — matches the RF/XGBoost/LSTM table convention in related published work, e.g. arxiv:2512.10280), same train-on-synthetic/dev-threshold/test-once protocol: **Random Forest F1=0.669, XGBoost F1=0.595** — both *below* the curated rule baseline's F1=0.747, both far below the ensemble's F1=0.907, and both consistent with §6.17's bag-of-actions logistic regression (F1=0.647). All three independent non-graph approaches land in the same F1≈0.6–0.67 band on real data despite using real supervised ML — reinforcing that naive tabular learning on this feature set does not transfer from synthetic training to real attacks, and that the graph structure + rule-injected priors + sequence modeling are what's actually earning the ensemble's real-data performance. Script: `datasets/privilege-escalation/evaluate_ml_baselines.py`.
+**Second non-graph baseline, strengthening §6.17's bag-of-actions result.** Random Forest and XGBoost trained on `feature_engine9`'s full 35-column temporal feature set (the standard reviewer-expected comparison — matches the RF/XGBoost/LSTM table convention in related published work, e.g. arxiv:2512.10280), same train-on-synthetic/dev-threshold/test-once protocol: **Random Forest F1=0.669, XGBoost F1=0.595** — both *below* the curated rule baseline's F1=0.747, both far below the ensemble's F1=0.907, and both consistent with §6.17's bag-of-actions logistic regression (F1=0.647). All three independent non-graph approaches land in the same F1≈0.6–0.67 band on real data despite using real supervised ML — reinforcing that naive tabular learning on this feature set does not transfer from synthetic training to real attacks, and that the graph structure + rule-injected priors + sequence modeling are what's actually earning the ensemble's real-data performance. Script: `datasets/privilege-escalation/evaluate_ml_baselines.py`. **⚠️ Withdrawn (§6.22):** these baselines trained on less data than the LSTM and leaned on three generator-artifact features; rebuilt on equal footing they score LR 0.814 / RF 0.834 / XGBoost 0.873 — above the rule baseline and the clean ensemble.
 
 **A recurrence of §6.17's "Fix A" was caught and fixed in `evaluate_baselines.py` itself.** Its own `main()` summary table was computing the rule baselines on `real_dataset_combined.csv` (397 dev+test sessions) while the ensemble/RF/XGBoost rows below it were test-only (238 sessions) — the exact population mismatch §6.17 already fixed in `evaluate_session_level.py`, just recurring in the sibling script that was never updated to match. Fixed by adding a dedicated test-only rule evaluation and using that for the summary table; the combined-set evaluation is kept as its own separately-labeled section (still useful, just not comparable to test-only model scores). Re-running now reproduces the documented Fix-A numbers exactly: Curated IAM rule baseline P=0.878 R=0.650 F1=0.747 on the 238 test sessions.
 
 **Naming correction, applied throughout this document and the codebase.** "GuardDuty-style (11 rules)" is renamed to **"Curated IAM rule baseline (11 rules)"** everywhere (`evaluate_baselines.py`'s `RULES` dict, `evaluate_session_level.py`, `ensemble.py`, `README.md`, `DEMO_GUIDE.md`, this file). The rule set was built by reading AWS's public GuardDuty finding-type documentation and picking related IAM actions — this project's data collection (`stratus_collection/README.md`) never enabled GuardDuty during detonation, so it was never validated against real GuardDuty output, and the old name overclaimed what it is. All F1/precision/recall numbers are unchanged; only the label.
 
+### 6.19 Two ensemble candidates, kept as peers until a final choice
+
+§6.18's "the ensemble now ships" is superseded: there are now **two** ensemble candidates, deliberately kept as equals until the final pick. Both share the same per-event scorers (`score_gnn_events`, `score_lstm_events`), CLI (incl. `--watch`), and output columns; they differ **only** in the combiner.
+
+| Candidate | Combiner | Shipped `SESSION_ALERT_THRESHOLD` | Test P | Test R | Test F1 |
+|---|---|---|---|---|---|
+| **A** — `ensemble.py` | fixed `0.5·gnn + 0.5·lstm` | 5.50 (dev-tuned 5.54) | 0.845 | 0.980 | **0.907** |
+| **B** — `ensemble1.py` | logistic-regression stacking over the GNN heuristic's raw sub-signals + both branch scores, fit on synthetic only | 9.28 (dev-tuned 9.28) | 0.838 | 0.980 | **0.903** |
+
+Paired bootstrap on the same 238 test sessions: **B − A = −0.004, 95% CI [−0.019, +0.009], p=0.79 — not significant.** Each beats the curated rule baseline significantly (A +0.160, B +0.156, both p<0.0001). Both hit the same recall (98/100 attack sessions), so the remaining headroom is precision, which the component scores bound rather than the combiner — consistent with §6.18's weight sweep, where max/geometric-mean/impact-weighted fusion also tied.
+
+B's learned weights diverge sharply from A's 50/50 (LSTM +10.5, `hop_count` +6.6, credential-access +3.4, GNN blended score only +2.9; the negative `is_priv_esc_technique` coefficient is most likely collinearity with `gnn_event_score`, which already includes it). That two very different combiners land on the same real-data result is itself evidence the headline number is **not an artifact of hand-picked fusion weights**.
+
+Test numbers above are measured exactly as each file runs in production (rounded 0–10 `risk_score` vs. each file's shipped constant), not at the unrounded dev-sweep value — checked, and identical. `datasets/privilege-escalation/compare_ensembles.py` reproduces the whole table and flags any drift between a shipped threshold and its dev-tuned value. Factors for the eventual pick beyond F1 (which is tied): A needs no fitted artifact and is fully interpretable by inspection; B's meta-model (`.ensemble1_meta_model.pkl`) and threshold must be re-tuned together whenever it is refit.
+
+### 6.20 Ensembling has hit its ceiling; label-convention and LSTM-contamination findings
+
+**Technique search, real dev only (test untouched).** Trained combiners scored out-of-fold (20× repeated 5-fold CV grouped by session); two label views — as-is, and excluding the 10 benign dev sessions dominated by Stratus tooling user agents (Terraform / `stratus-red-team_*`; defined from raw metadata, never from model scores). Session-level F1 at best dev threshold:
+
+| Technique | as-is | excl. tooling | Verdict |
+|---|---|---|---|
+| A — fixed mean | 0.942 | 0.985 | baseline |
+| noisy-OR | 0.942 | 0.985 | tie |
+| B stacking (synthetic fit) — as shipped, and refit on LSTM-out-of-sample events only | 0.942 | 0.985 | tie (coefficients nearly identical) |
+| + GraphSAGE as third base model (fixed mean) | 0.936 | 0.985 | no gain |
+| Event-level LR / gradient boosting fit on real dev | 0.914–0.931 | 0.934–0.961 | worse — learns the label convention (below) |
+| Session-level LR on manifest-derived sessions | 0.945 | 0.991 | not deployable (needs the dataset's `session_id`) |
+| Per-user evidence accumulation (username + 30-min gap, deployable) | 0.945–0.950 | 0.993 | **artifact**: every changed session is score spillover between back-to-back detonations by one red-team identity (chained "sessions" of 1,171 and 2,083 events); AP drops 0.923→0.885 |
+
+No deployable technique that avoids both artifacts beats A. Remaining headroom is in the base models and labels, not the combiner.
+
+**Label convention (dev).** All 6 of A's dev false positives are Stratus Terraform setup/teardown sessions (`DeleteTrail`, `DeleteUser`, `PutRolePolicy`, `StartLogging`…) run by the red-team identities on the boundary between two back-to-back *successful* detonations (verified against the manifests). Labeling counts only the technique's own events as the attack, so this attack infrastructure is labeled benign. A real detector *should* flag it; a combiner trained to suppress it would score better here and worse against real attackers. Report as a limitation; if relabeling is ever considered, define the rule from metadata before looking at test and report both label versions.
+
+**LSTM checkpoint predates the §6.18-era leak fix (commit 72e6e8a: "the LSTM must be retrained … NOT done here").** `temporal_lstm_transformer.pt` (2026-08-23) was trained on the pre-fix `train_temporal_aug.csv` (2,798 test + 60 dev rows). Reproducing its own `group_split_v4` on that file: only **43** real-test rows were in its TRAIN split (9 small benign Invictus sessions), **105** in VAL (1 benign session, used for early stopping/threshold), 2,419 in its own TEST split (`bert-jan`, no influence on weights). Excluding those 11 test sessions leaves A at F1=0.907 — **but that row-level check does not capture the real exposure, and §6.21's clean retrain shows the headline is NOT robust** (A drops to 0.769). The old LSTM trained on the real benign Invictus capture (AWS service-role activity that pervades the test set) and selected its epoch on a real Stratus attack user; that distributional exposure helps on every test session, not only the 11 containing leaked rows.
+
+### 6.21 Leakage-clean LSTM retrain: the ensemble's win over the rule baseline does not survive
+
+Retrained `train_lstm_transformer.py` on the leak-fixed, synthetic-only data into `temporal-analysis/artifacts/lstm_transformer_clean/` (shipped checkpoint untouched). Three blockers fixed on the way: `group_split_v4` required Invictus users the fix had removed (now only when Invictus rows exist — the old split still reproduces exactly: 4,906 test events / 505 positives, matching the checkpoint); the embedding was sized from training data (273) rather than the vocab (281), which would crash on real event names; and under pandas ≥ 3 timestamps parse at microsecond resolution while all time arithmetic assumes nanoseconds (10-min windows became ~7 days; Δt 1000× small; PE-recency features and campaign relabels wrong) — an explicit ns cast now in both `load_and_validate` and `prepare_score_frame`. Also verified: the leak fix renumbered 63/281 vocab IDs; the clean training data matches the current vocab on all 10,033 synthetic rows.
+
+Real test (238 sessions; each candidate at its own dev-tuned threshold, test touched once), `compare_ensembles.py --lstm-ckpt …/lstm_transformer_clean/…`:
+
+| | Old LSTM (real-data-exposed) | Clean LSTM |
+|---|---|---|
+| A — fixed 0.5/0.5 | 0.907 | **0.769** (P 0.716, R 0.830) |
+| B — stacked (refit on the clean LSTM's held-out users) | 0.903 | **0.722** (B − A = −0.047, p=0.003) |
+| Curated rule baseline | 0.747 | 0.747 |
+| A − rules | +0.160, p<0.0001 | **+0.021, 95% CI [−0.060, +0.104], p=0.62 — not significant** |
+
+Dev-only diagnostics (test not used): the clean LSTM works but transfers worse (session AUC 0.927 vs 0.963; alone best-F1 0.896 vs 0.942). **The GNN heuristic alone scores dev F1 0.917 — above the clean 50/50 ensemble (0.872)**, and a dev weight sweep is U-shaped (extremes best, 0.847 at w_gnn=0.6): with clean components, linear blending hurts. Separately, `ensemble.score_lstm_events` rebuilds event names from feature_engine9's 68-action vocab, so **54% of real dev events (53% of attack events) reach the LSTM as `<UNK>`**, though 87% of those names are in the LSTM's own vocab — for the clean model those embeddings are untrained, so the remedy is training a proper unknown-event token, not plumbing.
+
+**Status: the paper cannot claim the ensemble beats the rule baseline on the current evidence.** Open decision: report the as-designed clean ensemble (≈ rule baseline), and/or re-select the system on dev with clean components (dev favors the GNN heuristic alone) and evaluate once on test, and/or improve the LSTM's synthetic→real transfer first.
+
+### 6.22 ML baselines rebuilt on equal footing: they beat the rule baseline *and* the clean ensemble
+
+An audit of §6.18's RF/XGBoost found them handicapped relative to the system they were compared against:
+
+1. **Less training data.** They trained on `cloudtrail_temporal.csv` (10,033 events); the LSTM trains on `train_temporal_aug.csv` — those rows plus 1,173 `syn:` events from `augment_attack_chains.py` (verified synthetic: every one copies its feature row from an `fe:` row, none from Invictus).
+2. **Generator artifacts.** `generate_synthetic_data.py` writes every attack step with `mfa_authenticated="False"` and gives only attack steps a `request_params_raw`. The old RF's top features were exactly these (`params_length_normalized` importance 0.300, `mfa_absent` 0.097, `no_mfa` 0.090). Univariate AUC, synthetic → real dev: `params_length_normalized` 0.913 → 0.415, `no_mfa` 0.829 → 0.550, `mfa_absent` 0.358 → 0.454.
+3. **Unknown actions.** Synthetic data covers 67 actions, so 54% of real dev events arrive as `event_name_idx=0` (`<UNK>`), a value absent from training — and the IDs were fed as ordinal numbers.
+4. **No tuning**, where the proposed system's thresholds and weights were dev-tuned.
+5. **§6.17's bag-of-actions LR (F1=0.647) had no code anywhere**; no CIs; one seed; and `evaluate_baselines.py` printed hardcoded copies of other scripts' numbers, including the stale pre-leak-fix ensemble 0.907.
+
+**Rebuilt** (`evaluate_ml_baselines.py`, same protocol — selection on dev only, test touched once): all three train on the LSTM's exact training table, with `syn:` rows' out-of-vocabulary action IDs set to 0 (what feature_engine9's frozen vocabulary gives those actions at inference). Each model's configuration is chosen on dev — hyperparameters and, for RF/XGBoost, the ID encoding (ordinal / one-hot / dropped) and whether the three artifact features are used. The LR over a bag of actions is re-implemented (synthetic sessions rebuilt as username + 30-min gap, since the generators write no session id). Reported with a bootstrap CI, paired bootstraps, and 5 training seeds. `evaluate_baselines.py` now points to the scripts instead of copying their numbers.
+
+**Where the gain comes from** (dev only; the old default hyperparameters, ordinal IDs):
+
+| | Artifacts kept | Artifacts dropped |
+|---|---|---|
+| Old training data (`fe:` only) | RF 0.650 / XGB 0.598 — the old baselines | RF 0.868 / XGB 0.813 |
+| LSTM's training data (`fe:` + `syn:`) | RF 0.912 / XGB 0.885 | RF 0.933 / XGB 0.920 |
+
+Tuning added essentially nothing (RF's dev-best config scores the same 0.933 as the old defaults; XGBoost 0.920 → 0.921): the old baselines were handicapped, the new ones are not over-tuned.
+
+**Real test** (238 sessions; configuration and threshold frozen from dev):
+
+| | P | R | F1 [95% CI] | − rule baseline (paired) | − clean ensemble A (paired) | F1 over 5 seeds |
+|---|---|---|---|---|---|---|
+| LR, bag of actions | 0.706 | 0.960 | 0.814 [0.756, 0.864] | +0.066 [−0.014, +0.150], p=0.11 | +0.045 [−0.009, +0.101], p=0.10 | deterministic |
+| Random Forest | 0.838 | 0.830 | 0.834 [0.777, 0.886] | +0.087 [+0.009, +0.168], p=0.03 | +0.066 [+0.009, +0.126], p=0.02 | 0.856 ± 0.019 |
+| XGBoost | 0.823 | 0.930 | **0.873** [0.822, 0.917] | +0.126 [+0.058, +0.197], p<0.0001 | **+0.105 [+0.054, +0.159], p<0.0001** | 0.880 ± 0.005 |
+| Curated rule baseline | 0.878 | 0.650 | 0.747 [0.671, 0.815] | — | — | — |
+| Clean ensemble A (§6.21) | 0.716 | 0.830 | 0.769 | +0.021 [−0.060, +0.104], p=0.62 | — | — |
+
+Dev-selected: LR `C=0.1`, binary bag; RF artifacts dropped, ordinal IDs, `max_depth=8`; XGBoost artifacts dropped, IDs dropped, depth 6, `min_child_weight=10`, 300 trees.
+
+**Consequences.**
+- §6.18's "naive supervised learning on tabular features doesn't transfer" is **withdrawn** — it was produced by the handicaps above. On equal data, a plain XGBoost over feature_engine9's columns is the strongest system measured on real test so far: significantly above the clean ensemble, and above standalone GraphSAGE's 0.851 (§6.17; not paired-tested).
+- §9.1's closure of "does graph structure matter?" is **reopened** — §9.3's scenario (a non-graph baseline matches the GNN) is now the live one.
+- The artifacts affect the proposed system too: the LSTM consumes the same three features. Retraining it without them (dev first) is the obvious next experiment.
+- Broader synthetic→real shifts, not dropped because they are labeling/coverage choices rather than hardcoded shortcuts: `is_recon_action` AUC 0.169 synthetic → 0.684 real dev (the generator labels recon inside attack sessions benign; Stratus discovery techniques are attacks), `is_write_action` 0.831 → 0.439 (real credential theft is read-only — the same "READ ≈ safe" trap as §6.18's GraphSAGE inversion).
+
+**Status: on current evidence the paper cannot claim the proposed system beats classical ML baselines.**
+
 ---
 
 ## 7. Key Finding: A Verified Fix for the Synthetic→Real Generalization Gap
 
-**Update (6.18): this section describes the standalone-GraphSAGE result. The GNN + sequence ensemble now ships and is the project's actual headline number — F1=0.907 vs. this section's F1=0.851 — see §6.18 before citing anything below as "the" result.** The rest of this section is kept as-is for its diagnostic value (the generalization-gap fix and its evidence trail apply equally to the ensemble's structural branch).
+**Update (6.18, 6.19): this section describes the standalone-GraphSAGE result. The GNN + sequence ensemble is the project's actual headline result — two candidates, F1=0.907 (A, `ensemble.py`) and 0.903 (B, `ensemble1.py`), statistically tied, final pick pending — vs. this section's F1=0.851. See §6.18–6.19 before citing anything below as "the" result.** **Further update (§6.21–6.22): with a leakage-clean LSTM the ensemble scores 0.769 (≈ the rule baseline), and classical ML baselines rebuilt on equal footing beat it (XGBoost 0.873, p<0.0001).** The rest of this section is kept as-is for its diagnostic value (the generalization-gap fix and its evidence trail apply equally to the ensemble's structural branch).
 
 This supersedes the previous version of this section (preserved below in spirit but corrected in conclusion — see 6.16 for the full evidence trail):
 
@@ -349,7 +442,7 @@ This finding is *itself* a legitimate and durable research contribution if analy
 - New: `checkpoints/best_GAT.pt`, `checkpoints/best_GAT_wrapped.pt` (pre-6.16 GAT; not yet re-verified with the rank-normalization fix)
 - Retrained `checkpoints/best_GraphSAGE.pt` / `best_GraphSAGE_wrapped.pt` (post-6.16, the version behind the F1=0.823 result — this is the one to keep)
 
-**Still not done**: GAT re-verification with the 6.16 fix, explainability validation, `infer.py`'s streaming-path desync fix — see Section 9. **Done since (6.18, branch `ensembled-final-branch`)**: sequence/ensemble branch (`ensemble.py`, F1=0.907), a second non-graph baseline (RF/XGBoost), and the §6.17 edge-AUC-inversion open question (closed, root cause + fix documented).
+**Still not done**: GAT re-verification with the 6.16 fix, explainability validation, `infer.py`'s streaming-path desync fix — see Section 9. **Done since (6.18, branch `ensembled-final-branch`)**: sequence/ensemble branch (`ensemble.py`, F1=0.907 — 0.769 with a clean LSTM, §6.21), a second non-graph baseline (RF/XGBoost; rebuilt in §6.22), and the §6.17 edge-AUC-inversion open question (closed, root cause + fix documented).
 
 ---
 
@@ -362,7 +455,7 @@ The goal is a paper that holds up in a strong venue for 5–10+ years, not just 
 1. **Re-verify GAT with the 6.16 rank-normalization fix** — GAT's current numbers (6.12) predate this fix and are not representative of what GAT can actually do; retrain and re-evaluate before drawing any GraphSAGE-vs-GAT conclusion.
 2. **Fix `infer.py`'s streaming feature builder** (flagged in 6.16) — it independently constructs edge features and was not updated for the new rank-normalized schema; would silently produce wrong results if run as-is right now.
 3. **Commit and push everything** — the checkpoint behind F1=0.823 currently exists only in the local working tree.
-4. ~~**Non-graph baseline** (see 9.4) — the single most important remaining check...~~ **Done (6.18)**: RF/XGBoost on the full temporal feature set, both well below the graph pipeline, consistent with §6.17's bag-of-actions logistic-regression baseline.
+4. ~~**Non-graph baseline** (see 9.4) — the single most important remaining check...~~ **Done (6.18)**: RF/XGBoost on the full temporal feature set, both well below the graph pipeline, consistent with §6.17's bag-of-actions logistic-regression baseline. **Superseded (6.22)**: those baselines were handicapped; rebuilt on equal footing, XGBoost (0.873) beats the graph pipeline's 0.851 and the clean ensemble.
 
 ### 9.1 What's now resolved vs. still open
 
@@ -371,7 +464,7 @@ The goal is a paper that holds up in a strong venue for 5–10+ years, not just 
 **Still open**:
 - ~~Edge-level accuracy remains weak (AUC=0.537 on test)... not understood.~~ **Closed (6.18)**: the edge-level inversion (AUC fell further to 0.260 post-6.17) is root-caused to a single dominant relation (`User→READ→Resource`, 87% of test attack edges) where synthetic training taught the model "READ ≈ safe," which real credential-theft attacks violate. A dev-fit, test-frozen per-relation correction lifts edge AUC to ~0.89 on both splits. It remains true that session-level F1 is the reported result, not edge-level accuracy — that framing doesn't change, only the "why" is now understood rather than an open mystery.
 - GAT unconfirmed with this fix (9.0.1).
-- ~~Whether the graph structure specifically matters, versus the feature engineering alone, is untested.~~ **Closed (6.17, reinforced 6.18)**: a bag-of-actions logistic regression scores F1=0.647/AUC=0.658; Random Forest and XGBoost on the full temporal feature set score F1=0.669 and F1=0.595 respectively — all three well below the graph pipeline's 0.851/0.921 and the ensemble's 0.907.
+- ~~Whether the graph structure specifically matters, versus the feature engineering alone, is untested.~~ **Closed (6.17, reinforced 6.18)**: a bag-of-actions logistic regression scores F1=0.647/AUC=0.658; Random Forest and XGBoost on the full temporal feature set score F1=0.669 and F1=0.595 respectively — all three well below the graph pipeline's 0.851/0.921 and the ensemble's 0.907. **Reopened (6.22)**: those baselines were handicapped (less training data than the LSTM, generator-artifact features). On equal footing: LR 0.814, RF 0.834, XGBoost 0.873 — the non-graph baselines now match or beat the graph pipeline, so §9.3 applies.
 - `real_dataset_test.csv`'s dev/test hygiene wasn't perfect from the very start of the session (touched repeatedly during earlier bug-verification rounds, 6.9–6.15) — disclose as a limitation; the fix itself was properly dev-validated, but the paper should be upfront about this rather than implying pristine single-touch discipline throughout.
 
 ### 9.2 If GAT and the non-graph baseline both come back favorably
@@ -384,11 +477,11 @@ Still a publishable, honest result — reframe the contribution around the rank-
 
 ### 9.4 Core rigor needed either way
 
-- ~~**Non-graph baseline under the identical protocol**...~~ **Done (6.18)**: RF (F1=0.669) and XGBoost (F1=0.595) on the full temporal feature set, same protocol, both below the rule baseline and far below the graph pipeline/ensemble — see `evaluate_ml_baselines.py`.
+- ~~**Non-graph baseline under the identical protocol**...~~ **Done (6.18)**: RF (F1=0.669) and XGBoost (F1=0.595) on the full temporal feature set, same protocol, both below the rule baseline and far below the graph pipeline/ensemble — see `evaluate_ml_baselines.py`. **Redone properly (6.22)**: LR 0.814 / RF 0.834 / XGBoost 0.873, with CIs, paired tests and seed spread.
 - **Ablations**: `train.py` already has `--ablation` (feature ablation) — use it. Add edge-type ablation (does dropping `UNKNOWN_ACTION` help or hurt?) and GNN-depth/hop-count ablation.
 - **Statistical comparison, not point estimates**: use bootstrap CIs or McNemar's test when comparing GNN vs. rule-baseline F1, accounting for within-session correlation (edges from the same session aren't independent samples).
 - **Explainability validation, not just execution**: `explainability.py` exists but hasn't been run. Don't just report "we ran GNNExplainer" — validate explanation *fidelity* against the dataset's own ground-truth `attack_technique` labels (already present in the data): do the top-weighted edges/features for a flagged session actually correspond to the documented MITRE technique for that session? This is what separates a real explainability evaluation from a demo.
-- ~~**The ensemble** (GNN + sequence branch): entirely unstarted...~~ **Done (6.18)**: `ensemble.py` combines the structural score with the trained LSTM-Transformer's `P_event` (late fusion, weighted sum), F1=0.907 on test, now the project's headline number. Still worth doing: a proper per-branch ablation table (structural-only vs. sequence-only vs. ensemble) rather than just the combined number.
+- ~~**The ensemble** (GNN + sequence branch): entirely unstarted...~~ **Done (6.18)**: two candidates combine the structural score with the trained LSTM-Transformer's `P_event` — `ensemble.py` (fixed weighted sum, F1=0.907) and `ensemble1.py` (stacked meta-learner, F1=0.903), statistically tied, final pick pending (§6.19). Still worth doing: a proper per-branch ablation table (structural-only vs. sequence-only vs. ensemble) rather than just the combined number.
 - **Related work**: position against cloud-log anomaly detection (GuardDuty, academic CloudTrail work), provenance/host-graph GNN intrusion detection (the DARPA Transparent Computing lineage — Unicorn, ThreaTrace, Flash, etc.), and synthetic-to-real transfer in security ML specifically. The diagnostic journey (6.9–6.16) is itself worth a related-work nod to the "Dos and Don'ts of Machine Learning in Computer Security"-style literature on unrealistic security-ML evaluation, even though the paper's core claim is now a positive result rather than a pure negative one.
 - **Reproducibility**: seeds are already fixed (seed=42) and the pipeline is scriptable end-to-end — consolidate into a documented one-command repro path (see `DEMO_GUIDE.md`), pin `requirements.txt` exactly, and decide what's safe to release publicly (real Stratus data contains real AWS account IDs — scrub before any public dataset release; synthetic data and code are release-safe as-is).
 - **Ethics statement**: straightforward here (defensive detection research, red-teaming performed by the team against their own AWS accounts using an established open-source tool, no offensive tooling released) but should be stated explicitly, since security venues expect it.
