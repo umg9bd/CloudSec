@@ -173,9 +173,15 @@ class EdgeExplainer:
 
         logits = self.model(data)
         # Map (triple, local_index) -> position in the model's flat output,
-        # which is ordered by sorted(data.edge_types) — see model files.
+        # which is ordered by sorted(data.edge_types) restricted to the
+        # relations the model actually has weights for (model_*.py's
+        # forward() silently skips any triple not in self.model.edge_types
+        # — e.g. relations populated in the current graph but absent from
+        # the checkpoint's training-time schema) — see model files.
         offset = 0
         for t in sorted(data.edge_types):
+            if t not in self.model.edge_types:
+                continue
             if t == target.triple:
                 global_index = offset + target.local_index
                 break
@@ -214,8 +220,12 @@ class EdgeExplainer:
         self.model.eval()
         logits = self.model(data)
         probs = torch.sigmoid(logits).cpu().numpy()
+        # Only count triples the model actually has weights for — same
+        # reasoning as the offset computation in _explain_gradient above.
         targets: List[TargetEdge] = []
         for t in sorted(data.edge_types):
+            if t not in self.model.edge_types:
+                continue
             n_t = data[t].y.shape[0]
             targets.extend(TargetEdge(t, i) for i in range(n_t))
         return probs, targets
@@ -275,11 +285,10 @@ class FeatureAblation:
 
 if __name__ == "__main__":
     import argparse
-    from types import SimpleNamespace
 
     from offline_pipeline import load_offline
     from data_loader import stratified_edge_split
-    from train import build_model
+    from infer import load_model_from_checkpoint
 
     parser = argparse.ArgumentParser(
         description="Run edge-level explainability and feature ablation."
@@ -287,8 +296,11 @@ if __name__ == "__main__":
 
     parser.add_argument(
         "--checkpoint",
-        default="./checkpoints_hgt_corrected/best_HGT.pt",
-        help="Path to trained HGT checkpoint",
+        default="./checkpoints_hgt_corrected/best_HGT_wrapped.pt",
+        help="Path to trained HGT checkpoint (must be a *wrapped* checkpoint "
+             "— i.e. containing a model_args sidecar with the training-time "
+             "edge_types/schema — not a bare state_dict; see --wrap-checkpoint "
+             "in infer.py).",
     )
 
     parser.add_argument(
@@ -368,42 +380,21 @@ if __name__ == "__main__":
     # ------------------------------------------------------------------------
     print("\n[3/5] Loading HGT model...")
 
-    model_args = SimpleNamespace(
-        hidden=128,
-        layers=2,
-        heads=4,
-        dropout=0.3,
-        attn_dropout=0.1,
-        hgt_group="sum",
-    )
-
-    model = build_model(
-        "hgt",
-        meta,
-        model_args,
-    ).to(device)
-
-    checkpoint = torch.load(
-        args_cli.checkpoint,
-        map_location=device,
-        weights_only=False,
-    )
-
-    # Support either a bare state_dict or a wrapped checkpoint.
-    if isinstance(checkpoint, dict):
-        if "state_dict" in checkpoint:
-            state_dict = checkpoint["state_dict"]
-        elif "model_state_dict" in checkpoint:
-            state_dict = checkpoint["model_state_dict"]
-        else:
-            # A bare state_dict is itself a dict of tensors.
-            state_dict = checkpoint
-    else:
-        raise TypeError(
-            f"Unsupported checkpoint type: {type(checkpoint)}"
-        )
-
-    model.load_state_dict(state_dict)
+    # Build the model from the CHECKPOINT's own stored model_args (edge_types,
+    # node_feat_dims, hidden_dim, heads, ...) rather than from the current
+    # graph's schema. The two can diverge — e.g. this graph's populated
+    # relations currently collapse most actions into a single UNKNOWN_ACTION
+    # edge type (see the policy_sentry warning printed during graph loading),
+    # while the checkpoint was trained with the finer-grained LIST/READ/WRITE
+    # split — which previously caused a k_rel/v_rel size mismatch when
+    # load_state_dict tried to load checkpoint tensors sized for the
+    # training-time relation count into a model built for however many
+    # relations happen to be populated right now. infer.py's
+    # load_model_from_checkpoint already does this correctly (it's what
+    # infer.py uses for real-time inference), so it's reused here instead of
+    # duplicating the construction logic. This requires a *wrapped*
+    # checkpoint, since only that format carries the model_args sidecar.
+    model, _fit_artifacts = load_model_from_checkpoint(args_cli.checkpoint, device)
     model.eval()
 
     print("       HGT checkpoint loaded successfully.")
@@ -433,7 +424,12 @@ if __name__ == "__main__":
     target_to_prob = {}
     offset = 0
 
+    # Same restriction as EdgeExplainer._flat_probs_and_targets: probs is
+    # only as long as the triples the model has weights for, since
+    # model.forward() silently skips any triple not in model.edge_types.
     for triple in sorted(data.edge_types):
+        if triple not in model.edge_types:
+            continue
         n = data[triple].y.shape[0]
 
         for i in range(n):
@@ -501,6 +497,13 @@ if __name__ == "__main__":
             offset = 0
 
             for triple in sorted(data.edge_types):
+
+                if triple not in model.edge_types:
+                    # Same restriction as EdgeExplainer._flat_probs_and_targets:
+                    # model.forward() silently skips triples it has no
+                    # weights for, so they contribute nothing to `logits`
+                    # and must be excluded from the offset walk below too.
+                    continue
 
                 y = data[triple].y
                 n = y.shape[0]
@@ -599,4 +602,3 @@ if __name__ == "__main__":
     print("\n" + "=" * 80)
     print("EXPLAINABILITY COMPLETE")
     print("=" * 80)
-
