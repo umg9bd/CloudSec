@@ -57,6 +57,21 @@ cp samples/cloudtrail/synthetic_attack_chain.json incoming/
 [PIPELINE] synthetic_attack_chain.json: 10 events scored, 9 above threshold (0.5s)
 ```
 
+To stream a whole dataset through it the way CloudTrail delivers logs (a new
+file of events every few seconds), with a live line per event:
+
+``` bash
+docker run --rm -it -v "$PWD:/app" cloudsec python pipeline.py --watch incoming --show-events
+python feed_incoming.py --batch-size 200 --interval 5     # second terminal; default dataset real_dataset_test.csv
+```
+
+``` text
+2023-07-10 11:42:18  benjamin                     GetRegionOptStatus             HGT  0.92  LSTM 0.16  risk  4.63/10
+[FAST-LANE ALERT] 2023-07-10 11:59:02+00:00 bert-jan DeleteTrail: CloudTrail trail deleted
+[ALERT] bert-jan: 61 event(s), max risk 9.98/10 (top: TagInstanceProfile)
+[PIPELINE] real_dataset_test_batch0005.csv: 200 events scored, 62 above threshold (1.6s)
+```
+
 Other commands:
 
 - Score files once: `python pipeline.py --files a.json b.json`.
@@ -145,6 +160,7 @@ Full runnable walkthrough: `docs/DEMO_GUIDE.md`.
 -   `feature_engine9.py` -- raw CloudTrail -> structural rows (graph) + temporal rows (LSTM), plus fast-lane alerts
 -   `graph_construction/offline_graph.py`, `gnn_scorer.py`, `model_hgt.py` -- Neo4j-free graph building and HGT/GraphSAGE/GAT scoring
 -   `samples/cloudtrail/` -- example CloudTrail files to drop into `incoming/`
+-   `feed_incoming.py` -- replays a dataset into `incoming/` batch by batch (a CloudTrail delivery simulator)
 -   `leakage_guard.py` -- audits any file for train/test contamination
 -   `datasets/privilege-escalation/` -- synthetic data generator, rule baselines, raw/derived datasets
 -   `graph_construction/` -- models (HGT, GraphSAGE, GAT), training (`train.py --model hgt --offline-csv ...`), graph construction, evaluation. `infer.py`'s incremental Neo4j path is legacy and not used by the pipeline.

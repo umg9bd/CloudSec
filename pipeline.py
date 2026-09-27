@@ -32,6 +32,8 @@ datasets/privilege-escalation/evaluate_pipeline.py.
 
 Usage (inside the Docker image -- see Dockerfile; torch is blocked natively on this machine):
     python pipeline.py --watch incoming                # run forever on a folder
+    python pipeline.py --watch incoming --show-events  # ... printing every event's scores
+    python feed_incoming.py                            # (another terminal) drop a dataset in, batch by batch
     python pipeline.py --files a.json b.json           # score files once
 """
 from __future__ import annotations
@@ -98,9 +100,10 @@ def ensemble_risk(p_graph: np.ndarray, p_sequence: np.ndarray, weight_graph: flo
 
 
 class Pipeline:
-    def __init__(self, cfg: PipelineConfig | None = None, write_outputs: bool = True):
+    def __init__(self, cfg: PipelineConfig | None = None, write_outputs: bool = True, show_events: bool = False):
         self.cfg = cfg or PipelineConfig.load()
         self.write_outputs = write_outputs
+        self.show_events = show_events
         path = lambda p: p if os.path.isabs(p) else os.path.join(ROOT, p)
         self.gnn = GNNScorer(path(self.cfg.hgt_checkpoint))
         self.lstm = lstm_scorer.load_scorer(path(self.cfg.lstm_checkpoint))
@@ -195,11 +198,29 @@ class Pipeline:
         return out
 
     # ── alerts and outputs ───────────────────────────────────────────────
+    def print_events(self, scored: pd.DataFrame) -> None:
+        """One line per event, in arrival order: both branch scores and the ensemble risk, marked
+        when it alerts. The fast-lane line for a defense-evasion action prints right above it."""
+        red, bold, dim, reset = "\033[1;31m", "\033[1m", "\033[2m", "\033[0m"
+        for ev in scored.itertuples():
+            if ev.fast_lane:
+                print(f"{red}[FAST-LANE ALERT]{reset} {ev.timestamp} {ev.username} {ev.event_name}: "
+                      f"{fe9.CRITICAL_ACTIONS[ev.event_name]}", flush=True)
+            hgt = "  n/a" if pd.isna(ev.p_graph) else f"{ev.p_graph:5.2f}"
+            who = str(ev.username)[-28:]
+            line = (f"{str(ev.timestamp)[:19]}  {who:<28} {str(ev.event_name)[:30]:<30} "
+                    f"HGT {hgt}  LSTM {ev.p_sequence:4.2f}  risk {ev.risk_score:5.2f}/10")
+            print(f"{red}{line}  << ALERT{reset}" if ev.alert else f"{dim}{line}{reset}" if ev.risk < 0.3
+                  else f"{bold}{line}{reset}" if ev.risk >= 0.45 else line, flush=True)
+
     def emit(self, scored: pd.DataFrame, source_name: str) -> list:
         alerts = []
-        for _, ev in scored[scored["fast_lane"]].iterrows():
-            print(f"[FAST-LANE ALERT] {ev['timestamp']} {ev['username']} {ev['event_name']}: "
-                  f"{fe9.CRITICAL_ACTIONS[ev['event_name']]}", flush=True)
+        if self.show_events:
+            self.print_events(scored)
+        else:
+            for _, ev in scored[scored["fast_lane"]].iterrows():
+                print(f"[FAST-LANE ALERT] {ev['timestamp']} {ev['username']} {ev['event_name']}: "
+                      f"{fe9.CRITICAL_ACTIONS[ev['event_name']]}", flush=True)
         flagged = scored[scored["alert"] | scored["fast_lane"]]
         for principal, g in flagged.groupby("username", sort=False):
             g = g.sort_values("risk", ascending=False)
@@ -292,6 +313,8 @@ def main():
     src.add_argument("--watch", metavar="DIR", help="Watch DIR (e.g. incoming) and score each new file")
     src.add_argument("--files", nargs="+", metavar="FILE", help="Score these files once, in order")
     ap.add_argument("--config", default=CONFIG_PATH)
+    ap.add_argument("--show-events", action="store_true",
+                    help="Print every event's HGT, LSTM and risk score as it is scored, not only alerts")
     ap.add_argument("--reset-state", action="store_true",
                     help="Forget per-principal history and the event buffer before starting")
     args = ap.parse_args()
@@ -301,7 +324,7 @@ def main():
         shutil.rmtree(os.path.join(ROOT, cfg.state_dir), ignore_errors=True)
     print(f"Ensemble: {cfg.weight_graph:g} x HGT + {1 - cfg.weight_graph:g} x LSTM, alert at "
           f"{cfg.alert_threshold * 10:.2f}/10 ({cfg.tuned_on})", flush=True)
-    pipeline = Pipeline(cfg)
+    pipeline = Pipeline(cfg, show_events=args.show_events)
     if args.watch:
         watch(args.watch, pipeline)
     else:

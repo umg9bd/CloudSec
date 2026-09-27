@@ -74,3 +74,4 @@ risk_scores*.csv
 /output/
 /incoming/processed/
 /incoming/failed/
+/.incoming_staging/
