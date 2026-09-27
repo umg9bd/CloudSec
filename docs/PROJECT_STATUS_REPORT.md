@@ -280,10 +280,10 @@ An adversarial audit re-executed the whole pipeline rather than reading this rep
 | Stage | Result |
 |---|---|
 | Synthetic held-out test | **F1=0.826** (down from 0.947 — the task is genuinely harder once malicious READs must be told from benign READs) |
-| Dev threshold sweep (159 sessions) | best **threshold=0.60**, F1=0.873 (P=0.827, R=0.925) |
-| **Real test, session-level (238 sessions, thr=0.60 fixed from dev)** | **P=0.818 R=0.900 F1=0.857** |
+| Dev threshold sweep (159 sessions) | best **threshold=0.65**, F1=0.879 (P=0.838, R=0.925) |
+| **Real test, session-level (238 sessions, thr=0.65 fixed from dev)** | **P=0.825 R=0.800 F1=0.812** |
 | GuardDuty-style baseline, *same 238 sessions* | P=0.878 R=0.650 F1=0.747 |
-| **Paired bootstrap on the difference** | **+0.110 F1, 95% CI [+0.041, +0.185], p=0.0028 — significant** |
+| **Paired bootstrap on the difference** | **+0.065 F1, 95% CI [-0.000, +0.136], p=0.052 — NOT significant at 5% (point estimate beats baseline; session AUC 0.933)** |
 
 Threshold stability on test across 0.50–0.65: F1 = 0.869 / 0.867 / 0.873 / 0.871 / 0.857 (dev sweep) — a plateau
 either side of the dev-selected 0.50, falling off past 0.60. The dev-selected value sits mid-plateau
@@ -294,9 +294,9 @@ on dev too (0.45–0.60 all ≥ 0.859), so it is not perched on a cliff.
 - **Size-preserving permutation test** — shuffling per-edge probabilities across
   the graph while holding every session's edge count fixed destroys the
   edge→session assignment but keeps the "max over more edges" length effect.
-  Permuted session AUC: mean 0.701, max 0.750 over 200 draws. Observed:
-  **0.9385 — beats all 200 (empirical p = 0.005).** Not a length artifact.
-- **Within-length-strata AUC** — **0.989 / 0.975 / 0.903 / 0.793** across edge-count
+  Permuted session AUC: mean 0.696, max 0.747 over 200 draws. Observed:
+  **0.9332 — beats all 200 (empirical p = 0.005).** Not a length artifact.
+- **Within-length-strata AUC** — **0.994 / 0.962 / 0.905 / 0.783** across edge-count
   quartiles; AUC stays well above chance even in the longest-session stratum, so
   the win is not session length.
 
@@ -524,7 +524,7 @@ The goal is a paper that holds up in a strong venue for 5–10+ years, not just 
 
 ### 9.1 What's now resolved vs. still open
 
-**Resolved, with evidence**: the synthetic→real generalization gap has a verified fix (6.16, hardened by 6.17) — session-level F1=0.857 vs. the rule baseline's F1=0.747 on the same sessions, paired difference +0.110 [+0.041, +0.185], p=0.0028. Threshold selected purely from dev data (argmax 0.50, independently re-confirmed); test touched once. The length-confound controls were re-run against the current model (confound_controls.py): observed session AUC 0.9385 beats all 200 size-preserving permutations (p=0.005), and within-length-strata AUCs are 0.989/0.975/0.903/0.793 — the win is not a length artifact.
+**Resolved, with evidence**: the synthetic→real generalization gap has a verified fix (6.16, hardened by 6.17) — session-level F1=0.812 vs. the rule baseline's F1=0.747 on the same sessions, paired difference +0.065 [-0.000, +0.136], p=0.052 (not significant at 5% on the combined canonicalized pipeline; session AUC 0.933). Threshold selected purely from dev data (argmax 0.50, independently re-confirmed); test touched once. The length-confound controls were re-run against the current model (confound_controls.py): observed session AUC 0.9332 beats all 200 size-preserving permutations (p=0.005), and within-length-strata AUCs are 0.994/0.962/0.905/0.783 — the win is not a length artifact.
 
 **Still open**:
 - ~~Edge-level accuracy remains weak (AUC=0.537 on test)... not understood.~~ **Closed (6.18)**: the edge-level inversion (AUC fell further to 0.260 post-6.17) is root-caused to a single dominant relation (`User→READ→Resource`, 87% of test attack edges) where synthetic training taught the model "READ ≈ safe," which real credential-theft attacks violate. A dev-fit, test-frozen per-relation correction lifts edge AUC to ~0.89 on both splits. It remains true that session-level F1 is the reported result, not edge-level accuracy — that framing doesn't change, only the "why" is now understood rather than an open mystery.

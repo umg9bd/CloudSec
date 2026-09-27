@@ -541,12 +541,12 @@
     "arn:aws:iam::536697249497:root||536697249497": 22,
     "arn:aws:iam::536697249497:root||AAMA-EFRSURBSGlnOTVhQ29ZMGJaZHl6dHhoWVFOZlgvNzU2L2JqYStKWEx1VUVyTGRyeGtRRzNqVHZyTnNtV2dCb2pwWThBYWNVTkFBQUFmakI4QmdrcWhraUc5dzBCQndhZ2J6QnRBZ0VBTUdnR0NTcUdTSWIzRFFFSEFUQWVCZ2xnaGtnQlpRTUVBUzR3RVFRTWtqQSsxRFVZSFdFZXMxNXdBZ0VRZ0R1bDhqMTlVWE1jNFBialo3MVBwZEp5bEhkMC9kZkJqaDFYb1dESTFEdEZIb0Z0YWJUTG9aQTRqZTNVNkwwcmE5TnlobFJQNmxDLzhlWEQzQT09ZNuX7PrYC_ScsCM-m8CiYLCzUbQOms5MbItwww4t0cAMw3RhKcIXr-831gFycaR3r7pSmC9AfM895aHoqg_bMXOuY-2Ro3hLNGNJN1tLdfkoagrjajEjJWDoK1WOx8nhfnYDmkW8mVlPZqMpHWMrLKtG41eVsRs85jnY9TNXQ6C7OtW5ig3prBpe1Dzmd0qoT5lGSHfMtV3BiLBVsLLo379Erd622IJRp2RKUhtBgsGrkixBHq-VVuawdIojeoY6P0tPh99NuOWMjw6W-B3kKMd3PP_wS5uZgdOlX12Wtn_V-e1wpy4INThNzX57Wv5mJHP9SgRKn9qCMnBzXoFF2rqYfWGxhgnFf8d8I9zoOmmtaehYoKJ4rzKVPvCxcLaGZnAQdyCUwQcfEH4_8yDUSjhzv5N8epemmPumCS_4xev6BMrpLM6uz92uhB0ff-V4RW9av3ZeoROHECoQBul1Gxf9jw1Umh6eH6754gTQcBXJtYDIKCpx8e5cEKBBl3TggxqboEfa0k8zQ3F2sBRU_U_8ejBuUuJPtSv2fv60nNnwtq-CYzE4TUR2IE9_9dLwLPiNWDWAV8ZGQF06CSDm0icV53rGEW_I63XT5CrSCGn5wZqd1oszYalsHvlOpFefQXS_VnG5X4cu3ChQ3LrRIvxV82SMnnZXJ5ZQuurC0RJKLER4mzjT9UOeek63w7UgFYekWPiygWrZCRRSS9UQXT734T-7adTKUPGQA43_bu8zL14UrAmDK3F6xwU5FTjQ-EzzkdXjPyDpFVoKjOyF9maLKJs44dI3BJIrWAeFDqWsF34NeU8yGsBbnOm54Fah8nCH_dAwChtCwDQ_kyMKh17p3h65RmYRM38LKYWkVgqredVsYb0y4yMfVNzQRhhGMzWuNj0v32c92CWxk9VOrp70pbZCIAARDq3WAyxvYBoFoK0YyrvIYtE9ndyIAuzpFuBSnswMgEYqCiBiL81Q36jvgbNT3-SvqYamGeTDC9IdsE4fexgsyS_f8CGBFSG8Glkws64qW3OKozYFryCIvQgXunoCdEC0thIvz6V38plFstB4_xm-Ay78NXHn0WP3fO_Y-0KSdDwZ4QWWF-rNKOmogM4uWfY1FJN_FzpjQTlemxMz2Rqw-uWBvCI84tEq1wqq4_LJgmXBLHT-TsNmTwHDCPyuTCXUzsXFzpiiTodxKV6mSNELKvFtEBByHTJRHhztdCJkCHFkGYHg1mnhxyafhD4=": 1,
     "arn:aws:iam::536697249497:root||AFCNPACEcWzH8hKsfutDQGyJVbu7T/Y4AFdQ7aXH2DmrF7ujhvgo0/8GyR7FJz6QRAJV++6swXlSmaS4JLcHPW5/jUz24UhGUyzOaf2oB6WqBt46AOw1iEyIVOuFS3+BWgf7": 1,
-    "arn:aws:iam::536697249497:root||REDACTEDAKba1a1f26b7": 3,
-    "arn:aws:iam::536697249497:root||REDACTEDAK34c9224bc6": 3,
     "arn:aws:iam::536697249497:root||BILLING": 2,
     "arn:aws:iam::536697249497:root||Banner": 1,
     "arn:aws:iam::536697249497:root||MONTHLY": 13,
     "arn:aws:iam::536697249497:root||NET_UNBLENDED_COST": 1,
+    "arn:aws:iam::536697249497:root||REDACTEDAK34c9224bc6": 3,
+    "arn:aws:iam::536697249497:root||REDACTEDAKba1a1f26b7": 3,
     "arn:aws:iam::536697249497:root||UnblendedCost": 1,
     "arn:aws:iam::536697249497:root||arn:aws:iam::536697249497:user/stratus-redteam": 1,
     "arn:aws:iam::536697249497:root||aws_service": 47,
@@ -1914,20 +1914,6 @@
       "last_seen": "2026-07-06T10:39:44+00:00",
       "privilege_tier": 0
     },
-    "REDACTEDAKba1a1f26b7": {
-      "degree": 3,
-      "first_seen": "2026-07-06T10:39:41+00:00",
-      "historical_risk": 0.0,
-      "last_seen": "2026-07-06T10:39:43+00:00",
-      "privilege_tier": 0
-    },
-    "REDACTEDAK34c9224bc6": {
-      "degree": 3,
-      "first_seen": "2026-07-06T10:39:41+00:00",
-      "historical_risk": 0.0,
-      "last_seen": "2026-07-06T10:39:43+00:00",
-      "privilege_tier": 0
-    },
     "APPLICATION": {
       "degree": 1,
       "first_seen": "2026-07-13T19:47:29+00:00",
@@ -2530,6 +2516,20 @@
       "last_seen": "2026-07-15T09:11:17+00:00",
       "privilege_tier": 0
     },
+    "REDACTEDAK34c9224bc6": {
+      "degree": 3,
+      "first_seen": "2026-07-06T10:39:41+00:00",
+      "historical_risk": 0.0,
+      "last_seen": "2026-07-06T10:39:43+00:00",
+      "privilege_tier": 0
+    },
+    "REDACTEDAKba1a1f26b7": {
+      "degree": 3,
+      "first_seen": "2026-07-06T10:39:41+00:00",
+      "historical_risk": 0.0,
+      "last_seen": "2026-07-06T10:39:43+00:00",
+      "privilege_tier": 0
+    },
     "REGIONAL": {
       "degree": 7,
       "first_seen": "2026-07-09T07:10:52+00:00",
@@ -2659,14 +2659,14 @@
     "arn:aws:iam::261390480702:root": {
       "degree": 91,
       "first_seen": "2026-07-10T10:50:54+00:00",
-      "historical_risk": 0.03402238057909984,
+      "historical_risk": 0.032385654635345554,
       "last_seen": "2026-07-10T11:09:21+00:00",
       "privilege_tier": 4
     },
     "arn:aws:iam::261390480702:user/stratus-redteam": {
       "degree": 1166,
       "first_seen": "2026-07-10T11:22:29+00:00",
-      "historical_risk": 0.1322233280011356,
+      "historical_risk": 0.13288904363185378,
       "last_seen": "2026-07-10T13:25:55+00:00",
       "privilege_tier": 3
     },
@@ -2680,14 +2680,14 @@
     "arn:aws:iam::268769775703:root": {
       "degree": 127,
       "first_seen": "2026-07-10T14:47:26+00:00",
-      "historical_risk": 0.016469586878282698,
+      "historical_risk": 0.015167920186235636,
       "last_seen": "2026-07-15T10:43:00+00:00",
       "privilege_tier": 4
     },
     "arn:aws:iam::268769775703:user/nexus-user-1": {
       "degree": 2425,
       "first_seen": "2026-07-10T15:15:44+00:00",
-      "historical_risk": 0.09746610605405497,
+      "historical_risk": 0.09743446309556363,
       "last_seen": "2026-07-15T10:43:17+00:00",
       "privilege_tier": 3
     },
@@ -2715,7 +2715,7 @@
     "arn:aws:iam::482745810921:user/stratus-redteam1": {
       "degree": 3519,
       "first_seen": "2026-07-08T18:24:46+00:00",
-      "historical_risk": 0.21437147279314342,
+      "historical_risk": 0.21439694994808633,
       "last_seen": "2026-07-09T17:12:21+00:00",
       "privilege_tier": 3
     },
@@ -2743,14 +2743,14 @@
     "arn:aws:iam::536697249497:root": {
       "degree": 117,
       "first_seen": "2026-07-06T09:12:45+00:00",
-      "historical_risk": 0.049731287751009066,
+      "historical_risk": 0.04848194277923574,
       "last_seen": "2026-07-06T10:41:33+00:00",
       "privilege_tier": 4
     },
     "arn:aws:iam::536697249497:user/stratus-redteam": {
       "degree": 3437,
       "first_seen": "2026-07-06T09:10:13+00:00",
-      "historical_risk": 0.34839265536723096,
+      "historical_risk": 0.4084501466275653,
       "last_seen": "2026-07-15T07:40:02+00:00",
       "privilege_tier": 3
     },
@@ -4920,7 +4920,7 @@
     "arn:aws:sts::261390480702:assumed-role/AWSServiceRoleForResourceExplorer/resource-explorer-2": {
       "degree": 251,
       "first_seen": "2026-07-10T10:48:54+00:00",
-      "historical_risk": 0.09995691756150407,
+      "historical_risk": 0.09989143321548621,
       "last_seen": "2026-07-14T18:50:03+00:00",
       "privilege_tier": 0
     },
@@ -4948,14 +4948,14 @@
     "arn:aws:sts::268769775703:assumed-role/AWSServiceRoleForResourceExplorer/resource-explorer-2": {
       "degree": 60,
       "first_seen": "2026-07-10T14:49:51+00:00",
-      "historical_risk": 0.17288379652695982,
+      "historical_risk": 0.17239726600185773,
       "last_seen": "2026-07-15T09:44:49+00:00",
       "privilege_tier": 0
     },
     "arn:aws:sts::482745810921:assumed-role/AWSServiceRoleForResourceExplorer/resource-explorer-2": {
       "degree": 1068,
       "first_seen": "2026-07-08T18:28:33+00:00",
-      "historical_risk": 0.09999999999999996,
+      "historical_risk": 0.08173623647828873,
       "last_seen": "2026-07-15T08:18:38+00:00",
       "privilege_tier": 0
     },
@@ -4983,7 +4983,7 @@
     "arn:aws:sts::536697249497:assumed-role/AWSServiceRoleForResourceExplorer/resource-explorer-2": {
       "degree": 197,
       "first_seen": "2026-07-06T09:13:15+00:00",
-      "historical_risk": 0.025160189151327048,
+      "historical_risk": 0.023417308881301075,
       "last_seen": "2026-07-15T07:46:19+00:00",
       "privilege_tier": 0
     },
@@ -7874,7 +7874,7 @@
     "unknown_principal": {
       "degree": 4057,
       "first_seen": "2023-07-10T11:55:23+00:00",
-      "historical_risk": 0.01838473976973362,
+      "historical_risk": 0.03851045592607392,
       "last_seen": "2026-07-15T09:38:17+00:00",
       "privilege_tier": 1
     }

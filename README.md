@@ -111,9 +111,9 @@ test was used, and each system was run on test once.
 | XGBoost (temporal features) | 0.817 | 0.850 | 0.833 [0.772, 0.885] |
 | Logistic regression (bag of actions) | 0.706 | 0.960 | 0.814 [0.756, 0.864] |
 | Curated IAM rule baseline (11 rules) | 0.878 | 0.650 | 0.747 [0.671, 0.815] |
-| GraphSAGE alone (batch, retrained on the fixed dataset) | 0.818 | 0.900 | 0.857 |
+| GraphSAGE alone (batch, combined pipeline / canonicalized real data) | 0.825 | 0.800 | 0.812 |
 
-> **Number provenance (integration note):** the pipeline / RF / XGBoost / logistic rows were measured on the teammate's data snapshot; the GraphSAGE row is the retrain on the dataset after the role-linkage, escalation, double-assume and lineage fixes. A combined regenerate-and-retrain through the merged feature engine is required before these rows are strictly comparable on one test set.
+> **Number provenance (integration note):** the pipeline / RF / XGBoost / logistic rows were measured on the teammate's data snapshot; the GraphSAGE row is now the COMBINED pipeline (all fixes + Udita's fe9 canonicalization applied to the real data, one consistent feature engine). At the dev-selected threshold its paired improvement over the rule baseline is +0.065 [-0.000, +0.136], p=0.052 — a point estimate that no longer clears significance, though session AUC stays 0.933 (beats all 200 size-preserving permutations). The pipeline/RF/XGBoost rows still need re-running on this same combined data.
 
 The pipeline beats the rule baseline significantly (paired bootstrap +0.097
 F1, 95% CI [+0.028, +0.168], p = 0.008). It is statistically tied with the
