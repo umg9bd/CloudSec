@@ -289,15 +289,20 @@ Threshold stability on test across 0.50–0.65: F1 = 0.869 / 0.867 / 0.873 / 0.8
 either side of the dev-selected 0.50, falling off past 0.60. The dev-selected value sits mid-plateau
 on dev too (0.45–0.60 all ≥ 0.859), so it is not perched on a cliff.
 
-> **⚠️ STALE — the three subsections below (permutation test, within-length-strata
-> AUC, and the non-graph logistic baseline) were computed against the
-> PRE-credential-access model. They have not been re-run against the current
-> F1=0.857 model. Re-run them before citing any of these numbers in a
-> submission.**
+**Two confound controls, both passed — re-run against the current F1=0.857 model**
+(`graph_construction/confound_controls.py`, 200 permutations, seed 42):
+- **Size-preserving permutation test** — shuffling per-edge probabilities across
+  the graph while holding every session's edge count fixed destroys the
+  edge→session assignment but keeps the "max over more edges" length effect.
+  Permuted session AUC: mean 0.701, max 0.750 over 200 draws. Observed:
+  **0.9385 — beats all 200 (empirical p = 0.005).** Not a length artifact.
+- **Within-length-strata AUC** — **0.989 / 0.975 / 0.903 / 0.793** across edge-count
+  quartiles; AUC stays well above chance even in the longest-session stratum, so
+  the win is not session length.
 
-**Two confound controls, both passed** (the second answers §6.13's own objection more convincingly than the Spearman check did):
-- **Permutation test** — permuting per-edge probabilities across the graph while preserving every session's size exactly destroys the edge→session association but leaves the "max over more edges" length effect intact. Permuted session AUC: mean 0.733, max 0.782 over 200 draws. Observed: **0.921 — beats all 200 (p<0.005).**
-- **Within-length-strata AUC** — 0.998 / 0.970 / 0.872 / 0.759 across length bands, where session length alone is uninformative within strata (0.30–0.55). Length correlation also *fell* (Spearman 0.42, down from 0.51). The win is not a length artifact.
+> Note: the non-graph baselines (logistic / RF / XGBoost, §6.22) were measured on
+> the teammate's data snapshot and are pending a re-run on the merged dataset;
+> the two controls above are on the current model and its test data.
 
 **Non-graph baseline (closes the §9.4 gap).** Logistic regression over a bag-of-actions vector, same protocol (train on synthetic, tune threshold on dev, test once): **F1=0.647, AUC=0.658** — well below the graph pipeline's (then) 0.851/0.921. Adding session length made it worse (0.473); length alone scores 0.254. The graph pipeline earns its place.
 
@@ -519,7 +524,7 @@ The goal is a paper that holds up in a strong venue for 5–10+ years, not just 
 
 ### 9.1 What's now resolved vs. still open
 
-**Resolved, with evidence**: the synthetic→real generalization gap has a verified fix (6.16, hardened by 6.17) — session-level F1=0.857 vs. the rule baseline's F1=0.747 on the same sessions, paired difference +0.110 [+0.041, +0.185], p=0.0028. Threshold selected purely from dev data (argmax 0.50, independently re-confirmed); test touched once. The length-confound controls (permutation test, within-length-strata AUCs) were run against the earlier model and are pending a re-run — see the STALE notice in the results section.
+**Resolved, with evidence**: the synthetic→real generalization gap has a verified fix (6.16, hardened by 6.17) — session-level F1=0.857 vs. the rule baseline's F1=0.747 on the same sessions, paired difference +0.110 [+0.041, +0.185], p=0.0028. Threshold selected purely from dev data (argmax 0.50, independently re-confirmed); test touched once. The length-confound controls were re-run against the current model (confound_controls.py): observed session AUC 0.9385 beats all 200 size-preserving permutations (p=0.005), and within-length-strata AUCs are 0.989/0.975/0.903/0.793 — the win is not a length artifact.
 
 **Still open**:
 - ~~Edge-level accuracy remains weak (AUC=0.537 on test)... not understood.~~ **Closed (6.18)**: the edge-level inversion (AUC fell further to 0.260 post-6.17) is root-caused to a single dominant relation (`User→READ→Resource`, 87% of test attack edges) where synthetic training taught the model "READ ≈ safe," which real credential-theft attacks violate. A dev-fit, test-frozen per-relation correction lifts edge AUC to ~0.89 on both splits. It remains true that session-level F1 is the reported result, not edge-level accuracy — that framing doesn't change, only the "why" is now understood rather than an open mystery.
