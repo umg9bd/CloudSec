@@ -1,10 +1,10 @@
 """
 run_tests.py
 ============
-One command to run the project's test suites.
+One command to run the project's test suites. Run from the repo root:
 
-    python run_tests.py            # fast suites only (~2s, no external deps)
-    python run_tests.py --all      # adds the slow Neo4j-dependent suite (~10 min)
+    python tests/run_tests.py            # fast suites only (~2s, no external deps)
+    python tests/run_tests.py --all      # adds the slow Neo4j-dependent suite (~10 min)
 
 WHY TWO TIERS: the fast suites need nothing but the Python environment -- no
 Neo4j, no Docker, no trained checkpoint -- so they can run on every commit and
@@ -13,11 +13,8 @@ datasets/privilege-escalation/cloudtrail_structural.csv, builds the whole graph
 twice (batch and streaming) and compares them, which takes ~10 minutes. It is
 opt-in so the fast feedback loop stays fast.
 
-WHAT IS NOT COVERED HERE: ensemble.py. It combines a blast-radius score with
-the LSTM score keyed by username, never reads the GNN's attack probability, and
-computes no metric against ground truth -- so there is nothing to assert about
-it yet. It is out of scope until it is an ensemble of the two detectors and is
-scored like one.
+The ensemble is covered: it lives in pipeline.py (HGT + LSTM scores combined
+per event), and test_pipeline.py checks it.
 
 KNOWN FAILURES in the slow suite (3 of 13, reproducible, documented in
 PROJECT_STATUS_REPORT.md section 6.9): the batch and streaming pipelines do not
@@ -35,12 +32,15 @@ import os
 import sys
 import unittest
 
-ROOT = os.path.dirname(os.path.abspath(__file__))
+# This file lives in tests/, one level below the repo root.
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-# graph_construction/ and the repo root both need to be importable: several
-# modules import `neo4j_graph_builder` and `privilege_features` as top-level
-# names rather than as package members.
-for path in (ROOT, os.path.join(ROOT, "graph_construction")):
+# The repo root (feature_engine9, leakage_guard), graph_construction/
+# (data_loader, model_gat, ...) and temporal-analysis/ (train_lstm_transformer,
+# used by the pipeline tests) all need to be importable: several modules import
+# each other as top-level names rather than as package members. Adding
+# temporal-analysis here lets the suite run natively, not only in the Docker image.
+for path in (ROOT, os.path.join(ROOT, "graph_construction"), os.path.join(ROOT, "temporal-analysis")):
     if path not in sys.path:
         sys.path.insert(0, path)
 
@@ -56,6 +56,9 @@ FAST_SUITES = [
     "test_data_loader",           # feature construction, scaler discipline, ordering
     "test_models",                # logit/label alignment contract
     "test_evaluation_integrity",  # edge->session join, guards, paired baseline
+    "test_model_hgt",             # HGT output shape/order contract
+    # ── real-time pipeline ───────────────────────────────────────────────
+    "test_pipeline",              # streaming == batch (LSTM), fallback, alert schema
     # ── shared: the train/eval boundary both tracks must respect ─────────
     "test_leakage_guard",         # held-out detection, label-derived prior freeze
 ]

@@ -12,12 +12,12 @@ originating row in the raw CSV, which carries session_id -- never assumed
 positional alignment with the structural CSV, since log_id already encodes
 the exact original row index.
 
-Usage:
-    python evaluate_session_level.py --checkpoint checkpoints/best_GraphSAGE_wrapped.pt \
+Usage (from the repo root):
+    python graph_construction/evaluate_session_level.py --checkpoint checkpoints/best_GraphSAGE_wrapped.pt \
         --model sage --raw-csv datasets/privilege-escalation/real_dataset_test.csv \
         --threshold 0.5
     # or sweep thresholds on the dev set:
-    python evaluate_session_level.py --checkpoint checkpoints/best_GraphSAGE_wrapped.pt \
+    python graph_construction/evaluate_session_level.py --checkpoint checkpoints/best_GraphSAGE_wrapped.pt \
         --model sage --raw-csv datasets/privilege-escalation/real_dataset_dev.csv --sweep
 """
 
@@ -37,13 +37,15 @@ from utils import evaluate
 
 LOG_ID_RE = re.compile(r"^(.*):(\d+)$")
 
-# Rhino/GuardDuty-style 11-rule set, imported rather than restated so it can
-# never drift from evaluate_baselines.py's definition.
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                                 "datasets", "privilege-escalation"))
+# Curated 11-rule IAM rule set, imported rather than restated so it can never drift from
+# evaluate_baselines.py's definition. This file lives in graph_construction/, one level below
+# the repo root. NOTE: this rule set is inspired by AWS GuardDuty's public finding-type docs, but
+# was never validated against real GuardDuty output -- see evaluate_baselines.py's RULES comment.
+_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(_REPO_ROOT, "datasets", "privilege-escalation"))
 from evaluate_baselines import RULES  # noqa: E402
 
-GUARDDUTY = "GuardDuty-style (11 rules)"
+GUARDDUTY = "Curated IAM rule baseline (11 rules)"
 N_BOOTSTRAP = 10000
 
 
@@ -71,7 +73,7 @@ def check_graph_provenance(source_csv, raw_basename: str) -> None:
         raise SystemExit(
             f"GRAPH MISMATCH: Neo4j holds a graph built from {source_csv!r}, but "
             f"--raw-csv is {raw_basename!r} (expected {expected_struct!r}).\n"
-            f"Run:  python build_graph.py datasets/privilege-escalation/{expected_struct}"
+            f"Run:  python graph_construction/build_graph.py datasets/privilege-escalation/{expected_struct}"
         )
 
 
@@ -157,9 +159,9 @@ def report_baseline_comparison(raw_df, sessions_true, y_true, y_model):
     lo, hi = np.percentile(deltas, [2.5, 97.5])
     p_two_sided = 2 * min(float(np.mean(deltas <= 0)), float(np.mean(deltas >= 0)))
 
-    print(f"\n{'':<28}{'P':>8}{'R':>8}{'F1':>8}")
-    print(f"{'GNN (session-level)':<28}{mp:>8.3f}{mr:>8.3f}{mf:>8.3f}")
-    print(f"{GUARDDUTY:<28}{bp:>8.3f}{br:>8.3f}{bf:>8.3f}   <- computed on THESE {n} sessions")
+    print(f"\n{'':<38}{'P':>8}{'R':>8}{'F1':>8}")
+    print(f"{'GNN (session-level)':<38}{mp:>8.3f}{mr:>8.3f}{mf:>8.3f}")
+    print(f"{GUARDDUTY:<38}{bp:>8.3f}{br:>8.3f}{bf:>8.3f}   <- computed on THESE {n} sessions")
     print(f"\nPAIRED bootstrap on (GNN - rule) F1: {mf - bf:+.4f}  "
           f"95% CI [{lo:+.4f}, {hi:+.4f}]  two-sided p = {p_two_sided:.4f}")
     if lo > 0:
@@ -172,7 +174,7 @@ def report_baseline_comparison(raw_df, sessions_true, y_true, y_model):
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("--checkpoint", required=True)
-    p.add_argument("--model", choices=["sage", "gat"], required=True)
+    p.add_argument("--model", choices=["sage", "gat", "hgt"], required=True)
     p.add_argument("--raw-csv", required=True, help="e.g. real_dataset_test.csv or real_dataset_dev.csv")
     p.add_argument("--neo4j-uri", default="bolt://localhost:7687")
     p.add_argument("--neo4j-user", default="neo4j")

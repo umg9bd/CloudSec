@@ -1,0 +1,12 @@
+{
+  "hgt_checkpoint": "checkpoints/best_HGT_wrapped.pt",
+  "lstm_checkpoint": "temporal-analysis/artifacts/lstm_transformer_clean/temporal_lstm_transformer.pt",
+  "weight_graph": 0.4,
+  "alert_threshold": 0.5921,
+  "graph_window_hours": 24.0,
+  "state_dir": "runtime",
+  "alert_dir": "alerts",
+  "output_csv": "output/risk_scores.csv",
+  "tuned_on": "real_dataset_dev.csv, 159 sessions: session-level F1=0.908 (weight and threshold chosen there; test never used for tuning)",
+  "notes": {}
+}

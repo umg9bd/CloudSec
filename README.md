@@ -1,187 +1,199 @@
-# Real-Time GraphSAGE Privilege Escalation Detection
+# Real-Time Privilege Escalation Detection for AWS CloudTrail
 
-## Overview
-
-This project detects AWS privilege-escalation attacks from CloudTrail
-logs using a heterogeneous Graph Neural Network (GraphSAGE), Neo4j, and
-incremental streaming inference. Trained on procedurally-generated
-synthetic CloudTrail sessions, validated against real attack data collected
-with [Stratus Red Team](https://stratus-red-team.cloud/) across 4
-independent AWS accounts.
-
-## Results
-
-All figures below are on **the same 238 held-out real test sessions**.
-
-| | Precision | Recall | F1 |
-|---|---|---|---|
-| GraphSAGE, session-level, real held-out test data | 0.818 | 0.900 | **0.857** |
-| Rule-based baseline (GuardDuty-style, 11 rules) | 0.878 | 0.650 | 0.747 [95% CI: 0.667, 0.811] |
-
-**Paired bootstrap on the difference: +0.110 F1, 95% CI [+0.041, +0.185], p = 0.0028.**
-
-The GNN clears the rule-based baseline on real, previously-unseen attack
-sessions — verified with a dev-set-only selected threshold (0.65), checked once
-on held-out test data, threshold-stability checked, and — because both systems
-score the *same* sessions — compared with a **paired** bootstrap rather than by
-eyeballing two separate confidence intervals.
-Getting here required diagnosing and fixing a real synthetic-to-real
-generalization gap (two structural bugs, one ruled-out hypothesis, and the
-actual fix — a rank-normalization feature transform). Full evidence trail,
-caveats, and what's still open: **`PROJECT_STATUS_REPORT.md`**. Full runnable
-commands with expected output at each step: **`DEMO_GUIDE.md`**.
-
-Two honest caveats up front:
-
-1. **The win is a *session-level* effect** — the model correctly flags at least
-   one edge per attack session while staying quiet on benign ones. It is not
-   accurate per-action classification.
-2. **Edge-level ranking on real data is inverted** (test AUC ≈ 0.26). Pooled
-   across all 25,984 in-schema edges, real attack edges score *lower* than real
-   benign ones, yet the per-session maximum separates the two classes well
-   (session AUC 0.921). This is a real, unexplained phenomenon and an open
-   question — do not describe this system as an edge-level detector.
-
-Both were verified against controls the result survives: a permutation test
-that preserves session sizes while destroying the edge→session association
-(observed session AUC beats all 200 permutations), and within-length-strata
-AUCs of 0.998 / 0.970 / 0.872 / 0.759 where session length alone is
-uninformative. See `PROJECT_STATUS_REPORT.md` §6.17 for the full picture.
+Detects AWS privilege-escalation attacks in CloudTrail logs as they arrive.
+Two models score every event in parallel: a heterogeneous graph transformer
+(HGT) over the principal/resource graph, and an LSTM-Transformer over each
+principal's recent activity. An ensemble combines the two scores into one
+risk score per event. Both models are trained on synthetic CloudTrail and
+validated on real attacks collected with
+[Stratus Red Team](https://stratus-red-team.cloud/) across 4 independent AWS
+accounts.
 
 ## Architecture
 
 ``` text
-CloudTrail
-    │
-    ▼
-Feature Engineering
-    │
-    ▼
-Incremental Graph Update
-(Neo4j + In-Memory Graph)
-    │
-    ▼
-K-Hop Neighbourhood Extraction
-    │
-    ▼
-PyTorch Geometric HeteroData
-    │
-    ▼
-GraphSAGE
-    │
-    ├── Benign
-    └── Malicious
-            │
-            ▼
-     Blast Radius Analysis
-            │
-            ▼
-        JSON Alert
+                        +-> structural row -> graph (rolling 24 h window) -> HGT  -> p_graph ----+
+incoming/<file> -> feature_engine9                                                               +-> ensemble -> alert
+ (CloudTrail JSON,      +-> temporal row   -> the principal's last hour   -> LSTM -> p_sequence -+   0.4 p_graph + 0.6 p_sequence
+  JSONL, or CSV)                                                                                     alert at >= 5.92/10
 ```
 
-## Why GraphSAGE?
+`pipeline.py` runs this. It watches `incoming/` and scores each new file's
+events. It writes alerts to `alerts/alert_<id>.json` (one per principal per
+file) and every event's scores to `output/risk_scores.csv`. Processed files
+are moved to `incoming/processed/`.
 
--   Inductive learning for unseen AWS entities
--   Efficient neighborhood sampling by prioritising edges with higher probability as attack in the sample
--   Streaming inference without retraining *(design goal — see the status note under Streaming Inference)*
--   Scales to continuously growing graphs
--   Works naturally with heterogeneous IAM graphs
+- **Same scores as batch.** Each event gets the score a batch run over the same
+  events would give it:
+  - The LSTM branch matches a single batch pass on real dev to 3e-7.
+  - The graph is rebuilt with the batch code on every file.
+  - The Neo4j-free graph builder (`graph_construction/offline_graph.py`) is
+    tensor-identical to the Neo4j loader on real dev and on the synthetic
+    training graph.
+  - `tests/test_pipeline.py` guards all of this.
+- **Frozen at inference time.** Live traffic never changes the model's inputs:
+  feature_engine9's vocabulary and risk priors are frozen from training, and
+  both models use their training-time scalers.
+- **Settings.** The ensemble weight, alert threshold, checkpoints and graph
+  window live in `pipeline_config.json`. Its weight and threshold were chosen
+  on `real_dataset_dev.csv` only, by
+  `datasets/privilege-escalation/evaluate_pipeline.py`.
 
-## Training Pipeline
- Build Neo4j graph.
- Convert to PyTorch Geometric HeteroData.
- Fit scalers and label encoders.
- Train GraphSAGE.
- Save checkpoint.
+## Run it
 
-## Streaming Inference
+One command, with Docker Desktop running:
 
-> ### ⚠️ NOT CURRENTLY OPERATIONAL
->
-> The streaming path below is **the design, not the current state.** It is broken in two independent ways and must not be claimed in a paper or demo until both are fixed:
->
-> 1. **`infer.py` feature-schema desync.** Its `_edge_features()` builds a numeric vector that no longer matches what the trained checkpoint's `edge_scaler` expects, so step 6 raises rather than running. (It fails closed, not silently — but it does not run.)
-> 2. **The incremental updater does not reproduce the batch graph.** Three `TestBatchIncrementalEquivalence` assertions fail (see `PROJECT_STATUS_REPORT.md` §6.9). Two of them are on `hop_count` and `distance_to_sensitive_resource` — both live model inputs — so step 3 would feed the model different values than the batch pipeline it was trained against.
->
-> The batch evaluation path (`build_graph.py` → `data_loader.py` → `evaluate_session_level.py`) is unaffected, and every reported result comes from it. Fix the two defects above, or scope streaming out of the write-up, before making any real-time claim.
+``` powershell
+.
+un.cmd          # Windows (PowerShell or cmd)
+./run.sh           # macOS / Linux / Git Bash
+```
 
-1.  Watch incoming directory.
-2.  Feature engineer new event.
-3.  Incrementally update Neo4j.
-4.  Extract affected k-hop neighborhood.
-5.  Build HeteroData.
-6.  Apply training scalers.
-7.  Run GraphSAGE.
-8.  Trigger blast radius if malicious.
-9.  Save JSON alert.
+It builds the image if needed and starts the pipeline. It streams
+`real_dataset_test.csv` into `incoming/`, 200 events every 5 s, and prints
+every event's HGT, LSTM and risk score, with fast-lane and per-principal
+alerts inline. Ctrl+C stops it. Options pass through, e.g.
+`.
+un.cmd --feed-interval 2 --feed-limit 2000`, or a different dataset:
+`.
+un.cmd datasets/privilege-escalation/real_dataset_dev.csv`.
+
+The pieces, run individually. PyTorch runs in Docker because Windows Smart
+App Control blocks torch's unsigned DLLs on the development machine.
+
+``` bash
+docker build -t cloudsec .
+docker run --rm -v "$PWD:/app" cloudsec python pipeline.py --watch incoming
+# then drop CloudTrail files into incoming/, e.g.
+cp samples/cloudtrail/synthetic_attack_chain.json incoming/
+```
+
+``` text
+[FAST-LANE ALERT] 2026-07-30 09:00:45+00:00 session1 StopLogging: CloudTrail logging disabled
+[ALERT] session1: 9 event(s), max risk 9.91/10 (top: SetDefaultPolicyVersion)
+[PIPELINE] synthetic_attack_chain.json: 10 events scored, 9 above threshold (0.5s)
+```
+
+To stream a whole dataset through it the way CloudTrail delivers logs (a new
+file of events every few seconds), with a live line per event:
+
+``` bash
+docker run --rm -it -v "$PWD:/app" cloudsec python pipeline.py --watch incoming --show-events
+python feed_incoming.py --batch-size 200 --interval 5     # second terminal (or add --feed to the line above)
+```
+
+``` text
+2023-07-10 11:42:18  benjamin                     GetRegionOptStatus             HGT  0.92  LSTM 0.16  risk  4.63/10
+[FAST-LANE ALERT] 2023-07-10 11:59:02+00:00 bert-jan DeleteTrail: CloudTrail trail deleted
+[ALERT] bert-jan: 61 event(s), max risk 9.98/10 (top: TagInstanceProfile)
+[PIPELINE] real_dataset_test_batch0005.csv: 200 events scored, 62 above threshold (1.6s)
+```
+
+Other commands:
+
+- Score files once: `python pipeline.py --files a.json b.json`.
+- Start with no per-principal history: add `--reset-state`.
+- Tests: `python tests/run_tests.py` (101 tests).
+- Re-tune on dev (add `--test` for the single held-out test run):
+  `python datasets/privilege-escalation/evaluate_pipeline.py`.
+
+## Results
+
+Session-level results on 238 held-out real test sessions
+(`real_dataset_test.csv`). A session is flagged if any of its events alerts.
+Every configuration and threshold was frozen on `real_dataset_dev.csv` before
+test was used, and each system was run on test once.
+
+| | Precision | Recall | F1 [95% CI] |
+|---|---|---|---|
+| **Real-time pipeline** (HGT + LSTM, `pipeline.py`) | 0.780 | 0.920 | **0.844** [0.788, 0.893] |
+| Random Forest (temporal features) | 0.827 | 0.860 | 0.843 [0.786, 0.893] |
+| XGBoost (temporal features) | 0.817 | 0.850 | 0.833 [0.772, 0.885] |
+| Logistic regression (bag of actions) | 0.706 | 0.960 | 0.814 [0.756, 0.864] |
+| Curated IAM rule baseline (11 rules) | 0.878 | 0.650 | 0.747 [0.671, 0.815] |
+| GraphSAGE alone (batch, retrained on the fixed dataset) | 0.818 | 0.900 | 0.857 |
+
+> **Number provenance (integration note):** the pipeline / RF / XGBoost / logistic rows were measured on the teammate's data snapshot; the GraphSAGE row is the retrain on the dataset after the role-linkage, escalation, double-assume and lineage fixes. A combined regenerate-and-retrain through the merged feature engine is required before these rows are strictly comparable on one test set.
+
+The pipeline beats the rule baseline significantly (paired bootstrap +0.097
+F1, 95% CI [+0.028, +0.168], p = 0.008). It is statistically tied with the
+classical ML baselines: vs Random Forest +0.001 (p = 0.98), vs XGBoost +0.011
+(p = 0.65), vs logistic regression +0.030 (p = 0.21).
+
+On dev, the ensemble beats each of its branches:
+
+| Real dev | F1 |
+|---|---|
+| HGT alone | 0.868 |
+| LSTM alone | 0.894 |
+| Ensemble | 0.908 |
+
+`pipeline.py` is the only ensemble. The earlier `ensemble.py` /
+`ensemble1.py` were removed: their graph side was a hand-written topology
+rule, not a trained GNN, and with a leak-clean LSTM they scored 0.769 / 0.722
+on test (§6.21; the code is in git history at commit `2fe5977`).
+
+Worth knowing:
+- **What the pipeline's numbers do and don't show.** The ML baselines run on
+  the same feature_engine9 features and synthetic training data, and they tie
+  the pipeline. So the paper cannot yet claim that HGT + LSTM beats standard
+  ML. The LSTM still carries known problems (`docs/PROJECT_STATUS_REPORT.md`
+  §6.21-6.23), fixing them is the next lever, and each fix must be tuned on
+  dev before test is used again.
+- Older versions of this README reported 0.907 / 0.903 for those removed
+  ensembles. Those numbers came from an LSTM checkpoint that had trained on
+  real Invictus data, so they are not valid.
+- The rule baseline is a curated list built by reading AWS's public GuardDuty
+  finding-type docs -- it was never validated against real GuardDuty output
+  (this project's data collection never enabled it), so it's *not* a stand-in
+  for the actual commercial product.
+- The classical ML baselines (`evaluate_ml_baselines.py`) train on exactly
+  the synthetic table the LSTM trains on, and each gets its configuration
+  chosen on dev, as the proposed system did. An earlier version trained on
+  less data and on three features the synthetic generator hardcodes for
+  attacks (MFA fields, request-parameter length). It scored RF 0.669 /
+  XGBoost 0.595, and its conclusion that "ML on these features doesn't
+  transfer" was wrong. The numbers in the table above come from
+  re-running them on the data merged from `feat/credential-access-chains`
+  (§6.23).
+- The standalone GraphSAGE model's raw edge-level ranking on real data was
+  initially inverted (AUC ~0.26) -- root-caused to one dominant relation
+  (`User->READ->Resource`, 87% of real attack-labeled edges) where the
+  model learned "READ = safe" from synthetic training data, which real
+  credential-theft techniques (`GetSecretValue`, `GetPasswordData`, both
+  AWS-classified as "Read") directly violate. A per-relation orientation
+  correction fit on dev only and frozen (not baked into the checkpoint,
+  to keep the train/eval boundary clean) lifts edge-level AUC to 0.89 on
+  both dev and test. The pipeline uses HGT rather than GraphSAGE. Trained on
+  the same corrected schema, HGT's per-event ranking on real dev is healthier
+  (event AUC 0.713 vs GraphSAGE's 0.517), which is what matters for an
+  ensemble that combines per-event scores.
+
+Full evidence trail: `docs/PROJECT_STATUS_REPORT.md`.
+Full runnable walkthrough: `docs/DEMO_GUIDE.md`.
 
 ## Repository
 
--   train.py --- training (GraphSAGE and GAT)
--   infer.py --- streaming inference + checkpoint wrapping (see note below)
--   model_graphsage.py / model_gat.py --- models
--   data_loader.py --- graph loading, feature normalization
--   privilege_features.py --- node/edge identity, relation classification
--   graph_construction/neo4j_graph_builder.py --- batch graph construction
--   incremental_updater.py --- streaming graph updates
--   feature_engine9.py --- feature engineering (raw CloudTrail -> structural/temporal CSVs)
--   datasets/privilege-escalation/generate_synthetic_data.py --- synthetic training data generator
--   build_graph.py --- CLI wrapper to load a structural CSV into Neo4j
--   evaluate_on_real.py --- edge-level real-data evaluation
--   evaluate_session_level.py --- session-level real-data evaluation (comparable to the rule baseline)
--   datasets/privilege-escalation/evaluate_baselines.py --- rule-based baselines
--   blast_radius.py --- downstream reachability/impact analysis (not yet exercised)
--   explainability.py --- prediction explanations (not yet exercised)
--   PROJECT_STATUS_REPORT.md --- full evaluation history, evidence, and publication roadmap
--   DEMO_GUIDE.md --- runnable demo script with expected output at each step
+-   `pipeline.py` -- the real-time detector (watch `incoming/`, HGT + LSTM, ensemble, alerts); settings in `pipeline_config.json`
+-   `Dockerfile` -- the runtime everything torch-based runs in
+-   `feature_engine9.py` -- raw CloudTrail -> structural rows (graph) + temporal rows (LSTM), plus fast-lane alerts
+-   `graph_construction/offline_graph.py`, `gnn_scorer.py`, `model_hgt.py` -- Neo4j-free graph building and HGT/GraphSAGE/GAT scoring
+-   `samples/cloudtrail/` -- example CloudTrail files to drop into `incoming/`
+-   `feed_incoming.py` -- replays a dataset into `incoming/` batch by batch (a CloudTrail delivery simulator)
+-   `run.cmd`, `run.sh` -- the one-command demo (pipeline + feeder in Docker)
+-   `leakage_guard.py` -- audits any file for train/test contamination
+-   `datasets/privilege-escalation/` -- synthetic data generator, rule baselines, raw/derived datasets
+-   `graph_construction/` -- models (HGT, GraphSAGE, GAT), training (`train.py --model hgt --offline-csv ...`), graph construction, evaluation. `infer.py`'s incremental Neo4j path is legacy and not used by the pipeline.
+-   `tests/run_tests.py` -- test suites
+-   `docs/PROJECT_STATUS_REPORT.md` -- full evaluation history and evidence
+-   `docs/DEMO_GUIDE.md` -- runnable demo with expected output
 
-## Training
+## Setup without Docker
 
 ``` bash
-python train.py \
-    --model sage \
-    --epochs 100 \
-    --save_dir ./checkpoints
+pip install -r requirements.txt
 ```
 
-## Wrap checkpoint
-
-``` bash
-python infer.py --wrap-checkpoint checkpoints/best_GraphSAGE.pt --wrapped-output checkpoints/best_GraphSAGE_wrapped.pt
-```
-
-## Evaluate against real data
-
-``` bash
-python evaluate_on_real.py --checkpoint checkpoints/best_GraphSAGE_wrapped.pt --model sage
-python evaluate_session_level.py --checkpoint checkpoints/best_GraphSAGE_wrapped.pt --model sage --raw-csv datasets/privilege-escalation/real_dataset_test.csv --threshold 0.35
-```
-
-Full setup (Neo4j, environment variables, expected output) in `DEMO_GUIDE.md`.
-
-## Run live streaming inference
-
-``` bash
-python infer.py   --checkpoint checkpoints/best_GraphSAGE_wrapped.pt   --watch incoming   --alert-dir alerts   --threshold 0.5   --seed-from-neo4j
-```
-Insert json logs into incoming directory to get real time prediction of the action performed.
-
-**Known issue**: `infer.py`'s live single-event feature builder constructs
-edge features independently of `data_loader.py` and has not yet been
-updated for the rank-normalized feature schema behind the current best
-checkpoint (see `PROJECT_STATUS_REPORT.md` section 6.16) — it will run
-without erroring but produce incorrect scores until this is fixed. Use the
-batch evaluation commands above for anything that needs to be trusted right
-now.
-
-## Outputs
-
-Alerts are written into the alerts directory as JSON.
-
-## Design Principles
-
--   Incremental graph updates
--   No retraining
--   Inductive GNN
--   Explainable blast radius
--   Consistent preprocessing between training and inference
+The batch tools (`feature_engine9.py`, the rule and ML baselines) run
+natively. Anything that loads a torch checkpoint needs a machine where
+PyTorch can load, or the Docker image above.

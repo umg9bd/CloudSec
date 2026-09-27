@@ -10,6 +10,7 @@ from datetime import datetime
 import ipaddress
 import numpy as np
 
+# Best-effort JSON parse of a string value (or passthrough dict/list); returns None if unparseable -- not file I/O.
 def _parse_json_text(value):
     if value is None:
         return None
@@ -26,16 +27,19 @@ def _parse_json_text(value):
     return None
 
 
+# True if input_path's extension marks it as JSON/JSONL/NDJSON CloudTrail input (optionally .gz).
 def _is_cloudtrail_json_path(input_path):
     lower_path = input_path.lower()
     return lower_path.endswith(('.json', '.jsonl', '.ndjson', '.json.gz', '.jsonl.gz', '.ndjson.gz'))
 
 
+# True if input_path's extension marks it as CSV CloudTrail input (optionally .gz).
 def _is_cloudtrail_csv_path(input_path):
     lower_path = input_path.lower()
     return lower_path.endswith(('.csv', '.csv.gz'))
 
 
+# Opens input_path for text reading, transparently gunzipping if it ends in .gz.
 def _open_input_text(input_path):
     if input_path.lower().endswith('.gz'):
         return gzip.open(input_path, mode='rt', encoding='utf-8')
@@ -47,6 +51,42 @@ def _absent_or_present(value):
     if value is None or value == '':
         return None
     return value
+
+
+# Canonicalizes a requestParameters dict into one consistent target-node identity, so the same
+# logical IAM entity doesn't become a different graph node depending on which field the
+# triggering API call happened to use (e.g. AssumeRole's roleArn vs CreateRole/AttachRolePolicy's
+# roleName both collapse onto the same arn:aws:iam::ACCOUNT:role/NAME node).
+def _canonicalize_target_from_params(params, account_id):
+    if not isinstance(params, dict):
+        return None
+
+    role_arn = params.get('roleArn')
+    if role_arn:
+        return role_arn
+
+    # roleName/userName checked before policyArn: AttachRolePolicy/AttachUserPolicy/PutRolePolicy/
+    # PutUserPolicy carry BOTH an identity name and a policyArn, and the identity being modified
+    # (the role/user) is the canonical target -- it's what needs to collapse onto the same node as
+    # AssumeRole/CreateRole/CreateUser. policyArn is only the target for policy-only calls
+    # (CreatePolicyVersion, DeletePolicy, ...) that carry no roleName/userName at all.
+    role_name = params.get('roleName')
+    if role_name:
+        return f"arn:aws:iam::{account_id or 'unknown'}:role/{role_name}"
+
+    user_name = params.get('userName')
+    if user_name:
+        return f"arn:aws:iam::{account_id or 'unknown'}:user/{user_name}"
+
+    policy_arn = params.get('policyArn')
+    if policy_arn:
+        return policy_arn
+
+    bucket_name = params.get('bucketName')
+    if bucket_name:
+        return f"arn:aws:s3:::{bucket_name}"
+
+    return None
 
 
 def normalize_cloudtrail_row(row):
@@ -71,7 +111,16 @@ def normalize_cloudtrail_row(row):
         if isinstance(request_params, (dict, list)):
             request_params = json.dumps(request_params)
 
+    recipient_account_id = row.get('recipient_account_id') or row.get('recipientAccountId')
+    account_id = str(recipient_account_id) if recipient_account_id else _extract_account_id(principal_arn)
+
+    # Prefer an already-enriched target_resource alias when present; otherwise dig into
+    # requestParameters (real CloudTrail often puts the actual target there -- e.g. AssumeRole's
+    # roleArn -- rather than in the generic `resources` array), and only fall back to
+    # `resources[0]` after that.
     target_resource = row.get('target_resource')
+    if not target_resource:
+        target_resource = _canonicalize_target_from_params(_parse_json_text(request_params), account_id)
     if not target_resource:
         resources = row.get('resources') or []
         if isinstance(resources, str):
@@ -81,7 +130,6 @@ def normalize_cloudtrail_row(row):
             if isinstance(first_resource, dict):
                 target_resource = first_resource.get('ARN') or first_resource.get('arn') or first_resource.get('name')
 
-    
     read_only = _absent_or_present(row.get('read_only'))
     if read_only is None:
         read_only = _absent_or_present(row.get('readOnly'))
@@ -89,8 +137,6 @@ def normalize_cloudtrail_row(row):
     mfa_authenticated = _absent_or_present(row.get('mfa_authenticated'))
     if mfa_authenticated is None:
         mfa_authenticated = _absent_or_present(session_attributes.get('mfaAuthenticated'))
-
-    recipient_account_id = row.get('recipient_account_id') or row.get('recipientAccountId')
 
     normalized = {
         'timestamp': row.get('timestamp') or row.get('eventTime'),
@@ -115,6 +161,7 @@ def normalize_cloudtrail_row(row):
     return normalized
 
 
+# Reads a raw CloudTrail CSV or JSON/JSONL file (input_path) and yields each row normalize_cloudtrail_row()'d.
 def iter_input_rows(input_path):
     with _open_input_text(input_path) as infile:
         if _is_cloudtrail_json_path(input_path):
@@ -182,7 +229,9 @@ FIXED_EVENT_SOURCES = [
     "freetier.amazonaws.com",
  ]
 
+# Growable string->int vocabulary, persisted as a JSON dict (e.g. .event_name_vocab.json) at `path`.
 class VocabIndex:
+    # Loads token->index mapping from `path` json if present, else starts from fixed_tokens or just <UNK>.
     def __init__(self, fixed_tokens=None, path=None, frozen=False):
         self.path = path
         self.growable = fixed_tokens is None
@@ -203,6 +252,7 @@ class VocabIndex:
         else:
             self.token_to_idx = {UNK_TOKEN: 0}
 
+    # Looks up token's index, assigning a new one if growable and not frozen; unseen tokens fall back to <UNK>.
     def index(self, token):
         token = token or UNK_TOKEN
         if token in self.token_to_idx:
@@ -213,12 +263,14 @@ class VocabIndex:
             return idx
         return self.token_to_idx[UNK_TOKEN]
 
+    # Writes token_to_idx to `self.path` as JSON (e.g. .event_name_vocab.json).
     def save(self):
         if self.path:
             with open(self.path, 'w', encoding='utf-8') as f:
                 json.dump(self.token_to_idx, f, indent=2, sort_keys=True)
 
 
+# Persisted as counts JSON -- .action_risk_prior.json or .principal_risk_prior.json, chosen by the caller's `path`.
 class AdaptiveRiskPrior:
     """Hand-tuned prior blended with the observed attack rate per key.
 
@@ -231,6 +283,7 @@ class AdaptiveRiskPrior:
     held-out split folds that split's own labels into the features it produces
     -- classic target leakage, silent and unlogged."""
 
+    # Loads {key: [attacks, total]} counts from `path` json if present; frozen+missing file fails loudly.
     def __init__(self, priors, default=0.1, prior_weight=15, path=None, frozen=False):
         self.priors = priors
         self.default = default
@@ -252,6 +305,7 @@ class AdaptiveRiskPrior:
                 f"first so the prior is fitted, then re-run this evaluation."
             )
 
+    # Bayesian-style shrinkage: blends the hand-tuned prior toward the observed attack rate for `key`.
     def score(self, key):
         prior = self.priors.get(key, self.default)
         attacks, total = self.counts.get(key, (0, 0))
@@ -271,6 +325,7 @@ class AdaptiveRiskPrior:
         attacks += 1 if str(label) == '1' else 0
         self.counts[key] = (attacks, total + 1)
 
+    # Writes self.counts to `self.path` as JSON -- .action_risk_prior.json or .principal_risk_prior.json.
     def save(self):
         # A frozen prior is read-only: writing would let an evaluation run
         # overwrite the training-fitted counts on disk.
@@ -301,6 +356,7 @@ def _extract_statements(policy_doc):
     return statements if isinstance(statements, list) else []
 
 
+# Scans a CloudTrail request's IAM policy document (JSON-string request_params_raw, not a file) for wildcard actions/resources.
 def parse_policy_features(request_params_raw):
     params = _parse_json_text(request_params_raw)
     if not isinstance(params, dict):
@@ -347,6 +403,7 @@ def parse_policy_features(request_params_raw):
 DEFAULT_RESOURCE_CRITICALITY = 2
 
 
+# Hand-tuned 1-5 criticality score for a target resource, based on its AWS service and name.
 def get_resource_criticality(event_source, target_resource):
     source = (event_source or '').lower()
     target = str(target_resource or '').lower()
@@ -365,6 +422,7 @@ def get_resource_criticality(event_source, target_resource):
 
 PRIVILEGE_TIERS = {"ReadOnly": 0, "Developer": 1, "PowerUser": 2, "Admin": 3, "Root": 4}
 
+# Hand-tuned 0-4 privilege tier (PRIVILEGE_TIERS) for one event, from principal type and policy signals.
 def derive_privilege_signal(principal_type, is_write_action, wildcard_action, privileged_reach):
     if principal_type == 'Root':
         return PRIVILEGE_TIERS['Root']
@@ -387,10 +445,12 @@ def _extract_account_id(arn):
     return None
 
 
+# Per-node graph stats (degree, EWMA risk, privilege tier), persisted as JSON at `path` (e.g. .graph_node_state.json).
 class GraphNodeTracker:
     EWMA_ALPHA = 0.3  # weight on the newest risk sample
     NODE_AGE_CAP_SECONDS = 86400.0  # number of secs in a day
 
+    # Loads nodes/edge_counts/account_id_counts from `path` json if present (e.g. .graph_node_state.json).
     def __init__(self, path=None):
         self.path = path
         self.nodes = {}
@@ -409,6 +469,7 @@ class GraphNodeTracker:
             self.edge_counts = raw.get('edge_counts', {})
             self.account_id_counts = raw.get('account_id_counts', {})
 
+    # Writes nodes/edge_counts/account_id_counts to `self.path` as JSON (e.g. .graph_node_state.json).
     def save(self):
         if not self.path:
             return
@@ -429,6 +490,7 @@ class GraphNodeTracker:
         with open(self.path, 'w', encoding='utf-8') as f:
             json.dump(serializable, f, indent=2, sort_keys=True)
 
+    # Creates node_id's entry on first sight, then bumps its degree and last_seen timestamp.
     def _touch_node(self, node_id, current_ts):
         if node_id not in self.nodes:
             self.nodes[node_id] = {
@@ -443,6 +505,7 @@ class GraphNodeTracker:
         node['last_seen'] = current_ts
         return node
 
+    # Records one edge, updating both endpoints' degree and the source's EWMA historical_risk/privilege_tier.
     def record_edge(self, source_node, target_node, current_ts, event_risk, privilege_signal):
         source = self._touch_node(source_node, current_ts)
         self._touch_node(target_node, current_ts)  # target's degree also grows
@@ -465,6 +528,7 @@ class GraphNodeTracker:
             'source_historical_risk': round(source['historical_risk'], 4),
         }
 
+    # 1 if principal_arn's account differs from recipient_account_id (or this run's most-common account).
     def cross_account_flag(self, principal_arn, recipient_account_id):
         account_id = _extract_account_id(principal_arn)
         if not account_id:
@@ -480,6 +544,7 @@ class GraphNodeTracker:
 
 # ── Shared feature engineering ─────────────────────────────────────────────
 
+# Parses a CloudTrail timestamp string in either ISO8601 or the synthetic dataset's fixed format.
 def _parse_timestamp(timestamp_str):
     if 'T' in timestamp_str:
         return datetime.fromisoformat(timestamp_str.replace('Z', '+00:00'))
@@ -487,7 +552,9 @@ def _parse_timestamp(timestamp_str):
 
 SESSION_GAP_SECONDS = 1800  # inactivity gap that starts a new session
 
+# Per-principal session/velocity state, persisted as JSON at `path` (e.g. .state_tracker.json).
 class StateTracker:
+    # Loads per-principal last_ts/actions/session state from `path` json if present.
     def __init__(self, path=None):
         self.path = path
         self.user_registry = {}
@@ -501,6 +568,7 @@ class StateTracker:
                     'session_event_count': data['session_event_count'],
                 }
 
+    # Writes user_registry to `self.path` as JSON (e.g. .state_tracker.json).
     def save(self):
         if not self.path:
             return
@@ -516,6 +584,7 @@ class StateTracker:
         with open(self.path, 'w', encoding='utf-8') as f:
             json.dump(serializable, f, indent=2, sort_keys=True)
 
+    # Updates p_arn's session state and returns (velocity, is_new_action, session_duration_s, events_per_minute).
     def get_metrics(self, p_arn, event_name, current_ts):
         if p_arn not in self.user_registry:
             self.user_registry[p_arn] = {
@@ -548,7 +617,9 @@ class StateTracker:
         return velocity, is_new_action, session_duration, events_per_minute
 
 
+# Orchestrates all sub-trackers/priors (see their own JSON files) to turn one raw log row into structural+temporal features.
 class FeatureEngineer:
+    # Wires up VocabIndex/StateTracker/GraphNodeTracker/AdaptiveRiskPrior x2 from the given JSON file paths.
     def __init__(self, event_name_vocab_path=None, state_tracker_path=None, graph_state_path=None,
                  action_prior_path=None, principal_prior_path=None, freeze_vocab=False,
                  freeze_priors=False):
@@ -618,6 +689,7 @@ class FeatureEngineer:
             frozen=freeze_priors,
         )
 
+    # Persists every sub-tracker -- event_name_vocab, state tracker, graph tracker, both risk priors -- to their JSON files.
     def save_state(self):
         self.event_name_vocab.save()
         self.tracker.save()
@@ -637,6 +709,7 @@ class FeatureEngineer:
         self.action_risk_prior.update(log.get('event_name'), label)
         self.principal_risk_prior.update(log.get('principal_type', ''), label)
 
+    # Builds one row of GNN structural features (source/target node, edge type, graph-topology attrs) for the structural CSV.
     def get_structural_data(self, log):
         p_arn = log.get('principal_arn', 'unknown_principal')
         event = log.get('event_name', 'unknown_action')
@@ -672,6 +745,7 @@ class FeatureEngineer:
             **graph_attrs,
         }
 
+    # Builds one row of LSTM temporal features (TEMPORAL_COLS, in order) for the temporal CSV.
     def get_temporal_features(self, log):
         f = []
         p_arn = log.get('principal_arn', 'unknown')
@@ -838,6 +912,7 @@ CRITICAL_ACTIONS = {
     "DeleteFlowLogs":  "VPC flow logs deleted",
 }
 
+# Prints an immediate [FAST-LANE ALERT] if row's action is a defense-evasion action (CRITICAL_ACTIONS) -- no file I/O.
 def fast_lane_alert(row) -> None:
   
     event_name = row.get('event_name')
@@ -850,12 +925,14 @@ def fast_lane_alert(row) -> None:
 # ── State (processed-file tracking, so re-running / restarting the watcher
 #    never reprocesses a CloudTrail log file twice) ────────────────────────────
 
+# Reads the processed-files list from STATE_FILE (.feature_engine9_state.json), or {"processed_files": []} if absent.
 def load_state() -> dict:
     if os.path.exists(STATE_FILE):
         return json.loads(open(STATE_FILE, encoding='utf-8').read())
     return {"processed_files": []}
 
 
+# Writes state (the processed-files list) to STATE_FILE (.feature_engine9_state.json).
 def save_state(state: dict) -> None:
     with open(STATE_FILE, 'w', encoding='utf-8') as f:
         json.dump(state, f)
@@ -878,6 +955,7 @@ def _check_output_schema(path, expected_fields):
         )
 
 
+# Re-sorts TEMPORAL_OUT (cloudtrail_temporal.csv) by (username, timestamp) after appending new_rows.
 def _rewrite_temporal_sorted(new_rows) -> None:
     existing_rows = []
     if os.path.exists(TEMPORAL_OUT):
@@ -1045,6 +1123,7 @@ def _file_is_stable(path: str, checks: int = 2, interval: float = 0.3) -> bool:
     return True
 
 
+# Watches `directory` and runs process_batch_file() on each new CloudTrail log file that lands, tracked via STATE_FILE.
 def watch_folder(directory: str) -> None:
     from watchdog.events import FileSystemEventHandler
     from watchdog.observers import Observer
@@ -1060,6 +1139,7 @@ def watch_folder(directory: str) -> None:
     state = load_state()
     processed = set(state["processed_files"])
 
+    # watchdog handler: fires process_batch_file() on each new, size-stable log file dropped into `directory`.
     class ArrivalHandler(FileSystemEventHandler):
         def on_created(self, event):
             if event.is_directory:
@@ -1130,6 +1210,7 @@ def simulate_incoming_files(directory: str, source_path: str, min_rows: int = 5,
     t = threading.Thread(target=loop, daemon=True)
     t.start()
 
+# CLI entrypoint: one-shot batch mode (--input) or watch mode (--watch[, --simulate]), see argparse help below.
 def main():
     parser = argparse.ArgumentParser(description="Micro-batch CloudTrail feature engine")
     parser.add_argument("--input", default=DEFAULT_INPUT, help="CSV to process in one-shot batch mode")

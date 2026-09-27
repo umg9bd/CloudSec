@@ -27,7 +27,12 @@ RULES = {
     "Minimal SIEM (3 rules)": {
         "StopLogging", "DeleteTrail", "CreateLoginProfile",
     },
-    "GuardDuty-style (11 rules)": {
+    # Curated by reading AWS's public GuardDuty finding-type docs and picking related IAM
+    # actions -- NOT validated against real GuardDuty output. This project's data collection
+    # (see stratus_collection/README.md) never enabled GuardDuty during detonation, so there is
+    # no real GuardDuty baseline to compare against; naming this "GuardDuty-style" would overclaim
+    # what it actually is.
+    "Curated IAM rule baseline (11 rules)": {
         "CreateLoginProfile", "UpdateLoginProfile",
         "AttachUserPolicy", "AttachRolePolicy", "AttachGroupPolicy",
         "PutUserPolicy", "PutRolePolicy",
@@ -125,16 +130,35 @@ def main():
     print("\n\nLoading real_dataset_combined.csv ...")
     df_real = pd.read_csv("real_dataset_combined.csv")
     sessions_real = build_sessions(df_real, group_col="session_id")
-    real_results = evaluate(sessions_real, "REAL DATA (held-out, session_id-corrected)", with_ci=True)
+    evaluate(sessions_real, "REAL DATA, COMBINED dev+test (397 sessions) -- NOT comparable to the "
+                             "test-only numbers below (see Fix A note)", with_ci=True)
+
+    # The SUMMARY table below must be computed on real_dataset_test.csv alone (238 sessions), not
+    # real_dataset_combined.csv (397 dev+test) -- this is exactly the population mismatch flagged as
+    # "Fix A" elsewhere in this project's evaluation history (see docs/PROJECT_STATUS_REPORT.md
+    # §6.17): comparing a rule baseline computed on 397 sessions against a model scored on 238
+    # test sessions produces two numbers that LOOK comparable but are not measuring the same thing.
+    # The classical-ML and ensemble rows below are all test-only (238 sessions), so the rule rows
+    # must be too.
+    print("\n\nLoading real_dataset_test.csv (238 sessions, for the apples-to-apples summary below) ...")
+    df_test = pd.read_csv("real_dataset_test.csv")
+    sessions_test = build_sessions(df_test, group_col="session_id")
+    test_results = evaluate(sessions_test, "REAL DATA, TEST ONLY (238 sessions) -- matches the "
+                                            "population every other row in the summary uses", with_ci=True)
 
     print(f"\n{'=' * 60}")
-    print("SUMMARY -- real held-out test set (the number that matters)")
+    print("SUMMARY -- real held-out TEST set only, 238 sessions (the number that matters)")
     print(f"{'=' * 60}")
     print(f"{'Method':<32} {'Precision':>10} {'Recall':>8} {'F1':>8}")
     print("-" * 60)
-    for r in real_results:
+    for r in test_results:
         print(f"{r['rule_set']:<32} {r['precision']:>10.3f} {r['recall']:>8.3f} {r['f1']:>8.3f}")
-    print(f"{'GNN + Sequence ensemble (ours)':<32} {'???':>10} {'???':>8} {'???':>8}")
+    # Other methods' numbers are deliberately not copied in here: a hardcoded copy goes stale
+    # silently (this table used to print the pre-leak-fix ensemble's F1=0.907 as "ours" after it
+    # stopped being true). The scripts that compute them, on these same 238 test sessions:
+    print("-" * 60)
+    print("Classical-ML baselines (LR / Random Forest / XGBoost): evaluate_ml_baselines.py")
+    print("Proposed system (real-time HGT + LSTM pipeline):       evaluate_pipeline.py")
 
 
 if __name__ == "__main__":

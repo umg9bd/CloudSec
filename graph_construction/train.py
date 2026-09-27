@@ -58,6 +58,7 @@ from data_loader import (
     stratified_edge_split,
 )
 from model_gat import GATAnomalyDetector
+from model_hgt import HGTAnomalyDetector
 from model_graphsage import GraphSAGEAnomalyDetector
 from explainability import EdgeExplainer, FeatureAblation, TargetEdge
 from utils import (
@@ -79,10 +80,12 @@ log = logging.getLogger(__name__)
 
 def parse_args():
     p = argparse.ArgumentParser(description="Privilege Propagation Graph GNN Trainer")
-    p.add_argument("--model",    choices=["sage", "gat", "both"], default="both")
+    p.add_argument("--model",    choices=["sage", "gat", "hgt", "both", "all"], default="both",
+                   help="both = sage + gat; all = sage + gat + hgt")
     p.add_argument("--epochs",   type=int,   default=100)
     p.add_argument("--hidden",   type=int,   default=128)
     p.add_argument("--layers",   type=int,   default=2)
+    p.add_argument("--heads",    type=int,   default=4, help="attention heads (GAT, HGT)")
     p.add_argument("--lr",       type=float, default=1e-3)
     p.add_argument("--dropout",  type=float, default=0.3)
     p.add_argument("--loss",     choices=["focal", "bce"], default="focal")
@@ -108,7 +111,10 @@ def parse_args():
                         "UnresolvedPrincipal) receive messages during aggregation. "
                         "They are never scored -- see scored_edge_types().")
     p.add_argument("--seed",     type=int,   default=42, help="Split random seed")
-    p.add_argument("--neo4j_uri",  default="bolt://localhost:7687")
+    p.add_argument("--offline-csv", default=None,
+                   help="Build the graph from this structural CSV in memory (offline_graph.py) "
+                        "instead of reading Neo4j -- verified tensor-identical to the Neo4j path.")
+    p.add_argument("--neo4j_uri",  default=os.environ.get("NEO4J_URI", "bolt://localhost:7687"))
     p.add_argument("--neo4j_user", default="neo4j")
     p.add_argument("--neo4j_pass", default="test1234")
     p.add_argument("--device",   default="cuda" if torch.cuda.is_available() else "cpu")
@@ -142,12 +148,54 @@ def build_model(name: str, meta: dict, args) -> nn.Module:
             edge_types=edge_types,
             edge_feat_dim=e_feat,
             hidden_dim=args.hidden,
-            heads=4,
+            heads=args.heads,
             num_gat_layers=args.layers,
+            dropout=args.dropout,
+        )
+    elif name == "hgt":
+        return HGTAnomalyDetector(
+            node_feat_dims=node_feat_dims,
+            edge_types=edge_types,
+            edge_feat_dim=e_feat,
+            hidden_dim=args.hidden,
+            heads=args.heads,
+            num_hgt_layers=args.layers,
             dropout=args.dropout,
         )
     else:
         raise ValueError(f"Unknown model: {name}")
+
+
+MODEL_TYPE = {"GraphSAGE": "sage", "GAT": "gat", "HGT": "hgt"}
+
+
+def save_inference_checkpoint(name: str, model: nn.Module, meta: dict, loader, args) -> str:
+    """best_<name>_wrapped.pt: weights + construction args + the scalers/encoders fitted on the
+    training graph, which is everything gnn_scorer.load_gnn needs -- no separate
+    infer.py --wrap-checkpoint step (and no Neo4j) required."""
+    path = os.path.join(args.save_dir, f"best_{name}_wrapped.pt")
+    torch.save({
+        "state_dict": model.state_dict(),
+        "model_args": {
+            "model_type": MODEL_TYPE[name],
+            "node_feat_dims": meta["node_feat_dim"],
+            "edge_types": meta.get("encoder_triples") or meta["populated_triples"],
+            "edge_feat_dim": meta["edge_feat_dim"],
+            "hidden_dim": args.hidden,
+            "num_sage_layers": args.layers, "num_gat_layers": args.layers, "num_hgt_layers": args.layers,
+            "heads": args.heads,
+            "dropout": args.dropout,
+            "add_reverse_edges": args.reverse_edges,
+        },
+        "fit_artifacts": {
+            "edge_scaler": loader.edge_scaler,
+            "node_scalers": loader.node_scalers,
+            "label_encoders": loader.label_encoders,
+        },
+        "train_source": args.offline_csv or meta.get("source_csv"),
+    }, path)
+    log.info("Inference-ready checkpoint saved to %s", path)
+    return path
 
 
 # ── Loss factory ──────────────────────────────────────────────────────────────
@@ -284,11 +332,18 @@ def main():
     log.info("Device: %s", device)
 
     # ── 1. Load data ──────────────────────────────────────────────────────────
-    loader = PrivilegePropagationGraphLoader(
-        add_reverse_edges=args.reverse_edges,
-        uri=args.neo4j_uri, user=args.neo4j_user, password=args.neo4j_pass,
-        device=args.device,
-    )
+    if args.offline_csv:
+        import pandas as pd
+        from offline_graph import OfflineGraphLoader
+        loader = OfflineGraphLoader(pd.read_csv(args.offline_csv), device=args.device,
+                                    add_reverse_edges=args.reverse_edges,
+                                    source_name=os.path.basename(args.offline_csv))
+    else:
+        loader = PrivilegePropagationGraphLoader(
+            add_reverse_edges=args.reverse_edges,
+            uri=args.neo4j_uri, user=args.neo4j_user, password=args.neo4j_pass,
+            device=args.device,
+        )
     data, meta = loader.load()
 
     log.info("Node counts: %s", meta["node_counts"])
@@ -315,7 +370,7 @@ def main():
     # ── 4. Train models ───────────────────────────────────────────────────────
     results = {}
 
-    if args.model in ("sage", "both"):
+    if args.model in ("sage", "both", "all"):
         sage_model = build_model("sage", meta, args)
         sage_params = sum(p.numel() for p in sage_model.parameters())
         log.info("GraphSAGE parameters: %d", sage_params)
@@ -325,11 +380,12 @@ def main():
             train_masks, val_masks, test_masks, args, pos_weight
         )
         results["GraphSAGE"] = sage_metrics
+        save_inference_checkpoint("GraphSAGE", sage_model, meta, loader, args)
 
         if args.explain:
             run_explainability(sage_model, data, test_masks, args)
 
-    if args.model in ("gat", "both"):
+    if args.model in ("gat", "both", "all"):
         gat_model  = build_model("gat", meta, args)
         gat_params = sum(p.numel() for p in gat_model.parameters())
         log.info("GAT parameters: %d", gat_params)
@@ -339,6 +395,14 @@ def main():
             train_masks, val_masks, test_masks, args, pos_weight
         )
         results["GAT"] = gat_metrics
+        save_inference_checkpoint("GAT", gat_model, meta, loader, args)
+
+    if args.model in ("hgt", "all"):
+        hgt_model = build_model("hgt", meta, args)
+        log.info("HGT parameters: %d", sum(p.numel() for p in hgt_model.parameters()))
+        results["HGT"] = train_model("HGT", hgt_model, data,
+                                     train_masks, val_masks, test_masks, args, pos_weight)
+        save_inference_checkpoint("HGT", hgt_model, meta, loader, args)
 
     # ── 5. Comparison table ───────────────────────────────────────────────────
     if args.compare and "GraphSAGE" in results and "GAT" in results:
