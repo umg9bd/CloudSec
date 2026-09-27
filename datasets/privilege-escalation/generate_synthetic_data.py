@@ -110,6 +110,20 @@ ATTACK_CHAINS = {
         {"event_name": "CreateAccessKey", "event_source": "iam.amazonaws.com", "attack_technique": "persistence",          "read_only": False, "target_key": "user"},
         {"event_name": "PutUserPolicy",   "event_source": "iam.amazonaws.com", "attack_technique": "privilege-escalation", "read_only": False, "target_key": "user"},
     ],
+    # TRUE multi-principal propagation (review point 3): the actor changes TWICE.
+    # User assumes AdminRole (role); AS AdminRole it creates and empowers a second
+    # role (role2); then it ASSUMES role2 and acts as THAT. This yields two
+    # ASSUMES edges -- User->role and role->role2 -- so the graph carries a real
+    # User -> AdminRole -> BackdoorRole -> Resource principal chain, not a role
+    # merely manipulating another role as an object. The AttachRolePolicy step
+    # (rank 4) performed by the assumed role (assume = rank 3) is a +1 gain edge.
+    "assume_admin_then_backdoor_role": [
+        {"event_name": "AssumeRole",       "event_source": "sts.amazonaws.com", "attack_technique": "privilege-escalation", "read_only": False, "target_key": "role"},
+        {"event_name": "CreateRole",       "event_source": "iam.amazonaws.com", "attack_technique": "persistence",          "read_only": False, "target_key": "role2"},
+        {"event_name": "AttachRolePolicy", "event_source": "iam.amazonaws.com", "attack_technique": "privilege-escalation", "read_only": False, "target_key": "role2"},
+        {"event_name": "AssumeRole",       "event_source": "sts.amazonaws.com", "attack_technique": "privilege-escalation", "read_only": False, "target_key": "role2"},
+        {"event_name": "GetSecretValue",   "event_source": "secretsmanager.amazonaws.com", "attack_technique": "credential-access", "read_only": True, "target_key": "secret"},
+    ],
     "ssm_parameter_harvest": [
         {"event_name": "DescribeParameters", "event_source": "ssm.amazonaws.com",  "attack_technique": "credential-access", "read_only": True, "target_key": "parameter"},
         {"event_name": "GetParameters",      "event_source": "ssm.amazonaws.com",  "attack_technique": "credential-access", "read_only": True, "target_key": "parameter"},
@@ -240,11 +254,15 @@ ATTACKER_UAS = [
 def rand_str(n=8):   return "".join(random.choices(string.ascii_lowercase, k=n))
 def rand_account():  return "".join(random.choices(string.digits, k=12))
 def rand_ip():       return f"{random.randint(10,203)}.{random.randint(0,255)}.{random.randint(0,255)}.{random.randint(1,254)}"
-def rand_key():      return "AKIA" + "".join(random.choices(string.ascii_uppercase + string.digits, k=16))
-def rand_role_key(): return "ASIA" + "".join(random.choices(string.ascii_uppercase + string.digits, k=16))
+def rand_key():      return "SYNAK" + "".join(random.choices(string.ascii_uppercase + string.digits, k=16))  # non-AWS-format so synthetic data never trips secret scanners
+def rand_role_key(): return "SYNAS" + "".join(random.choices(string.ascii_uppercase + string.digits, k=16))  # non-AWS-format (was ASIA...)
 def rand_resource(kind):
     s = rand_str(6)
-    return {"role": f"role-{s}", "user": f"svc-{s}", "group": f"admins-{s}",
+    # role2 is a SECOND, distinct role in the same session -- used by chains that
+    # assume one role and then create/assume another (true multi-principal
+    # propagation). It must be role-formatted so the graph builder types it as a
+    # Role, not a bare Resource.
+    return {"role": f"role-{s}", "role2": f"role-{s}", "user": f"svc-{s}", "group": f"admins-{s}",
             "policy": "arn:aws:iam::aws:policy/AdministratorAccess",
             "secret": f"prod/db/{s}", "bucket": f"data-{s}-bucket",
             "trail": f"mgmt-trail-{s}", "instance": f"i-{rand_str(17)}",
@@ -321,6 +339,13 @@ def generate_attack_session(chain_name, recon_events=5, noise_events=3):
     t          = datetime(2024, random.randint(1,12), random.randint(1,28),
                           random.randint(7,19), 0, 0, tzinfo=timezone.utc)
     resources  = {s["target_key"]: rand_resource(s["target_key"]) for s in chain}
+    # Campaign/lineage ground truth (review points 2, 14, 15): a stable id per
+    # attack session, the chain family it belongs to, and -- on the labelled
+    # chain steps -- a 0-based stage index and separated tactic/technique. These
+    # travel with each row and are re-emitted as a joinable annotation layer in
+    # main(); they are ground truth for evaluating attack progression and are NOT
+    # consumed as model features.
+    campaign_id = "camp-" + rand_str(12)
     rows = []
 
     for name, source, ro in random.sample(RECON_EVENTS, min(recon_events, len(RECON_EVENTS))):
@@ -332,7 +357,9 @@ def generate_attack_session(chain_name, recon_events=5, noise_events=3):
             "target_resource": _benign_target_resource(source), "request_params_raw": None,
             "principal_type": "IAMUser",
             "principal_arn": f"arn:aws:iam::{account_id}:user/{attacker}",
-            "username": attacker, "session_label": 1, "synthetic": True})
+            "username": attacker, "session_label": 1, "synthetic": True,
+            "campaign_id": campaign_id, "chain_name": chain_name, "stage_index": -1,
+            "attack_tactic": "reconnaissance", "attack_technique_id": chain_name})
 
     # Identity pivots to the assumed role once an AssumeRole-family step is
     # processed -- every action after that point in a real AssumeRole-based
@@ -347,7 +374,7 @@ def generate_attack_session(chain_name, recon_events=5, noise_events=3):
     principal_arn  = f"arn:aws:iam::{account_id}:user/{attacker}"
     principal_name = attacker
 
-    for step in chain:
+    for stage_index, step in enumerate(chain):
         t += jitter(5, 60)
         ep = step.get("error_probability", 0)
         ec = random.choice(ATTACK_ERROR_CODES) if random.random() < ep else None
@@ -360,7 +387,13 @@ def generate_attack_session(chain_name, recon_events=5, noise_events=3):
             "request_params_raw": json.dumps({step["target_key"]+"Name": resources[step["target_key"]]}),
             "principal_type": principal_type,
             "principal_arn": principal_arn,
-            "username": principal_name, "session_label": 1, "synthetic": True})
+            "username": principal_name, "session_label": 1, "synthetic": True,
+            # attack_tactic is the MITRE tactic (step["attack_technique"] holds a
+            # tactic string); attack_technique_id is the specific chain family --
+            # kept separate per review point 15 (don't encode a tactic as a
+            # technique id).
+            "campaign_id": campaign_id, "chain_name": chain_name, "stage_index": stage_index,
+            "attack_tactic": step["attack_technique"], "attack_technique_id": chain_name})
 
         if step["event_name"] in _ASSUME_ACTIONS:
             role_name = resources[step["target_key"]]
@@ -377,7 +410,9 @@ def generate_attack_session(chain_name, recon_events=5, noise_events=3):
             "target_resource": _benign_target_resource(source), "request_params_raw": None,
             "principal_type": principal_type,
             "principal_arn": principal_arn,
-            "username": principal_name, "session_label": 1, "synthetic": True})
+            "username": principal_name, "session_label": 1, "synthetic": True,
+            "campaign_id": campaign_id, "chain_name": chain_name, "stage_index": -1,
+            "attack_tactic": "", "attack_technique_id": chain_name})
     return rows
 
 
@@ -660,6 +695,17 @@ def main():
     df.sort_values("timestamp", inplace=True)
     df.reset_index(drop=True, inplace=True)
 
+    # Benign sessions carry no campaign; give the lineage columns explicit empty
+    # values (not NaN) so the annotation layer is clean.
+    LINEAGE_COLS = ["campaign_id", "chain_name", "attack_tactic", "attack_technique_id"]
+    for c in LINEAGE_COLS:
+        if c not in df.columns:
+            df[c] = ""
+        df[c] = df[c].fillna("")
+    if "stage_index" not in df.columns:
+        df["stage_index"] = -1
+    df["stage_index"] = df["stage_index"].fillna(-1).astype(int)
+
     print(f"Shape: {df.shape}")
     print(f"Label split: benign={  (df['label']==0).sum() }  attack={ (df['label']==1).sum() }")
     print(f"target_resource null rate: {df['target_resource'].isnull().mean():.4f}  (target: 0.2824)")
@@ -669,6 +715,19 @@ def main():
 
     df.to_csv("synthetic_cloudtrail.csv", index=False)
     print("\nSaved synthetic_cloudtrail.csv")
+
+    # Joinable campaign/lineage annotation layer (review points 2, 5, 14, 16).
+    # feature_engine9 assigns log_id = "<input filename>:<row index>", reading
+    # rows top-to-bottom in THIS written order, so row i here == log_id
+    # "synthetic_cloudtrail.csv:i". Emitting the annotation with that exact key
+    # gives a strict 1:1 join to the structural graph. These columns are ground
+    # truth for evaluating attack progression and are NOT model features.
+    ann = df[LINEAGE_COLS + ["stage_index", "label"]].copy()
+    ann.insert(0, "log_id", [f"synthetic_cloudtrail.csv:{i}" for i in range(len(df))])
+    ann.to_csv("synthetic_campaign_annotations.csv", index=False)
+    n_camp = df.loc[df.campaign_id != "", "campaign_id"].nunique()
+    print(f"Saved synthetic_campaign_annotations.csv ({n_camp} campaigns, "
+          f"{int((df.stage_index >= 0).sum())} labelled chain-stage events)")
 
 
 if __name__ == "__main__":

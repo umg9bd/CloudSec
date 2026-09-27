@@ -63,3 +63,7 @@ incoming/cloudtrail_*.csv
 
 # Build output
 .dist/
+
+# Raw CloudTrail captures (contain principal access-key IDs); the pipeline uses
+# the derived redacted CSVs. Anchored at any depth.
+**/stratus_own_runs/CloudTrail/*.json
