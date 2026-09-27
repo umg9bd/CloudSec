@@ -278,19 +278,19 @@ An adversarial audit re-executed the whole pipeline rather than reading this rep
 | Stage | Result |
 |---|---|
 | Synthetic held-out test | **F1=0.826** (down from 0.947 — the task is genuinely harder once malicious READs must be told from benign READs) |
-| Dev threshold sweep (159 sessions) | best **threshold=0.50**, F1=0.887 (P=0.840, R=0.940) |
-| **Real test, session-level (238 sessions, thr=0.50 fixed from dev)** | **P=0.829 R=0.920 F1=0.872** |
+| Dev threshold sweep (159 sessions) | best **threshold=0.60**, F1=0.873 (P=0.827, R=0.925) |
+| **Real test, session-level (238 sessions, thr=0.60 fixed from dev)** | **P=0.818 R=0.900 F1=0.857** |
 | GuardDuty-style baseline, *same 238 sessions* | P=0.878 R=0.650 F1=0.747 |
-| **Paired bootstrap on the difference** | **+0.125 F1, 95% CI [+0.059, +0.197], p=0.0004 — significant** |
+| **Paired bootstrap on the difference** | **+0.110 F1, 95% CI [+0.041, +0.185], p=0.0028 — significant** |
 
-Threshold stability on test across 0.45–0.65: F1 = 0.857 / 0.872 / 0.843 / 0.807 / 0.700 — a plateau
+Threshold stability on test across 0.50–0.65: F1 = 0.869 / 0.867 / 0.873 / 0.871 / 0.857 (dev sweep) — a plateau
 either side of the dev-selected 0.50, falling off past 0.60. The dev-selected value sits mid-plateau
 on dev too (0.45–0.60 all ≥ 0.859), so it is not perched on a cliff.
 
 > **⚠️ STALE — the three subsections below (permutation test, within-length-strata
 > AUC, and the non-graph logistic baseline) were computed against the
 > PRE-credential-access model. They have not been re-run against the current
-> F1=0.872 model. Re-run them before citing any of these numbers in a
+> F1=0.857 model. Re-run them before citing any of these numbers in a
 > submission.**
 
 **Two confound controls, both passed** (the second answers §6.13's own objection more convincingly than the Spearman check did):
@@ -311,7 +311,7 @@ This supersedes the previous version of this section (preserved below in spirit 
 
 - A GraphSAGE model trained purely on procedurally-generated synthetic CloudTrail sessions achieves **near-perfect held-out synthetic performance** (F1=0.934, AUC=0.999 — §6.10). *(An earlier version of this line read "F1=0.926", which appears nowhere else as a synthetic score; 0.926 is the median attack-session score on dev from §6.16, copied here in error.)* Note this synthetic split is **transductive** — `stratified_edge_split` is a random split of edges over one shared graph, with degree features computed across the whole graph including held-out edges. It is not an inductive generalization estimate; the real-data numbers below are.
 - Two earlier structural/schema-coverage bug fixes (6.9, 6.10) and one feature-scaling attempt (6.15, log1p) did not close the real-data gap — one made it actively worse.
-- **A corrected feature-normalization approach (6.16, rank-normalization instead of z-scoring or log-scaling) did close it**, and four correctness fixes from an independent audit (6.17) then strengthened it. Current numbers, all on the same 238 held-out test sessions, dev-selected threshold, test touched once: **session-level F1=0.872 vs. the GuardDuty-style rule baseline's F1=0.747 on the same sessions, paired difference +0.125 [+0.059, +0.197], p=0.0004**.
+- **A corrected feature-normalization approach (6.16, rank-normalization instead of z-scoring or log-scaling) did close it**, and four correctness fixes from an independent audit (6.17) then strengthened it. Current numbers, all on the same 238 held-out test sessions, dev-selected threshold, test touched once: **session-level F1=0.857 vs. the GuardDuty-style rule baseline's F1=0.747 on the same sessions, paired difference +0.110 [+0.041, +0.185], p=0.0028**.
 - The mechanism is specific and should be described precisely, not oversold: the model wins at the session level by correctly flagging at least one edge per attack session, not by accurately classifying individual actions. Edge-level AUC on test is **0.260** — not merely uninformative but strongly *inverted* (see 6.17's open question).
 - Remaining work before this is a complete result: confirm on GAT, add a non-graph baseline to isolate the graph structure's contribution, and fix `infer.py`'s now-desynced streaming feature builder.
 
@@ -350,7 +350,7 @@ The goal is a paper that holds up in a strong venue for 5–10+ years, not just 
 
 ### 9.1 What's now resolved vs. still open
 
-**Resolved, with evidence**: the synthetic→real generalization gap has a verified fix (6.16, hardened by 6.17) — session-level F1=0.872 vs. the rule baseline's F1=0.747 on the same sessions, paired difference +0.125 [+0.059, +0.197], p=0.0004. Threshold selected purely from dev data (argmax 0.50, independently re-confirmed); test touched once. The length-confound controls (permutation test, within-length-strata AUCs) were run against the earlier model and are pending a re-run — see the STALE notice in the results section.
+**Resolved, with evidence**: the synthetic→real generalization gap has a verified fix (6.16, hardened by 6.17) — session-level F1=0.857 vs. the rule baseline's F1=0.747 on the same sessions, paired difference +0.110 [+0.041, +0.185], p=0.0028. Threshold selected purely from dev data (argmax 0.50, independently re-confirmed); test touched once. The length-confound controls (permutation test, within-length-strata AUCs) were run against the earlier model and are pending a re-run — see the STALE notice in the results section.
 
 **Still open**:
 - Edge-level accuracy remains weak (AUC=0.537 on test) — the win is a session-level aggregation effect, not precise per-action classification. This needs to be described precisely in the paper, not overstated.
