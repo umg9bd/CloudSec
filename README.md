@@ -41,8 +41,22 @@ are moved to `incoming/processed/`.
 
 ## Run it
 
-PyTorch runs in Docker: Windows Smart App Control blocks torch's unsigned
-DLLs on the development machine.
+One command, with Docker Desktop running:
+
+``` powershell
+.un.cmd          # Windows (PowerShell or cmd)
+./run.sh           # macOS / Linux / Git Bash
+```
+
+It builds the image if needed and starts the pipeline. It streams
+`real_dataset_test.csv` into `incoming/`, 200 events every 5 s, and prints
+every event's HGT, LSTM and risk score, with fast-lane and per-principal
+alerts inline. Ctrl+C stops it. Options pass through, e.g.
+`.un.cmd --feed-interval 2 --feed-limit 2000`, or a different dataset:
+`.un.cmd datasets/privilege-escalation/real_dataset_dev.csv`.
+
+The pieces, run individually. PyTorch runs in Docker because Windows Smart
+App Control blocks torch's unsigned DLLs on the development machine.
 
 ``` bash
 docker build -t cloudsec .
@@ -62,7 +76,7 @@ file of events every few seconds), with a live line per event:
 
 ``` bash
 docker run --rm -it -v "$PWD:/app" cloudsec python pipeline.py --watch incoming --show-events
-python feed_incoming.py --batch-size 200 --interval 5     # second terminal; default dataset real_dataset_test.csv
+python feed_incoming.py --batch-size 200 --interval 5     # second terminal (or add --feed to the line above)
 ```
 
 ``` text
@@ -161,6 +175,7 @@ Full runnable walkthrough: `docs/DEMO_GUIDE.md`.
 -   `graph_construction/offline_graph.py`, `gnn_scorer.py`, `model_hgt.py` -- Neo4j-free graph building and HGT/GraphSAGE/GAT scoring
 -   `samples/cloudtrail/` -- example CloudTrail files to drop into `incoming/`
 -   `feed_incoming.py` -- replays a dataset into `incoming/` batch by batch (a CloudTrail delivery simulator)
+-   `run.cmd`, `run.sh` -- the one-command demo (pipeline + feeder in Docker)
 -   `leakage_guard.py` -- audits any file for train/test contamination
 -   `datasets/privilege-escalation/` -- synthetic data generator, rule baselines, raw/derived datasets
 -   `graph_construction/` -- models (HGT, GraphSAGE, GAT), training (`train.py --model hgt --offline-csv ...`), graph construction, evaluation. `infer.py`'s incremental Neo4j path is legacy and not used by the pipeline.

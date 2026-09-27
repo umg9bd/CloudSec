@@ -33,7 +33,8 @@ datasets/privilege-escalation/evaluate_pipeline.py.
 Usage (inside the Docker image -- see Dockerfile; torch is blocked natively on this machine):
     python pipeline.py --watch incoming                # run forever on a folder
     python pipeline.py --watch incoming --show-events  # ... printing every event's scores
-    python feed_incoming.py                            # (another terminal) drop a dataset in, batch by batch
+    python pipeline.py --watch incoming --show-events --feed   # ... and stream a dataset into it
+    run.cmd  /  ./run.sh                               # all of the above in Docker, one command
     python pipeline.py --files a.json b.json           # score files once
 """
 from __future__ import annotations
@@ -315,6 +316,12 @@ def main():
     ap.add_argument("--config", default=CONFIG_PATH)
     ap.add_argument("--show-events", action="store_true",
                     help="Print every event's HGT, LSTM and risk score as it is scored, not only alerts")
+    ap.add_argument("--feed", nargs="?", const="datasets/privilege-escalation/real_dataset_test.csv",
+                    metavar="DATASET", help="With --watch: also replay DATASET (default real_dataset_test.csv) "
+                                            "into the watched folder batch by batch (feed_incoming.py)")
+    ap.add_argument("--feed-batch-size", type=int, default=200)
+    ap.add_argument("--feed-interval", type=float, default=5.0)
+    ap.add_argument("--feed-limit", type=int, default=None, help="stop feeding after this many events")
     ap.add_argument("--reset-state", action="store_true",
                     help="Forget per-principal history and the event buffer before starting")
     args = ap.parse_args()
@@ -326,6 +333,12 @@ def main():
           f"{cfg.alert_threshold * 10:.2f}/10 ({cfg.tuned_on})", flush=True)
     pipeline = Pipeline(cfg, show_events=args.show_events)
     if args.watch:
+        if args.feed:
+            import threading
+            from feed_incoming import feed
+            threading.Thread(target=feed, daemon=True, kwargs=dict(
+                dataset=args.feed, incoming=args.watch, batch_size=args.feed_batch_size,
+                interval=args.feed_interval, limit=args.feed_limit)).start()
         watch(args.watch, pipeline)
     else:
         for f in args.files:

@@ -19,6 +19,39 @@ ROOT = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_DATASET = os.path.join("datasets", "privilege-escalation", "real_dataset_test.csv")
 
 
+def feed(dataset: str = DEFAULT_DATASET, incoming: str = "incoming", batch_size: int = 200,
+         interval: float = 5.0, start: int = 0, limit: int | None = None) -> None:
+    """Drops `dataset` into `incoming` as numbered files of `batch_size` events, one per `interval` s."""
+    dataset = os.path.join(ROOT, dataset) if not os.path.isabs(dataset) else dataset
+    incoming = os.path.join(ROOT, incoming) if not os.path.isabs(incoming) else incoming
+    staging = os.path.join(os.path.dirname(incoming), ".incoming_staging")
+    os.makedirs(incoming, exist_ok=True)
+    os.makedirs(staging, exist_ok=True)
+
+    with open(dataset, newline="", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        fields, rows = reader.fieldnames, list(reader)
+    end = len(rows) if limit is None else min(len(rows), start + limit)
+    rows = rows[start:end]
+    stem = os.path.splitext(os.path.basename(dataset))[0]
+    n_batches = -(-len(rows) // batch_size)
+    print(f"[FEED] {len(rows)} events from {os.path.relpath(dataset, ROOT)} -> {n_batches} files of "
+          f"{batch_size}, one every {interval:g}s", flush=True)
+    for b in range(n_batches):
+        chunk = rows[b * batch_size:(b + 1) * batch_size]
+        name = f"{stem}_batch{b + 1:04d}.csv"
+        tmp = os.path.join(staging, name)
+        with open(tmp, "w", newline="", encoding="utf-8") as out:
+            w = csv.DictWriter(out, fieldnames=fields)
+            w.writeheader()
+            w.writerows(chunk)
+        os.replace(tmp, os.path.join(incoming, name))
+        print(f"[FEED] {name}: {len(chunk)} events ({min((b + 1) * batch_size, len(rows))}/{len(rows)})", flush=True)
+        if b + 1 < n_batches:
+            time.sleep(interval)
+    print(f"[FEED] done: all {len(rows)} events dropped.", flush=True)
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--dataset", default=DEFAULT_DATASET,
@@ -30,41 +63,10 @@ def main():
     ap.add_argument("--start", type=int, default=0, help="first row of the dataset to send")
     ap.add_argument("--limit", type=int, default=None, help="stop after this many events")
     args = ap.parse_args()
-
-    dataset = os.path.join(ROOT, args.dataset) if not os.path.isabs(args.dataset) else args.dataset
-    incoming = os.path.join(ROOT, args.incoming) if not os.path.isabs(args.incoming) else args.incoming
-    staging = os.path.join(os.path.dirname(incoming), ".incoming_staging")
-    os.makedirs(incoming, exist_ok=True)
-    os.makedirs(staging, exist_ok=True)
-
-    with open(dataset, newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        fields, rows = reader.fieldnames, list(reader)
-    end = len(rows) if args.limit is None else min(len(rows), args.start + args.limit)
-    rows = rows[args.start:end]
-    stem = os.path.splitext(os.path.basename(dataset))[0]
-    n_batches = -(-len(rows) // args.batch_size)
-    print(f"Feeding {len(rows)} events from {args.dataset} into {args.incoming}/ as {n_batches} files of "
-          f"{args.batch_size}, one every {args.interval:g}s (Ctrl+C to stop)", flush=True)
-
     try:
-        for b in range(n_batches):
-            chunk = rows[b * args.batch_size:(b + 1) * args.batch_size]
-            name = f"{stem}_batch{b + 1:04d}.csv"
-            tmp = os.path.join(staging, name)
-            with open(tmp, "w", newline="", encoding="utf-8") as out:
-                w = csv.DictWriter(out, fieldnames=fields)
-                w.writeheader()
-                w.writerows(chunk)
-            os.replace(tmp, os.path.join(incoming, name))
-            print(f"[FEED] {name}: {len(chunk)} events ({min((b + 1) * args.batch_size, len(rows))}/{len(rows)})",
-                  flush=True)
-            if b + 1 < n_batches:
-                time.sleep(args.interval)
+        feed(args.dataset, args.incoming, args.batch_size, args.interval, args.start, args.limit)
     except KeyboardInterrupt:
         print("\nStopped feeding.")
-    else:
-        print(f"[FEED] done: all {len(rows)} events dropped.")
 
 
 if __name__ == "__main__":
