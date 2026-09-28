@@ -38,7 +38,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # The repo root (feature_engine9, leakage_guard) and graph_construction/
 # (data_loader, model_gat, ...) both need to be importable: several modules
 # import each other as top-level names rather than as package members.
-for path in (ROOT, os.path.join(ROOT, "graph_construction")):
+for path in (ROOT, os.path.join(ROOT, "graph_construction"), os.path.join(ROOT, "temporal-analysis")):
     if path not in sys.path:
         sys.path.insert(0, path)
 
@@ -59,6 +59,12 @@ FAST_SUITES = [
     "test_pipeline",              # streaming == batch (LSTM), fallback, alert schema
     # ── shared: the train/eval boundary both tracks must respect ─────────
     "test_leakage_guard",         # held-out detection, label-derived prior freeze
+    "test_feature_engine_cache",  # priors fit on train rows only; stale cached outputs refused
+    "test_family_split",          # campaign-family holdout: no family or session crosses splits
+    # ── feature semantics ────────────────────────────────────────────────
+    "test_identity_features",     # ground truth never a feature; handoffs, permission deltas
+    "test_iam_permissions",       # permission state from observed policy content
+    "test_attack_taxonomy",       # tactic vs technique, ATT&CK-consistent pairs
 ]
 
 SLOW_SUITES = [
