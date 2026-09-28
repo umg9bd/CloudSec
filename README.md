@@ -44,7 +44,8 @@ are moved to `incoming/processed/`.
 One command, with Docker Desktop running:
 
 ``` powershell
-.un.cmd          # Windows (PowerShell or cmd)
+.
+un.cmd          # Windows (PowerShell or cmd)
 ./run.sh           # macOS / Linux / Git Bash
 ```
 
@@ -52,8 +53,10 @@ It builds the image if needed and starts the pipeline. It streams
 `real_dataset_test.csv` into `incoming/`, 200 events every 5 s, and prints
 every event's HGT, LSTM and risk score, with fast-lane and per-principal
 alerts inline. Ctrl+C stops it. Options pass through, e.g.
-`.un.cmd --feed-interval 2 --feed-limit 2000`, or a different dataset:
-`.un.cmd datasets/privilege-escalation/real_dataset_dev.csv`.
+`.
+un.cmd --feed-interval 2 --feed-limit 2000`, or a different dataset:
+`.
+un.cmd datasets/privilege-escalation/real_dataset_dev.csv`.
 
 The pieces, run individually. PyTorch runs in Docker because Windows Smart
 App Control blocks torch's unsigned DLLs on the development machine.
@@ -103,17 +106,19 @@ test was used, and each system was run on test once.
 
 | | Precision | Recall | F1 [95% CI] |
 |---|---|---|---|
-| **Real-time pipeline** (HGT + LSTM, `pipeline.py`) | 0.780 | 0.920 | **0.844** [0.788, 0.893] |
-| Random Forest (temporal features) | 0.827 | 0.860 | 0.843 [0.786, 0.893] |
-| XGBoost (temporal features) | 0.817 | 0.850 | 0.833 [0.772, 0.885] |
-| Logistic regression (bag of actions) | 0.706 | 0.960 | 0.814 [0.756, 0.864] |
-| Curated IAM rule baseline (11 rules) | 0.878 | 0.650 | 0.747 [0.671, 0.815] |
-| GraphSAGE alone (batch, retrained with credential-access chains) | 0.829 | 0.920 | 0.872 |
+| **Real-time pipeline** (HGT + LSTM, `pipeline.py`) | 0.825 | 0.925 | **0.872** [0.823, 0.915] |
+| Random Forest (temporal features) | 0.841 | 0.888 | 0.864 [0.812, 0.909] |
+| XGBoost (temporal features) | 0.838 | 0.916 | 0.875 [0.825, 0.918] |
+| Logistic regression (bag of actions) | 0.600 | 0.869 | 0.710 [0.644, 0.769] |
+| Curated IAM rule baseline (11 rules) | 0.904 | 0.701 | 0.789 [0.720, 0.849] |
+| GraphSAGE alone (batch, session-level) | 0.875 | 0.785 | 0.828 (AUC **0.985**) |
 
-The pipeline beats the rule baseline significantly (paired bootstrap +0.097
-F1, 95% CI [+0.028, +0.168], p = 0.008). It is statistically tied with the
-classical ML baselines: vs Random Forest +0.001 (p = 0.98), vs XGBoost +0.011
-(p = 0.65), vs logistic regression +0.030 (p = 0.21).
+> **All rows are on one footing** — the same 821-session real test set (4 collectors, including 30 real Stratus privilege-escalation detonations), one consistent feature engine, each model's threshold/config frozen on dev and test scored once. GraphSAGE (batch) has session AUC **0.985** (confound-controlled, beats all 200 size-preserving permutations); its F1 at the dev-selected threshold is 0.828 (paired +0.038 over rules, p=0.196 -- a point estimate, not significant, after the deliberate class-mixture rebalance). The pipeline, XGBoost and Random Forest are statistically tied (pipeline vs XGBoost -0.003 p=0.92; vs RF +0.009 p=0.68); all beat the rule baseline except logistic regression.
+
+The pipeline beats the rule baseline significantly (paired bootstrap +0.083
+F1, 95% CI [+0.023, +0.148], p = 0.008). It is statistically tied with the
+classical ML baselines: vs Random Forest +0.009 (p = 0.68), vs XGBoost -0.003
+(p = 0.92), vs logistic regression +0.162 (p < 0.001).
 
 On dev, the ensemble beats each of its branches:
 

@@ -12,7 +12,7 @@ The key ID value is not a feature or a graph node in this pipeline -- feature
 engine 9 uses only `has_access_key` (present vs empty, feature_engine9.py). So
 every real ID is replaced with a deterministic, non-empty, non-AWS-format token:
 
-    AKIAXZ5NGD3MQUGZJYPU  ->  REDACTEDAK<10-hex-of-hash>
+    REDACTEDAKba1a1f26b7  ->  REDACTEDAK<10-hex-of-hash>
 
 Deterministic and 1:1, so the SAME real ID maps to the SAME token in every file
 (dev/test/combined and the .graph_node_state composites like `root||AKIA...`),

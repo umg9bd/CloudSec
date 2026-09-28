@@ -5,7 +5,7 @@
     "principalId": "AIDA7EXAMPLE123456789",
     "arn": "arn:aws:iam::325967135271:user/john.doe",
     "accountId": "325967135271",
-    "accessKeyId": "AKIAIOSFODNN7EXAMPLE",
+    "accessKeyId": "REDACTEDAK85717ef417",
     "userName": "john.doe"
   },
   "eventTime": "2026-07-30T15:42:18Z",
