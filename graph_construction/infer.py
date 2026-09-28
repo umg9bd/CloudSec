@@ -205,9 +205,10 @@ def _display_ntype(labels: Optional[List[str]]) -> str:
 # SECTION 1 — CHECKPOINT LOADING
 # ══════════════════════════════════════════════════════════════════════════════
 
-def load_model_from_checkpoint(ckpt_path: str, device: torch.device) -> Tuple[GraphSAGEAnomalyDetector, dict]:
+def load_model_from_checkpoint(ckpt_path: str, device: torch.device) -> Tuple[torch.nn.Module, dict]:
     """
-    Loads a trained GraphSAGEAnomalyDetector from a checkpoint file.
+    Loads a trained model (GraphSAGE, GAT, HGT or a model_ensemble ensemble)
+    from a checkpoint file.
 
     Expects the checkpoint to be a dict with keys:
         "state_dict"   : model.state_dict()
@@ -236,22 +237,28 @@ def load_model_from_checkpoint(ckpt_path: str, device: torch.device) -> Tuple[Gr
         )
 
     args = ckpt["model_args"]
-    model = GraphSAGEAnomalyDetector(
-        node_feat_dims=args["node_feat_dims"],
-        edge_types=args["edge_types"],
-        edge_feat_dim=args["edge_feat_dim"],
-        hidden_dim=args.get("hidden_dim", 128),
-        num_sage_layers=args.get("num_sage_layers", 2),
-        dropout=args.get("dropout", 0.0),  # eval mode: dropout inactive regardless
-    )
-    model.load_state_dict(ckpt["state_dict"])
+    # model_args["model_type"] selects the architecture. train.py writes
+    # "sage"/"gat"/"hgt"; GNN-final's checkpoints say "graphsage"; an absent key
+    # is a pre-HGT checkpoint, which was always GraphSAGE. "ensemble" (from
+    # model_ensemble.py) carries its components' own state_dicts.
+    model_type = {"graphsage": "sage"}.get(args.get("model_type", "sage"), args.get("model_type", "sage"))
+    if model_type == "ensemble":
+        from model_ensemble import build_ensemble_from_args
+        model = build_ensemble_from_args(args, device)
+    elif model_type in ("sage", "gat", "hgt"):
+        from evaluate_on_real import build_model_from_args
+        model = build_model_from_args(model_type, {"hidden_dim": 128, "num_sage_layers": 2,
+                                                   "dropout": 0.0, **args})
+        model.load_state_dict(ckpt["state_dict"])
+    else:
+        raise ValueError(f"Checkpoint at {ckpt_path!r} has unknown model_args['model_type'] "
+                         f"{model_type!r}; expected sage/graphsage, gat, hgt or ensemble.")
     model.to(device)
     model.eval()
     log.info(
-        "Model loaded — %d parameters | edge_types=%d | edge_feat_dim=%d",
-        sum(p.numel() for p in model.parameters()),
-        len(args["edge_types"]),
-        args["edge_feat_dim"],
+        "Model loaded (%s) — %d parameters | edge_types=%d | edge_feat_dim=%s",
+        model_type, sum(p.numel() for p in model.parameters()),
+        len(args.get("edge_types", [])), args.get("edge_feat_dim"),
     )
     return model, ckpt.get("fit_artifacts", {})
 

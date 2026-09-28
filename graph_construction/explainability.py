@@ -95,6 +95,13 @@ class EdgeExplainer:
         # result: {feature_name: importance_score}, sorted descending
     """
 
+    def _scored_triples(self, data: HeteroData) -> List[EdgeTriple]:
+        """The triples the model scores, in its output order: labelled forward
+        triples (scored_edge_types) that the model has trained weights for."""
+        from data_loader import scored_edge_types
+        known = getattr(self.model, "edge_types", None)
+        return [t for t in scored_edge_types(data) if known is None or t in known]
+
     def __init__(self, model: nn.Module, feat_names: List[str] = None, method: str = "gradient"):
         self.model = model
         self.feat_names = feat_names or EDGE_FEATURE_NAMES
@@ -172,10 +179,13 @@ class EdgeExplainer:
         edge_attr.requires_grad_(True)
 
         logits = self.model(data)
-        # Map (triple, local_index) -> position in the model's flat output,
-        # which is ordered by sorted(data.edge_types) — see model files.
+        # Map (triple, local_index) -> position in the model's flat output.
+        # The models score scored_edge_types(data) (reverse edges excluded)
+        # restricted to the triples they have weights for, in that order --
+        # so walk exactly that, or the offset lands on the wrong edge (and a
+        # reverse triple, which has no `y`, would raise).
         offset = 0
-        for t in sorted(data.edge_types):
+        for t in self._scored_triples(data):
             if t == target.triple:
                 global_index = offset + target.local_index
                 break
@@ -215,7 +225,7 @@ class EdgeExplainer:
         logits = self.model(data)
         probs = torch.sigmoid(logits).cpu().numpy()
         targets: List[TargetEdge] = []
-        for t in sorted(data.edge_types):
+        for t in self._scored_triples(data):
             n_t = data[t].y.shape[0]
             targets.extend(TargetEdge(t, i) for i in range(n_t))
         return probs, targets
@@ -268,3 +278,313 @@ class FeatureAblation:
             data[t].edge_attr = originals[t]
 
         return dict(sorted(results.items(), key=lambda x: -x[1]))
+
+# ============================================================================
+# Standalone runner
+# ============================================================================
+
+if __name__ == "__main__":
+    import argparse
+
+    import pandas as pd
+
+    from data_loader import stratified_edge_split
+    from infer import load_model_from_checkpoint
+    from offline_graph import OfflineGraphLoader
+
+    parser = argparse.ArgumentParser(
+        description="Run edge-level explainability and feature ablation."
+    )
+
+    parser.add_argument(
+        "--checkpoint",
+        default="./checkpoints/best_HGT_wrapped.pt",
+        help="Path to trained HGT checkpoint (must be a *wrapped* checkpoint "
+             "— i.e. containing a model_args sidecar with the training-time "
+             "edge_types/schema — not a bare state_dict; see --wrap-checkpoint "
+             "in infer.py).",
+    )
+
+    parser.add_argument(
+        "--csv",
+        default="./datasets/privilege-escalation/cloudtrail_structural.csv",
+        help="Structural CloudTrail CSV",
+    )
+
+    parser.add_argument(
+        "--method",
+        choices=["gradient", "gnnexplainer"],
+        default="gradient",
+        help="Explanation method",
+    )
+
+    parser.add_argument(
+        "--top-k",
+        type=int,
+        default=5,
+        help="Number of highest-confidence test edges to explain",
+    )
+
+    parser.add_argument(
+        "--threshold",
+        type=float,
+        default=0.5,
+        help="Classification threshold for F1 evaluation",
+    )
+
+    parser.add_argument(
+        "--no-ablation",
+        action="store_true",
+        help="Skip feature ablation",
+    )
+
+    args_cli = parser.parse_args()
+
+    # ------------------------------------------------------------------------
+    # 1. Device
+    # ------------------------------------------------------------------------
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+
+    print("=" * 80)
+    print("OVERALL EXPLAINABILITY")
+    print("=" * 80)
+    print(f"Device     : {device}")
+    print(f"CSV        : {args_cli.csv}")
+    print(f"Checkpoint : {args_cli.checkpoint}")
+    print(f"Method     : {args_cli.method}")
+    print()
+
+    # ------------------------------------------------------------------------
+    # 2. Load the exact offline graph
+    # ------------------------------------------------------------------------
+    print("[1/5] Loading model and graph...")
+
+    # The checkpoint first: its training-fitted scalers/encoders must be
+    # applied transform-only to this graph (same path as gnn_scorer.py and the
+    # live pipeline), and its model_args define the schema the model expects.
+    model, fit_artifacts = load_model_from_checkpoint(args_cli.checkpoint, device)
+    model.eval()
+    model_args = torch.load(args_cli.checkpoint, map_location="cpu", weights_only=False)["model_args"]
+    data, meta = OfflineGraphLoader(
+        pd.read_csv(args_cli.csv), device=device, fit_artifacts=fit_artifacts,
+        model_node_types=set(model_args.get("node_feat_dims", {})),
+        add_reverse_edges=any(str(t[1]).startswith("REV_") for t in model_args.get("edge_types", [])),
+    ).load()
+
+    print(f"       Node types : {data.node_types}")
+    print(f"       Edge types : {data.edge_types}")
+
+    # ------------------------------------------------------------------------
+    # 3. Recreate the same stratified split
+    # ------------------------------------------------------------------------
+    print("\n[2/5] Creating stratified train/val/test split...")
+
+    train_masks, val_masks, test_masks = stratified_edge_split(
+        data,
+        seed=42,
+    )
+
+    # ------------------------------------------------------------------------
+    # 4. The model was built in step 1 from the CHECKPOINT's own model_args
+    #    (edge_types, node_feat_dims, hidden_dim, heads, ...), not from this
+    #    graph's schema: the two can diverge, and building from the graph
+    #    caused k_rel/v_rel size mismatches on load. Needs a *wrapped*
+    #    checkpoint, since only that format carries model_args.
+    # ------------------------------------------------------------------------
+    print("\n[3/5] Model loaded from the checkpoint's own model_args.")
+
+    # ------------------------------------------------------------------------
+    # 5. Edge-level explainability
+    # ------------------------------------------------------------------------
+    print("\n[4/5] Running edge-level explainability...")
+    print("-" * 80)
+
+    explainer = EdgeExplainer(
+        model,
+        method=args_cli.method,
+    )
+
+    results = explainer.explain_top_k(
+        data,
+        test_masks,
+        k=args_cli.top_k,
+    )
+
+    # Compute predictions once so probabilities can be printed.
+    with torch.no_grad():
+        logits = model(data)
+        probs = torch.sigmoid(logits).cpu().numpy()
+
+    target_to_prob = {}
+    offset = 0
+
+    # Same restriction as EdgeExplainer._flat_probs_and_targets: probs is
+    # only as long as the triples the model has weights for, since
+    # model.forward() silently skips any triple not in model.edge_types.
+    for triple in explainer._scored_triples(data):   # the model's output order
+        n = data[triple].y.shape[0]
+
+        for i in range(n):
+            target_to_prob[(triple, i)] = float(
+                probs[offset + i]
+            )
+
+        offset += n
+
+    print(f"\nTop {len(results)} highest-confidence test predictions:\n")
+
+    for rank, (target, importance) in enumerate(
+        results.items(),
+        start=1,
+    ):
+        triple = target.triple
+        local_index = target.local_index
+
+        probability = target_to_prob[
+            (triple, local_index)
+        ]
+
+        print(f"#{rank}")
+        print(f"  Edge          : {triple}")
+        print(f"  Local index   : {local_index}")
+        print(f"  Attack prob   : {probability:.4f}")
+
+        edge_data = data[triple]
+
+        if hasattr(edge_data, "log_id"):
+            try:
+                print(
+                    f"  log_id        : "
+                    f"{edge_data.log_id[local_index]}"
+                )
+            except Exception:
+                pass
+
+        print("  Feature importance:")
+
+        for feature, score in importance.items():
+            print(
+                f"    {feature:<40} {score:.6f}"
+            )
+
+        print()
+
+    # ------------------------------------------------------------------------
+    # 6. Feature ablation
+    # ------------------------------------------------------------------------
+    if not args_cli.no_ablation:
+
+        print("\n[5/5] Running feature ablation...")
+        print("-" * 80)
+
+        def evaluate_fn(model, data, mask_dict):
+            model.eval()
+
+            with torch.no_grad():
+                logits = model(data)
+
+            y_true = []
+            y_pred = []
+
+            offset = 0
+
+            # The model's output order: see EdgeExplainer._scored_triples.
+            for triple in explainer._scored_triples(data):
+
+                y = data[triple].y
+                n = y.shape[0]
+
+                mask = mask_dict.get(triple)
+
+                if mask is None:
+                    offset += n
+                    continue
+
+                mask = mask.to(device)
+
+                triple_logits = logits[
+                    offset:offset + n
+                ]
+
+                triple_probs = torch.sigmoid(
+                    triple_logits
+                )
+
+                pred = (
+                    triple_probs >= args_cli.threshold
+                ).long()
+
+                y_true.extend(
+                    y[mask].detach().cpu().long().tolist()
+                )
+
+                y_pred.extend(
+                    pred[mask].detach().cpu().long().tolist()
+                )
+
+                offset += n
+
+            if not y_true:
+                return {"f1": 0.0}
+
+            tp = sum(
+                1
+                for yt, yp in zip(y_true, y_pred)
+                if yt == 1 and yp == 1
+            )
+
+            fp = sum(
+                1
+                for yt, yp in zip(y_true, y_pred)
+                if yt == 0 and yp == 1
+            )
+
+            fn = sum(
+                1
+                for yt, yp in zip(y_true, y_pred)
+                if yt == 1 and yp == 0
+            )
+
+            precision = (
+                tp / (tp + fp)
+                if (tp + fp) > 0
+                else 0.0
+            )
+
+            recall = (
+                tp / (tp + fn)
+                if (tp + fn) > 0
+                else 0.0
+            )
+
+            f1 = (
+                2 * precision * recall
+                / (precision + recall)
+                if (precision + recall) > 0
+                else 0.0
+            )
+
+            return {"f1": f1}
+
+        ablator = FeatureAblation(model)
+
+        ablation_results = ablator.run(
+            data,
+            test_masks,
+            evaluate_fn,
+        )
+
+        print("\nFeature ablation results:")
+        print(
+            "(positive ΔF1 means removing the feature reduced F1)\n"
+        )
+
+        for feature, drop in ablation_results.items():
+            print(
+                f"  {feature:<40} "
+                f"ΔF1 = {drop:+.6f}"
+            )
+
+    print("\n" + "=" * 80)
+    print("EXPLAINABILITY COMPLETE")
+    print("=" * 80)

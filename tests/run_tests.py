@@ -58,6 +58,8 @@ FAST_SUITES = [
     "test_evaluation_integrity",  # edge->session join, guards, paired baseline
     "test_model_hgt",             # HGT output shape/order contract
     "test_hgt_attention_dropout", # attn_dropout really applied on PyG without the kwarg
+    "test_neighbor_sampling",     # relation-aware sampler + sampled training view (GNN-final)
+    "test_ensemble",              # HGT/SAGE/GAT ensemble coverage fallback (GNN-final)
     # ── real-time pipeline ───────────────────────────────────────────────
     "test_pipeline",              # streaming == batch (LSTM), fallback, alert schema
     "test_lstm_scorer",           # v5/v6 checkpoints load with the right vocab; pipeline can feed both
