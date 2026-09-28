@@ -509,6 +509,141 @@ def generate_attack_session(chain_name, recon_events=5, noise_events=3):
     return rows
 
 
+# CAMPAIGN_LIBRARY: declarative multi-principal campaign object model (review #17).
+# Unlike ATTACK_CHAINS (a flat step list with an implicit linear actor pivot),
+# each event declares its ACTOR and, where relevant, the principal it CREATES or
+# ASSUMES. The generator resolves named principals to concrete identities,
+# changes the acting identity when a role is assumed, and DERIVES the full
+# lineage (event_uid / parent_event_id / root_event_id / hop_id / stage_index)
+# from the declaration. Supports branching and genuine multi-principal handoffs
+# (user -> role_A -> role_B, or a user creating and empowering a second USER)
+# that a linear chain cannot express.
+EVENT_META = {
+    "CreateRole": ("iam.amazonaws.com", False), "AttachRolePolicy": ("iam.amazonaws.com", False),
+    "PutRolePolicy": ("iam.amazonaws.com", False), "UpdateAssumeRolePolicy": ("iam.amazonaws.com", False),
+    "AssumeRole": ("sts.amazonaws.com", False), "CreateUser": ("iam.amazonaws.com", False),
+    "CreateAccessKey": ("iam.amazonaws.com", False), "AttachUserPolicy": ("iam.amazonaws.com", False),
+    "PutUserPolicy": ("iam.amazonaws.com", False), "CreateLoginProfile": ("iam.amazonaws.com", False),
+    "GetSecretValue": ("secretsmanager.amazonaws.com", True), "GetPasswordData": ("ec2.amazonaws.com", True),
+    "GetParameters": ("ssm.amazonaws.com", True), "DescribeParameters": ("ssm.amazonaws.com", True),
+    "PutBucketPolicy": ("s3.amazonaws.com", False), "StopLogging": ("cloudtrail.amazonaws.com", False),
+}
+
+CAMPAIGN_LIBRARY = {
+    "role_escalation_secret_access": {
+        "events": [
+            {"event": "CreateRole",       "actor": "user_A", "target": "role_A",  "tactic": "persistence"},
+            {"event": "AttachRolePolicy", "actor": "user_A", "target": "role_A",  "tactic": "privilege-escalation"},
+            {"event": "AssumeRole",       "actor": "user_A", "assumes": "role_A", "target": "role_A", "tactic": "privilege-escalation"},
+            {"event": "GetSecretValue",   "actor": "role_A", "target": "secret_A", "tactic": "credential-access"},
+        ]},
+    "double_role_pivot": {
+        "events": [
+            {"event": "AssumeRole",       "actor": "user_A", "assumes": "role_A", "target": "role_A", "tactic": "privilege-escalation"},
+            {"event": "CreateRole",       "actor": "role_A", "target": "role_B",  "tactic": "persistence"},
+            {"event": "AttachRolePolicy", "actor": "role_A", "target": "role_B",  "tactic": "privilege-escalation"},
+            {"event": "AssumeRole",       "actor": "role_A", "assumes": "role_B", "target": "role_B", "tactic": "privilege-escalation"},
+            {"event": "GetPasswordData",  "actor": "role_B", "target": "instance_A", "tactic": "credential-access"},
+        ]},
+    "user_persistence_handoff": {
+        "events": [
+            {"event": "CreateUser",       "actor": "user_A", "creates": "user_B", "target": "user_B", "tactic": "persistence"},
+            {"event": "CreateAccessKey",  "actor": "user_A", "target": "user_B",  "tactic": "persistence"},
+            {"event": "AttachUserPolicy", "actor": "user_A", "target": "user_B",  "tactic": "privilege-escalation"},
+            {"event": "GetParameters",    "actor": "user_B", "target": "param_A", "tactic": "credential-access"},
+        ]},
+}
+
+
+def _campaign_resource(named):
+    if named.startswith("role"):     return "role", "role-" + rand_str(6)
+    if named.startswith("user"):     return "user", "user-" + rand_str(6)
+    if named.startswith("secret"):   return "secret", "prod/db/" + rand_str(6)
+    if named.startswith("instance"): return "instance", "i-" + rand_str(17)
+    if named.startswith("param"):    return "parameter", "/prod/app/" + rand_str(6)
+    if named.startswith("bucket"):   return "bucket", "data-" + rand_str(6) + "-bucket"
+    return "resource", rand_str(8)
+
+
+def generate_campaign_session(campaign_name, noise_events=3):
+    camp = CAMPAIGN_LIBRARY[campaign_name]
+    account_id = rand_account()
+    attacker = rand_str(random.randint(4, 12))
+    source_ip = rand_ip(); access_key = rand_key(); ua = random.choice(ATTACKER_UAS)
+    t = datetime(2024, random.randint(1, 12), random.randint(1, 28),
+                 random.randint(7, 19), 0, 0, tzinfo=timezone.utc)
+    campaign_id = "camp-" + rand_str(12)
+
+    names = set()
+    for e in camp["events"]:
+        names.add(e["actor"]); names.add(e.get("target", ""))
+    resolved, key_of = {}, {}
+    for nm in names:
+        if not nm:
+            continue
+        if nm == "user_A":
+            resolved[nm], key_of[nm] = attacker, "user"
+        else:
+            key_of[nm], resolved[nm] = _campaign_resource(nm)
+
+    identity = {"user_A": ("IAMUser", "arn:aws:iam::" + account_id + ":user/" + attacker, attacker)}
+    event_uids = ["evt-" + rand_str(12) for _ in camp["events"]]
+    root_uid = event_uids[0]
+    rows, hop_id, last_actor = [], 0, None
+    for stage_index, e in enumerate(camp["events"]):
+        actor = e["actor"]
+        if actor not in identity:
+            rname = resolved.get(actor, actor)
+            identity[actor] = ("AssumedRole",
+                               "arn:aws:sts::" + account_id + ":assumed-role/" + rname + "/" + rand_str(16), rname)
+        if last_actor is not None and actor != last_actor:
+            hop_id += 1
+        last_actor = actor
+        p_type, p_arn, p_name = identity[actor]
+
+        t += (timedelta(seconds=random.choice([0, 1])) if campaign_name.endswith("access") else jitter(5, 60))
+        tgt = e.get("target", "")
+        tgt_key = key_of.get(tgt, "resource")
+        step_resources = {tgt_key: resolved.get(tgt, tgt), "policy": _ADMIN_ARN, "group": "admins-" + rand_str(4)}
+        before_perms, after_perms = PERM_CHANGE.get(e["event"], ([], []))
+        rows.append({"timestamp": t.isoformat(), "event_name": e["event"],
+            "event_source": EVENT_META.get(e["event"], ("iam.amazonaws.com", False))[0],
+            "aws_region": "us-east-1", "source_ip": source_ip, "error_code": None, "label": 1,
+            "attack_technique": e["tactic"], "read_only": EVENT_META.get(e["event"], ("", False))[1],
+            "user_agent": ua, "access_key_id": access_key, "mfa_authenticated": "False",
+            "target_resource": resolved.get(tgt, tgt),
+            "request_params_raw": json.dumps(_attack_request_params(e["event"], tgt_key, step_resources, account_id)),
+            "principal_type": p_type, "principal_arn": p_arn, "username": p_name,
+            "session_label": 1, "synthetic": True,
+            "campaign_id": campaign_id, "chain_name": campaign_name, "stage_index": stage_index,
+            "attack_tactic": e["tactic"], "attack_technique_id": campaign_name,
+            "event_uid": event_uids[stage_index], "hop_id": hop_id,
+            "parent_event_id": event_uids[stage_index - 1] if stage_index > 0 else "",
+            "root_event_id": root_uid,
+            "before_permissions": ";".join(before_perms), "after_permissions": ";".join(after_perms)})
+
+        if e["event"] == "AssumeRole" and e.get("assumes"):
+            rr = e["assumes"]; rname = resolved.get(rr, rr)
+            identity[rr] = ("AssumedRole",
+                            "arn:aws:sts::" + account_id + ":assumed-role/" + rname + "/" + rand_str(16), rname)
+        if e.get("creates", "").startswith("user"):
+            cu = e["creates"]; uname = resolved.get(cu, cu)
+            identity[cu] = ("IAMUser", "arn:aws:iam::" + account_id + ":user/" + uname, uname)
+
+    for name, src, ro in _weighted_sample(BENIGN_EVENTS_WEIGHTED, noise_events):
+        t += jitter(10, 90)
+        rows.append({"timestamp": t.isoformat(), "event_name": name, "event_source": src,
+            "aws_region": "us-east-1", "source_ip": source_ip, "error_code": None, "label": 0,
+            "attack_technique": None, "read_only": ro, "user_agent": ua, "access_key_id": access_key,
+            "mfa_authenticated": _mfa_value(), "target_resource": _benign_target_resource(src),
+            "request_params_raw": None, "principal_type": identity[last_actor][0],
+            "principal_arn": identity[last_actor][1], "username": identity[last_actor][2],
+            "session_label": 1, "synthetic": True, "campaign_id": campaign_id,
+            "chain_name": campaign_name, "stage_index": -1, "attack_tactic": "",
+            "attack_technique_id": campaign_name})
+    return rows
+
+
 def generate_benign_iamuser(n_events=15):
     account_id = rand_account(); username = rand_str(6)
     source_ip  = rand_ip(); access_key = rand_key()
@@ -798,6 +933,13 @@ def main():
             all_rows.extend(generate_attack_session(
                 chain_name, recon_events=random.randint(3, 8), noise_events=random.randint(2, 5),
             ))
+    # Declarative CAMPAIGN_LIBRARY campaigns (review #17): explicit multi-principal
+    # object model with auto-derived lineage, generated alongside ATTACK_CHAINS.
+    N_PER_CAMPAIGN = 14
+    for campaign_name in CAMPAIGN_LIBRARY:
+        for _ in range(N_PER_CAMPAIGN):
+            all_rows.extend(generate_campaign_session(
+                campaign_name, noise_events=random.randint(2, 5)))
     for _ in range(N_BENIGN_IAMUSER):
         all_rows.extend(generate_benign_iamuser(n_events=random.randint(8, 20)))
     for _ in range(N_BENIGN_ASSUMED):
