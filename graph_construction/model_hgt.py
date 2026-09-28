@@ -109,28 +109,66 @@ def _make_hgt_conv(hidden_dim: int, metadata, heads: int, group: str, attn_dropo
     either direction of future PyG drift (a kwarg being removed, or a
     different kwarg being renamed) without hardcoding a version check,
     and it logs exactly what was dropped rather than failing silently.
+
+    Neither dropped kwarg may become a silent no-op:
+
+      * group: current PyG sums the relation-wise messages (one propagate with
+        aggr="add"), i.e. group="sum" is what it always does. Requesting "sum"
+        is therefore honoured; requesting anything else is an error, because
+        it cannot be.
+      * dropout (attention dropout): re-implemented in _HGTConvAttnDropout. An
+        HGT message is alpha[edge, head] * value[edge, head], so zeroing whole
+        (edge, head) messages and rescaling by 1/(1-p) is exactly dropout on
+        the attention coefficients. Previously attn_dropout was accepted and
+        ignored, so every model trained with attn_dropout=0.1 trained without it.
     """
     optional = {"group": group, "dropout": attn_dropout}
-    dropped = []
     while True:
         try:
-            return HGTConv(hidden_dim, hidden_dim, metadata, heads=heads, **optional)
+            if "dropout" in optional:
+                return HGTConv(hidden_dim, hidden_dim, metadata, heads=heads, **optional)
+            return _HGTConvAttnDropout(hidden_dim, hidden_dim, metadata, heads=heads,
+                                       attn_dropout=attn_dropout, **optional)
         except TypeError as exc:
             m = _re.search(r"unexpected keyword argument '(\w+)'", str(exc))
             if not m or m.group(1) not in optional:
                 raise  # not a kwarg-compat issue we know how to handle — surface it
             bad_kwarg = m.group(1)
             optional.pop(bad_kwarg)
-            dropped.append(bad_kwarg)
-            log.warning(
-                "Installed HGTConv (torch_geometric) does not accept %s= (%s) — "
-                "constructing without it. If this is 'group', relation-aggregation "
-                "is fixed internally by this PyG version rather than configurable, "
-                "and the group=%r argument passed to HGTEncoder has no effect on "
-                "this install. If this is 'dropout', attn_dropout=%.3f has no "
-                "effect until reconciled against your PyG version.",
-                bad_kwarg, exc, group, attn_dropout,
-            )
+            if bad_kwarg == "group" and group != "sum":
+                raise ValueError(
+                    f"group={group!r} requested, but the installed HGTConv always sums "
+                    f"relation-wise messages (group='sum') and cannot be configured.") from exc
+            log.info("Installed HGTConv does not accept %s=; %s", bad_kwarg,
+                     "group='sum' is its fixed behaviour" if bad_kwarg == "group"
+                     else f"attention dropout ({attn_dropout}) applied by _HGTConvAttnDropout")
+
+
+class _HGTConvAttnDropout(HGTConv):
+    """HGTConv with attention dropout for PyG versions that dropped the kwarg.
+    Drops each (edge, head) message with probability attn_dropout during
+    training -- identical to dropping that attention coefficient -- and is a
+    no-op in eval mode. Adds no parameters, so state_dicts are unchanged."""
+
+    def __init__(self, *args, attn_dropout: float = 0.0, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.attn_dropout = float(attn_dropout)
+
+    # The signature must be spelled out: PyG reads message()'s parameter names
+    # to decide what to collect for it, so *args/**kwargs breaks propagate.
+    # Matches HGTConv.message in torch_geometric 2.8, which computes
+    # v_j * softmax(alpha) per head -- the tensor dropped here.
+    def message(self, k_j: torch.Tensor, q_i: torch.Tensor, v_j: torch.Tensor,
+                edge_attr: torch.Tensor, index: torch.Tensor, ptr: Optional[torch.Tensor],
+                size_i: Optional[int]) -> torch.Tensor:
+        out = super().message(k_j, q_i, v_j, edge_attr, index, ptr, size_i)
+        p = self.attn_dropout
+        if not self.training or p <= 0.0 or out.numel() == 0:
+            return out
+        per_head = out.reshape(out.size(0), self.heads, -1)
+        keep = torch.empty((out.size(0), self.heads, 1), device=out.device,
+                           dtype=out.dtype).bernoulli_(1.0 - p) / (1.0 - p)
+        return (per_head * keep).reshape(out.shape)
 
 
 # ── Edge feature MLP — byte-for-byte the same shape as model_graphsage.py /
