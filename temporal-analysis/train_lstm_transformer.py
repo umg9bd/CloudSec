@@ -102,6 +102,11 @@ def set_seed(seed: int = SEED) -> None:
         torch.cuda.manual_seed_all(seed)
 
 
+def _ns(ts: pd.Series) -> np.ndarray:
+    """Epoch nanoseconds regardless of datetime resolution (pandas 3 may parse to us/s)."""
+    return ts.dt.as_unit("ns").astype("int64").to_numpy()
+
+
 def vocab_id_sets(vocab: dict[str, int]) -> tuple[set[int], set[int], set[int]]:
     pe = {int(vocab[n]) for n in PE_WRITE_NAMES if n in vocab}
     sec = {int(vocab[n]) for n in SECRET_NAMES if n in vocab}
@@ -121,7 +126,7 @@ def attach_pe_context(df: pd.DataFrame, pe_ids: set[int]) -> pd.DataFrame:
         last_pe_ns = None
         for log_id, t_ns, ev in zip(
             g["log_id"].astype(str),
-            g["timestamp"].astype("int64"),
+            _ns(g["timestamp"]),
             g["event_name_idx"].astype(int),
         ):
             if last_pe_ns is None:
@@ -177,7 +182,7 @@ def add_extra_feats(g: pd.DataFrame, feature_cols: list[str], is_inv: float = 0.
     """Numeric FE columns + inter-event Δt. No source flag (that leaked Invictus vs fe-final)."""
     del is_inv
     feats = g[feature_cols].to_numpy(dtype=np.float32)
-    times = g["timestamp"].astype("int64").to_numpy()
+    times = _ns(g["timestamp"])
     deltas = np.clip(np.diff(times, prepend=times[0]) / 1e9, 0, 3600)
     delta = np.log1p(deltas).astype(np.float32).reshape(-1, 1)
     return np.concatenate([feats, delta], axis=1)
@@ -226,7 +231,7 @@ def build_event_sequences(
             continue
         feats_all = add_extra_feats(g, feature_cols)
         idxs_all = g["event_name_idx"].to_numpy(dtype=np.int64)
-        ts_ns = g["timestamp"].astype("int64").to_numpy()
+        ts_ns = _ns(g["timestamp"])
         labels = g["label"].to_numpy(dtype=np.int64)
         labels_orig = (
             g["label_orig"].to_numpy(dtype=np.int64) if "label_orig" in g.columns else labels
@@ -266,7 +271,7 @@ def build_fusion_windows(
     for username, g in df.groupby("username", sort=False):
         g = g.sort_values("timestamp", kind="stable").reset_index(drop=True)
         ts = g["timestamp"]
-        ts_ns = ts.astype("int64").to_numpy()
+        ts_ns = _ns(ts)
         log_ids = g["log_id"].astype(str).to_numpy()
         labels = g["label"].to_numpy()
         starts: set[pd.Timestamp] = set()
@@ -752,11 +757,10 @@ def map_event_names_df(df: pd.DataFrame, vocab: dict[str, int]) -> pd.DataFrame:
     if "event_name" in out.columns and vocab:
         out["event_name_idx"] = out["event_name"].map(lambda x: int(vocab.get(str(x), 0)))
     elif "event_name_idx" in out.columns:
-        vmax = max(int(v) for v in vocab.values()) if vocab else int(out["event_name_idx"].max())
-        out["event_name_idx"] = (
-            pd.to_numeric(out["event_name_idx"], errors="coerce").fillna(0).astype(int)
-        )
-        out.loc[(out["event_name_idx"] > vmax) | (out["event_name_idx"] < 0), "event_name_idx"] = 0
+        idx = pd.to_numeric(out["event_name_idx"], errors="coerce").fillna(0).astype(int)
+        # ids missing from the vocab (gaps or out of range) -> UNK, never an untrained embedding row
+        valid = {int(v) for v in vocab.values()} if vocab else {int(i) for i in idx.unique() if i >= 0}
+        out["event_name_idx"] = idx.where(idx.isin(valid), 0)
     else:
         raise ValueError("Input must include event_name or event_name_idx")
     return out

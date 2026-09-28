@@ -39,8 +39,9 @@ MODELS = {
         "ckpt": ROOT / "artifacts" / "lstm_transformer_v6" / "temporal_lstm_transformer_v6.pt",
         "metrics": ROOT / "artifacts" / "lstm_transformer_v6" / "test_metrics.json",
         "caption": (
-            "LSTM–Transformer v6 — same architecture as v5, user-disjoint 70/15/15 "
-            "on cloudtrail_temporal_final (no bert-jan lock). "
+            "LSTM–Transformer v6.2 — same architecture as v5, trained on synthetic data only "
+            "(cloudtrail_temporal_v6_2: leaky MFA/params features dropped, read-only and slow-theft sessions added). "
+            "Epoch and thresholds picked on real Invictus dev; tested on bert-jan + held-out Invictus users. "
             "`P_seq = max(P_event)` on 10-minute / stride-2 windows"
         ),
         "train_hint": "python train_lstm_transformer_v6.py",
@@ -64,7 +65,7 @@ BUILTIN = {
     "Merged train (no syn)": DATA / "train_temporal.csv",
     "Invictus (2.9k events)": DATA / "invictus_temporal.csv",
     "fe-final CloudTrail (9.7k)": DATA / "cloudtrail_temporal.csv",
-    "CloudTrail final (v6 train, deduped)": DATA / "cloudtrail_temporal_final.csv",
+    "CloudTrail final (v6 train, deduped)": DATA / "cloudtrail_temporal_v6_2.csv",
 }
 
 SAMPLE_CUSTOM = pd.DataFrame(
@@ -154,10 +155,10 @@ def render_saved_metrics(kind: str, metrics_path: Path, tm: dict) -> None:
     te = saved.get("test_event") or {}
     tw = saved.get("test_window") or {}
     if te:
-        st.markdown("v6 test events (user-disjoint)")
+        st.markdown("v6 real test events (Invictus: bert-jan + held-out users)")
         st.write(_metric_line(te))
     if tw:
-        st.markdown("v6 test windows (`P_seq`)")
+        st.markdown("v6 real test windows (`P_seq`)")
         st.write(_metric_line(tw))
 
 
