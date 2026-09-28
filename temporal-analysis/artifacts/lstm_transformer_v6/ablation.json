@@ -1,0 +1,178 @@
+{
+  "selection": "epochs >= MIN_EPOCHS: real-dev window F1 (best threshold) > real-dev event AUC-PR > synthetic val F1",
+  "chosen": "all_candidates",
+  "configs": {
+    "base": {
+      "drop": [],
+      "select_key": [
+        1.0,
+        0.8228,
+        0.9669
+      ],
+      "selected_epoch": 20,
+      "dev_event": {
+        "accuracy": 0.9482564679415073,
+        "auc_pr": 0.8228473645497342,
+        "auc_roc": 0.9710915535998044,
+        "f1": 0.7578947368421053,
+        "precision": 0.6605504587155964,
+        "recall": 0.8888888888888888,
+        "threshold": 0.300070995092392,
+        "n": 889,
+        "n_pos": 81
+      },
+      "dev_window": {
+        "accuracy": 1.0,
+        "auc_pr": 1.0,
+        "auc_roc": 1.0,
+        "f1": 1.0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "threshold": 0.924467134475708,
+        "n": 98,
+        "n_pos": 8
+      },
+      "syn_test_event_f1": 0.9305263157894736
+    },
+    "no_user_agent": {
+      "drop": [
+        "is_malicious_user_agent"
+      ],
+      "select_key": [
+        1.0,
+        0.8974,
+        0.9358
+      ],
+      "selected_epoch": 16,
+      "dev_event": {
+        "accuracy": 0.9640044994375703,
+        "auc_pr": 0.8973684731074952,
+        "auc_roc": 0.988693313775822,
+        "f1": 0.8315789473684211,
+        "precision": 0.7247706422018348,
+        "recall": 0.9753086419753086,
+        "threshold": 0.3715132027864456,
+        "n": 889,
+        "n_pos": 81
+      },
+      "dev_window": {
+        "accuracy": 1.0,
+        "auc_pr": 1.0,
+        "auc_roc": 1.0,
+        "f1": 1.0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "threshold": 0.9725992143154144,
+        "n": 98,
+        "n_pos": 8
+      },
+      "syn_test_event_f1": 0.9308176100628931
+    },
+    "no_events_per_minute": {
+      "drop": [
+        "events_per_minute_normalized"
+      ],
+      "select_key": [
+        1.0,
+        0.9013,
+        0.8216
+      ],
+      "selected_epoch": 4,
+      "dev_event": {
+        "accuracy": 0.9775028121484814,
+        "auc_pr": 0.9012700376332107,
+        "auc_roc": 0.9914435888033248,
+        "f1": 0.8850574712643678,
+        "precision": 0.8279569892473119,
+        "recall": 0.9506172839506173,
+        "threshold": 0.9672748804092407,
+        "n": 889,
+        "n_pos": 81
+      },
+      "dev_window": {
+        "accuracy": 1.0,
+        "auc_pr": 1.0,
+        "auc_roc": 1.0,
+        "f1": 1.0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "threshold": 0.9551502525806427,
+        "n": 98,
+        "n_pos": 8
+      },
+      "syn_test_event_f1": 0.9125
+    },
+    "no_principal_type": {
+      "drop": [
+        "principal_type_prior_risk",
+        "principal_type_idx"
+      ],
+      "select_key": [
+        1.0,
+        0.902,
+        0.9459
+      ],
+      "selected_epoch": 10,
+      "dev_event": {
+        "accuracy": 0.9797525309336333,
+        "auc_pr": 0.9020354361732945,
+        "auc_roc": 0.9899614961496149,
+        "f1": 0.898876404494382,
+        "precision": 0.8247422680412371,
+        "recall": 0.9876543209876543,
+        "threshold": 0.4711377382278442,
+        "n": 889,
+        "n_pos": 81
+      },
+      "dev_window": {
+        "accuracy": 1.0,
+        "auc_pr": 1.0,
+        "auc_roc": 1.0,
+        "f1": 1.0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "threshold": 0.9164062798023224,
+        "n": 98,
+        "n_pos": 8
+      },
+      "syn_test_event_f1": 0.9302325581395349
+    },
+    "all_candidates": {
+      "drop": [
+        "is_malicious_user_agent",
+        "events_per_minute_normalized",
+        "principal_type_prior_risk",
+        "principal_type_idx"
+      ],
+      "select_key": [
+        1.0,
+        0.9115,
+        0.9235
+      ],
+      "selected_epoch": 7,
+      "dev_event": {
+        "accuracy": 0.9718785151856018,
+        "auc_pr": 0.9115384640667131,
+        "auc_roc": 0.988296051827405,
+        "f1": 0.8299319727891157,
+        "precision": 0.9242424242424242,
+        "recall": 0.7530864197530864,
+        "threshold": 0.9840950250625611,
+        "n": 889,
+        "n_pos": 81
+      },
+      "dev_window": {
+        "accuracy": 1.0,
+        "auc_pr": 1.0,
+        "auc_roc": 1.0,
+        "f1": 1.0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "threshold": 0.6500770509243011,
+        "n": 98,
+        "n_pos": 8
+      },
+      "syn_test_event_f1": 0.9342403628117913
+    }
+  }
+}
