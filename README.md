@@ -111,9 +111,9 @@ test was used, and each system was run on test once.
 | XGBoost (temporal features) | 0.838 | 0.916 | 0.875 [0.825, 0.918] |
 | Logistic regression (bag of actions) | 0.600 | 0.869 | 0.710 [0.644, 0.769] |
 | Curated IAM rule baseline (11 rules) | 0.904 | 0.701 | 0.789 [0.720, 0.849] |
-| GraphSAGE alone (batch, session-level) | 0.868 | 0.925 | **0.896** |
+| GraphSAGE alone (batch, session-level) | 0.875 | 0.785 | 0.828 (AUC **0.985**) |
 
-> **All rows are on one footing** — the same 821-session real test set (4 collectors, including 30 real Stratus privilege-escalation detonations), one consistent feature engine, each model's threshold/config frozen on dev and test scored once. GraphSAGE (batch) leads at 0.896 (paired +0.107 over rules, p=0.0002; session AUC 0.987, beats all 200 size-preserving permutations). The pipeline, XGBoost and Random Forest are statistically tied (pipeline vs XGBoost -0.003 p=0.92; vs RF +0.009 p=0.68); all beat the rule baseline except logistic regression.
+> **All rows are on one footing** — the same 821-session real test set (4 collectors, including 30 real Stratus privilege-escalation detonations), one consistent feature engine, each model's threshold/config frozen on dev and test scored once. GraphSAGE (batch) has session AUC **0.985** (confound-controlled, beats all 200 size-preserving permutations); its F1 at the dev-selected threshold is 0.828 (paired +0.038 over rules, p=0.196 -- a point estimate, not significant, after the deliberate class-mixture rebalance). The pipeline, XGBoost and Random Forest are statistically tied (pipeline vs XGBoost -0.003 p=0.92; vs RF +0.009 p=0.68); all beat the rule baseline except logistic regression.
 
 The pipeline beats the rule baseline significantly (paired bootstrap +0.083
 F1, 95% CI [+0.023, +0.148], p = 0.008). It is statistically tied with the

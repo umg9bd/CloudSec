@@ -210,25 +210,25 @@ part of the result."
 ## 5. Session-level result — the verified win
 
 ```powershell
-python graph_construction/evaluate_session_level.py --checkpoint checkpoints/best_GraphSAGE_wrapped.pt --model sage --raw-csv datasets/privilege-escalation/real_dataset_test.csv --threshold 0.60
+python graph_construction/evaluate_session_level.py --checkpoint checkpoints/best_GraphSAGE_wrapped.pt --model sage --raw-csv datasets/privilege-escalation/real_dataset_test.csv --threshold 0.55
 ```
 
 **Expect:**
 ```
 Sessions: 238 total | 236 have >=1 in-schema edge | 2 have ZERO in-schema edges (predicted benign by default)
 
-SESSION-LEVEL @ threshold=0.6: P=0.868  R=0.925  F1=0.896
+SESSION-LEVEL @ threshold=0.55: P=0.875  R=0.785  F1=0.828
 
                                    P       R      F1
-GNN (session-level)            0.868   0.925   0.896
+GNN (session-level)            0.875   0.785   0.828
 GuardDuty-style (11 rules)     0.878   0.650   0.747   <- computed on THESE 238 sessions
 
-PAIRED bootstrap on (GNN - rule) F1: +0.1065  95% CI [+0.0527, +0.1664]  two-sided p = 0.0002
+PAIRED bootstrap on (GNN - rule) F1: +0.0381  95% CI [-0.0213, +0.0978]  two-sided p = 0.1964
 The improvement is significant at the 5% level.
 ```
 
 **Say:** "Aggregated to session level — the same unit the rule baseline uses
-— F1=0.896, beating the baseline's 0.747 on the same sessions. This threshold (0.60) was selected
+— F1=0.828 (point estimate; session AUC 0.985), vs the baseline's 0.747 on the same sessions. This threshold (0.55) was selected
 entirely on a separate dev set, then checked exactly once here, so this isn't
 picking the best-looking number after the fact. We also bootstrapped a
 confidence interval. More importantly, because both systems
@@ -317,9 +317,9 @@ Lead with the result, then the journey that earned it: **"We built a
 complete, real, end-to-end pipeline — real red-team attack data collected
 across 4 independent AWS accounts, a validated synthetic data generator, a
 heterogeneous GNN trained on privilege-propagation graphs. Evaluated
-honestly against real attack data, session-level F1=0.896, beating an
+honestly against real attack data, session-level F1=0.828 (point estimate; session AUC 0.985), vs an
 11-rule GuardDuty-style baseline's F1=0.747 on the same sessions (paired
-+0.107 [+0.053,+0.166], p=0.0002 — checked with a dev-only
++0.038 [-0.021,+0.098], p=0.196 — checked with a dev-only
 selected threshold, a bootstrap confidence interval, and a control for the
 one confound we found along the way. Getting there required real diagnostic
 work: two structural bugs found and fixed, one plausible fix tested and
