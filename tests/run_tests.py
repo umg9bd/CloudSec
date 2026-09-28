@@ -61,6 +61,7 @@ FAST_SUITES = [
     "test_pipeline",              # streaming == batch (LSTM), fallback, alert schema
     # ── shared: the train/eval boundary both tracks must respect ─────────
     "test_leakage_guard",         # held-out detection, label-derived prior freeze
+    "test_causal_features",       # temporal leakage: causal ordering + frozen-on-eval prior
     "test_feature_engine_cache",  # priors fit on train rows only; stale cached outputs refused
     "test_family_split",          # campaign-family holdout: no family or session crosses splits
     # ── feature semantics ────────────────────────────────────────────────
