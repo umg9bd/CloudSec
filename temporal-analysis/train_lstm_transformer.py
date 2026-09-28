@@ -306,9 +306,11 @@ class EventDataset(Dataset):
 
     def __getitem__(self, i: int):
         s = self.seqs[i]
+        # np.array() copies: the sequence arrays can be read-only views, which
+        # torch.from_numpy warns about (and must not write through).
         return (
-            torch.from_numpy(s.event_idxs),
-            torch.from_numpy(s.feats),
+            torch.from_numpy(np.array(s.event_idxs)),
+            torch.from_numpy(np.array(s.feats)),
             torch.tensor(s.length, dtype=torch.long),
             torch.tensor(s.label, dtype=torch.float32),
         )

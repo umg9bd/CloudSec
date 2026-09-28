@@ -126,5 +126,31 @@ class TestFeeder(unittest.TestCase):
         self.assertEqual(os.listdir(staging), [])
 
 
+class TestResetClearsUnscoredFeed(unittest.TestCase):
+    """run.cmd starts with --reset-state --feed. A previous run stopped with
+    Ctrl+C usually leaves the feeder's next batch unscored in incoming/; it
+    must be removed so the new run starts from its own first batch."""
+
+    def test_leftover_batches_are_removed_and_scored_files_kept(self):
+        from pipeline import clear_unscored_feed
+        tmp = tempfile.mkdtemp()
+        try:
+            incoming = os.path.join(tmp, "incoming")
+            staging = os.path.join(tmp, ".incoming_staging")
+            for d in (incoming, staging, os.path.join(incoming, "processed")):
+                os.makedirs(d)
+            for path in (os.path.join(incoming, "x_batch0008.csv"), os.path.join(incoming, "y.json"),
+                         os.path.join(staging, "x_batch0009.csv"),
+                         os.path.join(incoming, "processed", "x_batch0007.csv"),
+                         os.path.join(incoming, ".gitkeep")):
+                open(path, "w").close()
+            self.assertEqual(clear_unscored_feed(incoming), 3)
+            self.assertEqual(sorted(os.listdir(incoming)), [".gitkeep", "processed"])
+            self.assertEqual(os.listdir(os.path.join(incoming, "processed")), ["x_batch0007.csv"])
+            self.assertEqual(os.listdir(staging), [])
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+
 if __name__ == "__main__":
     unittest.main()

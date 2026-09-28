@@ -309,6 +309,25 @@ def watch(directory: str, pipeline: Pipeline, poll_seconds: float = 2.0) -> None
         print("\nStopped watching.")
 
 
+def clear_unscored_feed(directory: str) -> int:
+    """Removes input files a previous fed run left unscored in `directory` (and the feeder's
+    staging folder). Stopping a demo with Ctrl+C usually lands just after the feeder dropped its
+    next batch; without this, the next run scored that stale batch before its own first one.
+    Scored files in <directory>/processed/ are kept."""
+    removed = 0
+    for folder in (directory, os.path.join(os.path.dirname(os.path.abspath(directory)), ".incoming_staging")):
+        if not os.path.isdir(folder):
+            continue
+        for name in os.listdir(folder):
+            path = os.path.join(folder, name)
+            if name.endswith(INPUT_SUFFIXES) and os.path.isfile(path):
+                os.remove(path)
+                removed += 1
+    if removed:
+        print(f"[RESET] removed {removed} unscored file(s) left in {directory}/ by a previous run", flush=True)
+    return removed
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     src = ap.add_mutually_exclusive_group(required=True)
@@ -330,6 +349,8 @@ def main():
     cfg = PipelineConfig.load(args.config)
     if args.reset_state:
         shutil.rmtree(os.path.join(ROOT, cfg.state_dir), ignore_errors=True)
+        if args.watch and args.feed:
+            clear_unscored_feed(args.watch)
     print(f"Ensemble: {cfg.weight_graph:g} x HGT + {1 - cfg.weight_graph:g} x LSTM, alert at "
           f"{cfg.alert_threshold * 10:.2f}/10 ({cfg.tuned_on})", flush=True)
     pipeline = Pipeline(cfg, show_events=args.show_events)
