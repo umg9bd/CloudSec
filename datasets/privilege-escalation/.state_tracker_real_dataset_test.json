@@ -634,6 +634,14 @@
   },
   "arn:aws:iam::536697249497:root": {
     "actions": [
+      "CashApplication_GetAccountBalance",
+      "ConsoleLogin",
+      "CreateAccessKey",
+      "CreateBudget",
+      "DeleteAccessKey",
+      "DescribeBudgetActionsForAccount",
+      "DescribeBudgetNotificationsForAccount",
+      "DescribeBudgets",
       "DescribeEventAggregates",
       "DescribeOrganization",
       "DescribeRegions",
@@ -642,22 +650,51 @@
       "GetAccountColor",
       "GetAccountPlanState",
       "GetAccountSummary",
+      "GetAlternateContact",
+      "GetAnomalies",
+      "GetAnomalyMonitors",
+      "GetBillingNotifications",
+      "GetConsoleActionSetEnforced",
       "GetCostAndUsage",
+      "GetCostAndUsageComparisons",
+      "GetCostCategories",
       "GetCostForecast",
+      "GetFreeTierUsage",
+      "GetLoginProfile",
+      "GetPreferences",
+      "GetReservationUtilization",
+      "GetSavingsPlansUtilizationDetails",
+      "GetTags",
+      "GetTaxRegistration",
+      "GetUser",
       "ListAccessKeys",
       "ListAccountAliases",
       "ListApplications",
+      "ListAttachedUserPolicies",
+      "ListBillingViews",
       "ListEnrollmentStatuses",
+      "ListGroupsForUser",
       "ListMFADevices",
       "ListManagedNotificationEvents",
       "ListNotificationHubs",
+      "ListOutboundResponsibilityTransfers",
+      "ListPolicies",
+      "ListPolicyGenerations",
+      "ListRecommendedActions",
       "ListSSHPublicKeys",
       "ListServiceSpecificCredentials",
-      "ListSigningCertificates"
+      "ListSigningCertificates",
+      "ListTaxExemptions",
+      "ListUserPolicies",
+      "ListUserTags",
+      "ListUsers",
+      "Preferences_BatchGetPaymentProfiles",
+      "Preferences_ListPaymentProfiles",
+      "UpdateAccessKey"
     ],
-    "last_ts": "2026-07-06T13:22:07+00:00",
-    "session_event_count": 3,
-    "session_start_ts": "2026-07-06T13:14:07+00:00"
+    "last_ts": "2026-09-25T14:55:35+00:00",
+    "session_event_count": 184,
+    "session_start_ts": "2026-09-25T06:43:26+00:00"
   },
   "arn:aws:iam::536697249497:user/stratus-redteam": {
     "actions": [
@@ -720,6 +757,8 @@
       "GetUser",
       "ListAccessKeys",
       "ListAttachedRolePolicies",
+      "ListAttachedUserPolicies",
+      "ListBuckets",
       "ListGroupsForUser",
       "ListInstanceProfilesForRole",
       "ListMFADevices",
@@ -744,9 +783,9 @@
       "StopLogging",
       "UpdateLoginProfile"
     ],
-    "last_ts": "2026-07-15T07:48:07+00:00",
-    "session_event_count": 2285,
-    "session_start_ts": "2026-07-15T06:35:38+00:00"
+    "last_ts": "2026-09-27T14:47:21+00:00",
+    "session_event_count": 115,
+    "session_start_ts": "2026-09-27T14:32:57+00:00"
   },
   "arn:aws:sts::123837392027:assumed-role/AWSServiceRoleForAmazonInspector2/MandoService2842426183934887787": {
     "actions": [
@@ -775,21 +814,6 @@
     "session_event_count": 4,
     "session_start_ts": "2023-07-10T12:15:59+00:00"
   },
-  "arn:aws:sts::123837392027:assumed-role/stratus-red-team-ec2-steal-credentials-role/i-0dbc91f429e48eeed": {
-    "actions": [
-      "DescribeInstances",
-      "GetCallerIdentity",
-      "GetDocument",
-      "ListInstanceAssociations",
-      "PutComplianceItems",
-      "PutInventory",
-      "UpdateInstanceAssociationStatus",
-      "UpdateInstanceInformation"
-    ],
-    "last_ts": "2023-07-10T12:07:39+00:00",
-    "session_event_count": 15,
-    "session_start_ts": "2023-07-10T11:57:16+00:00"
-  },
   "arn:aws:sts::123837392027:assumed-role/stratus-red-team-ec2lui-role-pcccexdthk/aws-go-sdk-1688990797103471741": {
     "actions": [
       "RunInstances"
@@ -797,6 +821,22 @@
     "last_ts": "2023-07-10T12:06:42+00:00",
     "session_event_count": 1,
     "session_start_ts": "2023-07-10T12:06:42+00:00"
+  },
+  "arn:aws:sts::123837392027:assumed-role/stratus-red-team-ec2lui-role-wuzemnoeqa/aws-go-sdk-1688990966084647983": {
+    "actions": [
+      "RunInstances"
+    ],
+    "last_ts": "2023-07-10T12:09:31+00:00",
+    "session_event_count": 1,
+    "session_start_ts": "2023-07-10T12:09:31+00:00"
+  },
+  "arn:aws:sts::123837392027:assumed-role/stratus-red-team-get-usr-data-role/aws-go-sdk-1688990565286187801": {
+    "actions": [
+      "DescribeInstanceAttribute"
+    ],
+    "last_ts": "2023-07-10T12:02:57+00:00",
+    "session_event_count": 15,
+    "session_start_ts": "2023-07-10T12:02:55+00:00"
   },
   "arn:aws:sts::261390480702:assumed-role/AWSServiceRoleForResourceExplorer/resource-explorer-2": {
     "actions": [
@@ -1734,38 +1774,69 @@
   "arn:aws:sts::536697249497:assumed-role/AWSServiceRoleForResourceExplorer/resource-explorer-2": {
     "actions": [
       "DescribeACLs",
+      "DescribeAccountSubscription",
+      "DescribeApplications",
+      "DescribeBackups",
+      "DescribeBlueGreenDeployments",
       "DescribeBudgets",
+      "DescribeCacheClusters",
       "DescribeCacheParameterGroups",
-      "DescribeCertificates",
+      "DescribeCarrierGateways",
       "DescribeClusters",
+      "DescribeConnectionAliases",
       "DescribeDBClusterEndpoints",
+      "DescribeDBClusterSnapshots",
+      "DescribeDBClusters",
       "DescribeDBEngineVersions",
       "DescribeDBInstanceAutomatedBackups",
+      "DescribeDBSnapshots",
+      "DescribeDhcpOptions",
       "DescribeDirectConnectGateways",
+      "DescribeDirectories",
       "DescribeEventSubscriptions",
       "DescribeFpgaImages",
       "DescribeGlobalClusters",
+      "DescribeGlobalReplicationGroups",
       "DescribeHostReservations",
+      "DescribeHosts",
+      "DescribeInternetGateways",
+      "DescribeIpamPools",
       "DescribeIpamResourceDiscoveryAssociations",
+      "DescribeIpamScopes",
       "DescribeJobQueues",
       "DescribeKeyPairs",
       "DescribeLoadBalancers",
       "DescribeMaintenanceWindows",
       "DescribeMatchmakingRuleSets",
       "DescribeNetworkAcls",
+      "DescribeNetworkInsightsAccessScopes",
       "DescribeOptionGroups",
       "DescribeParameterGroups",
+      "DescribePublicIpv4Pools",
+      "DescribeReplicationSubnetGroups",
+      "DescribeReservedCacheNodes",
+      "DescribeReservedDBInstances",
+      "DescribeReservedInstances",
+      "DescribeRouteTables",
       "DescribeSecret",
       "DescribeSecurityGroupRules",
+      "DescribeSecurityGroups",
+      "DescribeSnapshotCopyGrants",
       "DescribeSnapshots",
       "DescribeSubnets",
       "DescribeTrails",
+      "DescribeTransitGatewayConnectPeers",
+      "DescribeTransitGatewayRouteTableAnnouncements",
+      "DescribeUsageLimits",
       "DescribeUsers",
+      "DescribeVerifiedAccessEndpoints",
       "DescribeVolumes",
       "DescribeVpcPeeringConnections",
       "DescribeVpcs",
+      "DescribeVpnGateways",
       "GetAnomalyMonitors",
       "GetAnomalySubscriptions",
+      "GetApis",
       "GetBucketEncryption",
       "GetBucketLogging",
       "GetDatabases",
@@ -1773,76 +1844,423 @@
       "GetFunctionCodeSigningConfig",
       "GetFunctionRecursionConfig",
       "GetIndex",
+      "GetLifecyclePolicies",
       "GetResource",
+      "GetRestApis",
       "GetRole",
+      "GetRolePolicy",
       "GetRuntimeManagementConfig",
+      "GetSamplingRules",
+      "GetTrailStatus",
+      "GetView",
+      "ListActions",
+      "ListAgentRuntimes",
+      "ListAgents",
+      "ListAlgorithms",
+      "ListAnalyzers",
+      "ListAppImageConfigs",
+      "ListAppInstances",
       "ListApplications",
       "ListApps",
       "ListArchives",
+      "ListAssetModels",
       "ListAssistants",
       "ListAttachedRolePolicies",
       "ListAutoScalingConfigurations",
+      "ListBots",
       "ListBrokers",
       "ListBuckets",
+      "ListBuilds",
+      "ListCertificateAuthorities",
+      "ListCertificates",
+      "ListChannels",
       "ListClusters",
+      "ListCodeRepositories",
+      "ListCollaborations",
+      "ListCollections",
+      "ListConfigs",
       "ListConfigurations",
+      "ListConnections",
+      "ListConnectorDefinitions",
       "ListConnectors",
+      "ListContactLists",
+      "ListContainerRecipes",
       "ListContinuousDeploymentPolicies",
+      "ListCustomDataIdentifiers",
+      "ListDashboards",
       "ListDataAutomationProjects",
       "ListDataCatalogs",
+      "ListDataQualityRulesets",
       "ListDataSets",
+      "ListDataflowEndpointGroups",
       "ListDatasetGroups",
+      "ListDatasetImportJobs",
+      "ListDatasets",
       "ListDetectors",
+      "ListDiscoverers",
       "ListDistributions",
       "ListDomains",
       "ListEksAnywhereSubscriptions",
+      "ListEmailIdentities",
+      "ListEncoderConfigurations",
       "ListEntityRecognizers",
+      "ListEnvironmentAccountConnections",
+      "ListEnvironmentTemplates",
       "ListEnvironments",
+      "ListEventBuses",
+      "ListEventDataStores",
       "ListEventIntegrations",
+      "ListExperiments",
       "ListExtensionAssociations",
       "ListFHIRDatastores",
+      "ListFieldLevelEncryptionConfigs",
+      "ListFieldLevelEncryptionProfiles",
+      "ListFileShares",
       "ListFirewallPolicies",
+      "ListFirewalls",
+      "ListFleetMetrics",
+      "ListFlowDefinitions",
       "ListFlows",
+      "ListFlywheels",
       "ListForecastExportJobs",
+      "ListForecasts",
+      "ListFunctions20150331",
+      "ListFuotaTasks",
       "ListGateways",
+      "ListGroups",
+      "ListHosts",
+      "ListHubs",
+      "ListImages",
       "ListIndices",
+      "ListInferenceExperiments",
+      "ListIngestConfigurations",
       "ListInstances",
+      "ListJobTemplates",
+      "ListJobs",
       "ListKnowledgeBases",
       "ListLayers20181031",
       "ListLoggingConfigurations",
       "ListMalwareProtectionPlans",
+      "ListMediaInsightsPipelineConfigurations",
+      "ListMediaPipelineKinesisVideoStreamPools",
+      "ListMeshes",
       "ListMissionProfiles",
+      "ListMlflowTrackingServers",
+      "ListModelManifests",
+      "ListModelPackages",
       "ListMonitoringSchedules",
       "ListMultiRegionAccessPoints",
+      "ListMulticastGroups",
+      "ListPackagingConfigurations",
+      "ListPackagingGroups",
+      "ListPartnerAccounts",
+      "ListPartnerApps",
+      "ListPermissions",
+      "ListPhoneNumbersV2",
+      "ListPlaybackConfigurations",
+      "ListPlaybackKeyPairs",
       "ListPlaybackRestrictionPolicies",
       "ListPolicyStores",
       "ListPortals",
+      "ListPredictorBacktestExportJobs",
       "ListPredictors",
+      "ListProfiles",
       "ListProjects",
       "ListPromptRouters",
+      "ListRealtimeLogConfigs",
       "ListRecordingConfigurations",
+      "ListReferenceStores",
       "ListRegexPatternSets",
+      "ListRegistries",
+      "ListRescoreExecutionPlans",
+      "ListResolverEndpoints",
       "ListResources",
+      "ListResponsePlans",
       "ListRolePolicies",
+      "ListRoles",
       "ListRuleGroups",
+      "ListRunGroups",
       "ListSAMLProviders",
       "ListSchemas",
+      "ListScripts",
       "ListServers",
       "ListServiceNetworks",
       "ListServices",
+      "ListSinks",
       "ListSourceLocations",
       "ListStacks",
-      "ListStudioLifecycleConfigs",
+      "ListStorageConfigurations",
+      "ListStorageLensConfigurations",
+      "ListStorageLensGroups",
+      "ListSuiteDefinitions",
+      "ListTargetGroups",
       "ListTrails",
       "ListUsers",
+      "ListViews",
+      "ListVirtualClusters",
       "ListVirtualMFADevices",
+      "ListVpcConnectors",
+      "ListWebACLs",
+      "ListWirelessGatewayTaskDefinitions",
+      "ListWirelessGateways",
       "ListWorkGroups",
+      "ListWorkflows",
+      "ListWorkforces",
+      "ListWorkloads",
       "ListWorkspaces",
       "ListWorkteams"
     ],
-    "last_ts": "2026-07-15T08:15:06+00:00",
+    "last_ts": "2026-09-27T14:46:18+00:00",
+    "session_event_count": 62,
+    "session_start_ts": "2026-09-27T14:36:22+00:00"
+  },
+  "arn:aws:sts::536697249497:assumed-role/stratus-escalation-role-04a63d8f/escalation-04a63d8f": {
+    "actions": [
+      "AttachUserPolicy"
+    ],
+    "last_ts": "2026-09-25T06:56:56+00:00",
     "session_event_count": 1,
-    "session_start_ts": "2026-07-15T08:15:06+00:00"
+    "session_start_ts": "2026-09-25T06:56:56+00:00"
+  },
+  "arn:aws:sts::536697249497:assumed-role/stratus-escalation-role-0d2119d6/escalation-0d2119d6": {
+    "actions": [
+      "AttachUserPolicy"
+    ],
+    "last_ts": "2026-09-27T14:46:00+00:00",
+    "session_event_count": 1,
+    "session_start_ts": "2026-09-27T14:46:00+00:00"
+  },
+  "arn:aws:sts::536697249497:assumed-role/stratus-escalation-role-29600b16/escalation-29600b16": {
+    "actions": [
+      "AttachUserPolicy"
+    ],
+    "last_ts": "2026-09-26T11:29:41+00:00",
+    "session_event_count": 1,
+    "session_start_ts": "2026-09-26T11:29:41+00:00"
+  },
+  "arn:aws:sts::536697249497:assumed-role/stratus-escalation-role-2a2a4f94/escalation-2a2a4f94": {
+    "actions": [
+      "AttachUserPolicy"
+    ],
+    "last_ts": "2026-09-26T07:41:18+00:00",
+    "session_event_count": 1,
+    "session_start_ts": "2026-09-26T07:41:18+00:00"
+  },
+  "arn:aws:sts::536697249497:assumed-role/stratus-escalation-role-2bd6066a/escalation-2bd6066a": {
+    "actions": [
+      "AttachUserPolicy"
+    ],
+    "last_ts": "2026-09-26T11:28:42+00:00",
+    "session_event_count": 1,
+    "session_start_ts": "2026-09-26T11:28:42+00:00"
+  },
+  "arn:aws:sts::536697249497:assumed-role/stratus-escalation-role-2c100d35/escalation-2c100d35": {
+    "actions": [
+      "AttachUserPolicy"
+    ],
+    "last_ts": "2026-09-27T14:34:53+00:00",
+    "session_event_count": 1,
+    "session_start_ts": "2026-09-27T14:34:53+00:00"
+  },
+  "arn:aws:sts::536697249497:assumed-role/stratus-escalation-role-2e10e58d/escalation-2e10e58d": {
+    "actions": [
+      "AttachUserPolicy"
+    ],
+    "last_ts": "2026-09-27T14:37:52+00:00",
+    "session_event_count": 1,
+    "session_start_ts": "2026-09-27T14:37:52+00:00"
+  },
+  "arn:aws:sts::536697249497:assumed-role/stratus-escalation-role-2e61c040/escalation-2e61c040": {
+    "actions": [
+      "AttachUserPolicy"
+    ],
+    "last_ts": "2026-09-27T14:33:59+00:00",
+    "session_event_count": 1,
+    "session_start_ts": "2026-09-27T14:33:59+00:00"
+  },
+  "arn:aws:sts::536697249497:assumed-role/stratus-escalation-role-31f1b7ac/escalation-31f1b7ac": {
+    "actions": [
+      "AttachUserPolicy"
+    ],
+    "last_ts": "2026-09-25T06:59:11+00:00",
+    "session_event_count": 1,
+    "session_start_ts": "2026-09-25T06:59:11+00:00"
+  },
+  "arn:aws:sts::536697249497:assumed-role/stratus-escalation-role-36673074/escalation-36673074": {
+    "actions": [
+      "AttachUserPolicy"
+    ],
+    "last_ts": "2026-09-26T11:26:28+00:00",
+    "session_event_count": 1,
+    "session_start_ts": "2026-09-26T11:26:28+00:00"
+  },
+  "arn:aws:sts::536697249497:assumed-role/stratus-escalation-role-4d86572b/escalation-4d86572b": {
+    "actions": [
+      "AttachUserPolicy"
+    ],
+    "last_ts": "2026-09-27T14:43:00+00:00",
+    "session_event_count": 1,
+    "session_start_ts": "2026-09-27T14:43:00+00:00"
+  },
+  "arn:aws:sts::536697249497:assumed-role/stratus-escalation-role-55def115/escalation-55def115": {
+    "actions": [
+      "AttachUserPolicy"
+    ],
+    "last_ts": "2026-09-27T14:41:51+00:00",
+    "session_event_count": 1,
+    "session_start_ts": "2026-09-27T14:41:51+00:00"
+  },
+  "arn:aws:sts::536697249497:assumed-role/stratus-escalation-role-62e4efab/escalation-62e4efab": {
+    "actions": [
+      "AttachUserPolicy"
+    ],
+    "last_ts": "2026-09-26T11:27:38+00:00",
+    "session_event_count": 1,
+    "session_start_ts": "2026-09-26T11:27:38+00:00"
+  },
+  "arn:aws:sts::536697249497:assumed-role/stratus-escalation-role-72bec732/escalation-72bec732": {
+    "actions": [
+      "AttachUserPolicy"
+    ],
+    "last_ts": "2026-09-27T14:35:41+00:00",
+    "session_event_count": 1,
+    "session_start_ts": "2026-09-27T14:35:41+00:00"
+  },
+  "arn:aws:sts::536697249497:assumed-role/stratus-escalation-role-8abecf26/escalation-8abecf26": {
+    "actions": [
+      "AttachUserPolicy"
+    ],
+    "last_ts": "2026-09-26T07:43:32+00:00",
+    "session_event_count": 1,
+    "session_start_ts": "2026-09-26T07:43:32+00:00"
+  },
+  "arn:aws:sts::536697249497:assumed-role/stratus-escalation-role-98cb48e9/escalation-98cb48e9": {
+    "actions": [
+      "AttachUserPolicy"
+    ],
+    "last_ts": "2026-09-27T14:46:51+00:00",
+    "session_event_count": 1,
+    "session_start_ts": "2026-09-27T14:46:51+00:00"
+  },
+  "arn:aws:sts::536697249497:assumed-role/stratus-escalation-role-a56adec0/escalation-a56adec0": {
+    "actions": [
+      "AttachUserPolicy"
+    ],
+    "last_ts": "2026-09-26T11:32:45+00:00",
+    "session_event_count": 1,
+    "session_start_ts": "2026-09-26T11:32:45+00:00"
+  },
+  "arn:aws:sts::536697249497:assumed-role/stratus-escalation-role-a8bd38b5/escalation-a8bd38b5": {
+    "actions": [
+      "AttachUserPolicy"
+    ],
+    "last_ts": "2026-09-27T14:43:58+00:00",
+    "session_event_count": 1,
+    "session_start_ts": "2026-09-27T14:43:58+00:00"
+  },
+  "arn:aws:sts::536697249497:assumed-role/stratus-escalation-role-aaed99a0/escalation-aaed99a0": {
+    "actions": [
+      "AttachUserPolicy"
+    ],
+    "last_ts": "2026-09-26T11:31:07+00:00",
+    "session_event_count": 1,
+    "session_start_ts": "2026-09-26T11:31:07+00:00"
+  },
+  "arn:aws:sts::536697249497:assumed-role/stratus-escalation-role-b3890416/escalation-b3890416": {
+    "actions": [
+      "AttachUserPolicy"
+    ],
+    "last_ts": "2026-09-26T07:44:17+00:00",
+    "session_event_count": 1,
+    "session_start_ts": "2026-09-26T07:44:17+00:00"
+  },
+  "arn:aws:sts::536697249497:assumed-role/stratus-escalation-role-b94e164d/escalation-b94e164d": {
+    "actions": [
+      "AttachUserPolicy"
+    ],
+    "last_ts": "2026-09-26T07:40:11+00:00",
+    "session_event_count": 1,
+    "session_start_ts": "2026-09-26T07:40:11+00:00"
+  },
+  "arn:aws:sts::536697249497:assumed-role/stratus-escalation-role-bcb6aab6/escalation-bcb6aab6": {
+    "actions": [
+      "AttachUserPolicy"
+    ],
+    "last_ts": "2026-09-25T07:00:24+00:00",
+    "session_event_count": 1,
+    "session_start_ts": "2026-09-25T07:00:24+00:00"
+  },
+  "arn:aws:sts::536697249497:assumed-role/stratus-escalation-role-be14a6f5/escalation-be14a6f5": {
+    "actions": [
+      "AttachUserPolicy"
+    ],
+    "last_ts": "2026-09-27T14:36:43+00:00",
+    "session_event_count": 1,
+    "session_start_ts": "2026-09-27T14:36:43+00:00"
+  },
+  "arn:aws:sts::536697249497:assumed-role/stratus-escalation-role-c6b98665/escalation-c6b98665": {
+    "actions": [
+      "AttachUserPolicy"
+    ],
+    "last_ts": "2026-09-26T07:42:13+00:00",
+    "session_event_count": 1,
+    "session_start_ts": "2026-09-26T07:42:13+00:00"
+  },
+  "arn:aws:sts::536697249497:assumed-role/stratus-escalation-role-cee57af1/escalation-cee57af1": {
+    "actions": [
+      "AttachUserPolicy"
+    ],
+    "last_ts": "2026-09-25T06:54:25+00:00",
+    "session_event_count": 1,
+    "session_start_ts": "2026-09-25T06:54:25+00:00"
+  },
+  "arn:aws:sts::536697249497:assumed-role/stratus-escalation-role-de7ebd84/escalation-de7ebd84": {
+    "actions": [
+      "AttachUserPolicy"
+    ],
+    "last_ts": "2026-09-26T07:45:15+00:00",
+    "session_event_count": 1,
+    "session_start_ts": "2026-09-26T07:45:15+00:00"
+  },
+  "arn:aws:sts::536697249497:assumed-role/stratus-escalation-role-ec887245/escalation-ec887245": {
+    "actions": [
+      "AttachUserPolicy"
+    ],
+    "last_ts": "2026-09-25T06:55:29+00:00",
+    "session_event_count": 1,
+    "session_start_ts": "2026-09-25T06:55:29+00:00"
+  },
+  "arn:aws:sts::536697249497:assumed-role/stratus-escalation-role-f5d3b94f/escalation-f5d3b94f": {
+    "actions": [
+      "AttachUserPolicy"
+    ],
+    "last_ts": "2026-09-25T06:58:07+00:00",
+    "session_event_count": 1,
+    "session_start_ts": "2026-09-25T06:58:07+00:00"
+  },
+  "arn:aws:sts::536697249497:assumed-role/stratus-escalation-role-f942470c/escalation-f942470c": {
+    "actions": [
+      "AttachUserPolicy"
+    ],
+    "last_ts": "2026-09-27T14:33:21+00:00",
+    "session_event_count": 1,
+    "session_start_ts": "2026-09-27T14:33:21+00:00"
+  },
+  "arn:aws:sts::536697249497:assumed-role/stratus-red-team-ec2-get-password-data-role/aws-go-sdk-1783332322236597000": {
+    "actions": [
+      "GetPasswordData"
+    ],
+    "last_ts": "2026-07-06T10:08:14+00:00",
+    "session_event_count": 30,
+    "session_start_ts": "2026-07-06T10:08:05+00:00"
+  },
+  "arn:aws:sts::536697249497:assumed-role/stratus-red-team-ec2-get-password-data-role/aws-go-sdk-1783332427563530100": {
+    "actions": [
+      "GetPasswordData"
+    ],
+    "last_ts": "2026-07-06T10:09:59+00:00",
+    "session_event_count": 30,
+    "session_start_ts": "2026-07-06T10:09:50+00:00"
   },
   "arn:aws:sts::536697249497:assumed-role/stratus-red-team-ec2-get-password-data-role/aws-go-sdk-1783333306862002800": {
     "actions": [
@@ -1851,22 +2269,6 @@
     "last_ts": "2026-07-06T10:24:39+00:00",
     "session_event_count": 30,
     "session_start_ts": "2026-07-06T10:24:29+00:00"
-  },
-  "arn:aws:sts::536697249497:assumed-role/stratus-red-team-ec2-get-password-data-role/aws-go-sdk-1784097907607294400": {
-    "actions": [
-      "GetPasswordData"
-    ],
-    "last_ts": "2026-07-15T06:48:04+00:00",
-    "session_event_count": 30,
-    "session_start_ts": "2026-07-15T06:47:56+00:00"
-  },
-  "arn:aws:sts::536697249497:assumed-role/stratus-red-team-ec2-get-password-data-role/aws-go-sdk-1784099748921602400": {
-    "actions": [
-      "GetPasswordData"
-    ],
-    "last_ts": "2026-07-15T07:18:45+00:00",
-    "session_event_count": 30,
-    "session_start_ts": "2026-07-15T07:18:37+00:00"
   },
   "unknown_principal": {
     "actions": [
@@ -1879,8 +2281,8 @@
       "GetFunctionConfiguration20150331v2",
       "StartSecretVersionDelete"
     ],
-    "last_ts": "2026-07-16T10:54:48+00:00",
-    "session_event_count": 719,
-    "session_start_ts": "2026-07-14T19:28:48+00:00"
+    "last_ts": "2026-09-27T14:46:17+00:00",
+    "session_event_count": 7,
+    "session_start_ts": "2026-09-27T14:36:22+00:00"
   }
 }

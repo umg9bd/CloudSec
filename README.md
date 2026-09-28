@@ -111,9 +111,9 @@ test was used, and each system was run on test once.
 | XGBoost (temporal features) | 0.817 | 0.850 | 0.833 [0.772, 0.885] |
 | Logistic regression (bag of actions) | 0.706 | 0.960 | 0.814 [0.756, 0.864] |
 | Curated IAM rule baseline (11 rules) | 0.878 | 0.650 | 0.747 [0.671, 0.815] |
-| GraphSAGE alone (batch, combined pipeline / canonicalized real data) | 0.825 | 0.800 | 0.812 |
+| GraphSAGE alone (batch, combined pipeline + real escalation in test) | 0.868 | 0.925 | **0.896** |
 
-> **Number provenance (integration note):** the pipeline / RF / XGBoost / logistic rows were measured on the teammate's data snapshot; the GraphSAGE row is now the COMBINED pipeline (all fixes + Udita's fe9 canonicalization applied to the real data, one consistent feature engine). At the dev-selected threshold its paired improvement over the rule baseline is +0.065 [-0.000, +0.136], p=0.052 — a point estimate that no longer clears significance, though session AUC stays 0.933 (beats all 200 size-preserving permutations). The pipeline/RF/XGBoost rows still need re-running on this same combined data.
+> **Number provenance (integration note):** the pipeline / RF / XGBoost / logistic rows were measured on the teammate's data snapshot; the GraphSAGE row is now the COMBINED pipeline (all fixes + Udita's fe9 canonicalization applied to the real data, one consistent feature engine). After folding in 30 real Stratus privilege-escalation detonations, the test set (821 sessions, 4 collectors) contains genuine escalation. Paired improvement over the rule baseline: +0.107 [+0.053, +0.166], p=0.0002 (significant); session AUC 0.987, beats all 200 size-preserving permutations. The pipeline/RF/XGBoost rows still need re-running on this same combined data.
 
 The pipeline beats the rule baseline significantly (paired bootstrap +0.097
 F1, 95% CI [+0.028, +0.168], p = 0.008). It is statistically tied with the
