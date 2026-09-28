@@ -59,6 +59,8 @@ FAST_SUITES = [
     "test_model_hgt",             # HGT output shape/order contract
     # ── real-time pipeline ───────────────────────────────────────────────
     "test_pipeline",              # streaming == batch (LSTM), fallback, alert schema
+    "test_lstm_scorer",           # v5/v6 checkpoints load with the right vocab; pipeline can feed both
+    "test_cloudtrail_input",      # every accepted input format; raw-JSON identity + target parsing
     # ── shared: the train/eval boundary both tracks must respect ─────────
     "test_leakage_guard",         # held-out detection, label-derived prior freeze
     "test_causal_features",       # temporal leakage: causal ordering + frozen-on-eval prior
@@ -66,6 +68,8 @@ FAST_SUITES = [
     "test_family_split",          # campaign-family holdout: no family or session crosses splits
     # ── feature semantics ────────────────────────────────────────────────
     "test_identity_features",     # ground truth never a feature; handoffs, permission deltas
+    "test_lineage_verification",  # inferred lineage == generator hop_id; dataset link checks
+    "test_policy_features",       # policy-document features the LSTM consumes
     "test_iam_permissions",       # permission state from observed policy content
     "test_attack_taxonomy",       # tactic vs technique, ATT&CK-consistent pairs
 ]

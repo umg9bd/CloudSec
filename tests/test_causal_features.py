@@ -75,5 +75,72 @@ class TestCausalRiskPrior(unittest.TestCase):
                          "frozen prior changed under update -- evaluation label leakage")
 
 
+
+class TestCausalBaseRatePrior(unittest.TestCase):
+    """The tests above use a fixed default (0.1). FeatureEngineer uses
+    default=AdaptiveRiskPrior.BASE_RATE: every key shrinks toward the fitted
+    TRAINING attack rate. That deliberately lets one key's labels move another
+    key's score -- but only through that single global rate, still only from
+    labels seen earlier, and never once frozen."""
+
+    W = 15
+
+    def prior(self):
+        return AdaptiveRiskPrior(priors={}, default=AdaptiveRiskPrior.BASE_RATE,
+                                 prior_weight=self.W, frozen=False)
+
+    def test_unseen_key_scores_exactly_the_base_rate(self):
+        p = self.prior()
+        for label in ("1", "0", "0", "0"):
+            p.update("keyA", label)
+        self.assertAlmostEqual(p.base_rate(), 0.25)
+        self.assertAlmostEqual(p.score("keyB"), 0.25)
+
+    def test_other_keys_influence_is_only_through_the_global_rate(self):
+        """Two histories with the same overall rate but different per-key
+        detail give an unseen key the same score: no per-key information leaks."""
+        a, b = self.prior(), self.prior()
+        for label in ("1", "0"):
+            a.update("keyA", label)
+        a.update("keyC", "0"); a.update("keyC", "1")
+        for label in ("1", "1"):
+            b.update("keyX", label)
+        b.update("keyY", "0"); b.update("keyY", "0")
+        self.assertAlmostEqual(a.score("keyB"), b.score("keyB"))
+
+    def test_seen_key_blends_its_own_rate_with_the_base_rate(self):
+        p = self.prior()
+        for _ in range(5):
+            p.update("keyA", "1")
+        for _ in range(15):
+            p.update("keyB", "0")
+        base = 5 / 20
+        self.assertAlmostEqual(p.score("keyA"), (self.W * base + 5) / (self.W + 5))
+
+    def test_score_before_update_excludes_own_label(self):
+        correct, leaky = self.prior(), self.prior()
+        for p in (correct, leaky):
+            p.update("keyZ", "0")
+        feature = correct.score("AssumeRole")
+        correct.update("AssumeRole", "1")
+        leaky.update("AssumeRole", "1")
+        self.assertLess(feature, leaky.score("AssumeRole"))
+
+    def test_frozen_base_rate_does_not_move(self):
+        p = self.prior()
+        p.update("keyA", "1"); p.update("keyA", "0")
+        p.frozen = True
+        before = (p.base_rate(), p.score("keyA"), p.score("unseen"))
+        for _ in range(100):
+            p.update("keyB", "1")
+        self.assertEqual(before, (p.base_rate(), p.score("keyA"), p.score("unseen")))
+
+    def test_feature_engineer_uses_the_base_rate_setting(self):
+        from feature_engine9 import FeatureEngineer
+        engine = FeatureEngineer()
+        self.assertEqual(engine.action_risk_prior.default, AdaptiveRiskPrior.BASE_RATE)
+        self.assertEqual(engine.principal_risk_prior.default, AdaptiveRiskPrior.BASE_RATE)
+
+
 if __name__ == "__main__":
     unittest.main()
