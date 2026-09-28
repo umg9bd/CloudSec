@@ -120,6 +120,7 @@ class Pipeline:
             event_name_vocab_path=path(fe9.EVENT_NAME_VOCAB_FILE),
             state_tracker_path=os.path.join(self.state_dir, "state_tracker.json"),
             graph_state_path=os.path.join(self.state_dir, "graph_node_state.json"),
+            identity_state_path=os.path.join(self.state_dir, "identity_state.json"),
             action_prior_path=path(fe9.ACTION_PRIOR_FILE),
             principal_prior_path=path(fe9.PRINCIPAL_PRIOR_FILE),
             freeze_vocab=True, freeze_priors=True,

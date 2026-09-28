@@ -44,6 +44,7 @@ import os
 import time
 from copy import deepcopy
 
+import pandas as pd
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -54,6 +55,8 @@ from data_loader import (
     compute_class_weights,
     flatten_mask_dict,
     global_labels,
+    assignment_split,
+    family_holdout_assignment,
     principal_disjoint_split,
     campaign_family_split,
     stratified_edge_split,
@@ -100,13 +103,22 @@ def parse_args():
     p.add_argument("--threshold", type=float, default=0.5)
     p.add_argument("--patience", type=int,   default=15,
                    help="Early stopping patience (epochs without val F1 improvement)")
-    p.add_argument("--split",    choices=["stratified", "principal_disjoint", "campaign_family"],
+    p.add_argument("--split",    choices=["stratified", "principal_disjoint", "family_holdout", "campaign_family"],
                    default="stratified",
                    help="stratified = random edge split preserving label ratio (default, "
                         "no ordering assumption). principal_disjoint = entity-disjoint split "
                         "for testing inductive generalisation; HIGH VARIANCE on this dataset "
                         "(only 13 principal-side identities, 2 with attack edges) — see "
-                        "data_loader.py's principal_disjoint_split docstring.")
+                        "data_loader.py's principal_disjoint_split docstring. "
+                        "family_holdout = whole campaign families held out for val/test "
+                        "(needs --raw-csv with campaign_family/session_id columns, "
+                        "--val-families and --test-families).")
+    p.add_argument("--raw-csv", default=None,
+                   help="Raw event CSV the structural CSV was built from (family_holdout only).")
+    p.add_argument("--val-families", nargs="+", default=[],
+                   help="Campaign families held out for validation (family_holdout only).")
+    p.add_argument("--test-families", nargs="+", default=[],
+                   help="Campaign families held out for test (family_holdout only).")
     p.add_argument("--reverse-edges", action="store_true",
                    help="Add mirrored reverse edges so principal nodes (User, "
                         "UnresolvedPrincipal) receive messages during aggregation. "
@@ -334,7 +346,6 @@ def main():
 
     # ── 1. Load data ──────────────────────────────────────────────────────────
     if args.offline_csv:
-        import pandas as pd
         from offline_graph import OfflineGraphLoader
         loader = OfflineGraphLoader(pd.read_csv(args.offline_csv), device=args.device,
                                     add_reverse_edges=args.reverse_edges,
@@ -358,6 +369,13 @@ def main():
     # ── 2. Train/val/test split ───────────────────────────────────────────────
     if args.split == "stratified":
         train_masks, val_masks, test_masks = stratified_edge_split(data, seed=args.seed)
+    elif args.split == "family_holdout":
+        if not (args.raw_csv and args.val_families and args.test_families):
+            raise SystemExit("--split family_holdout needs --raw-csv, --val-families and --test-families")
+        assignment = family_holdout_assignment(
+            pd.read_csv(args.raw_csv, low_memory=False), os.path.basename(args.raw_csv),
+            args.val_families, args.test_families, seed=args.seed)
+        train_masks, val_masks, test_masks = assignment_split(data, assignment)
     elif args.split == "campaign_family":
         train_masks, val_masks, test_masks = campaign_family_split(data, seed=args.seed)
     else:

@@ -723,6 +723,89 @@ def stratified_edge_split(
     return train_masks, val_masks, test_masks
 
 
+SPLIT_NAMES = ("train", "val", "test")
+
+
+def family_holdout_assignment(
+    raw_df: pd.DataFrame, source_name: str,
+    val_families, test_families,
+    family_col: str = "campaign_family", session_col: str = "session_id",
+    train_ratio: float = 0.70, val_ratio: float = 0.15, seed: int = 42,
+) -> Dict[str, str]:
+    """log_id -> "train"/"val"/"test" for a GROUP-HOLDOUT evaluation.
+
+    Rows split by row are the wrong unit for an "unseen campaign" claim: every
+    campaign topology then appears in training, so test performance measures
+    recall of known topologies. Here every row of a campaign family goes to ONE
+    split -- val_families to val, test_families to test, every other family to
+    train -- so val/test measure detection of topologies never trained on.
+
+    Rows with no family (benign background) are assigned per SESSION, so no
+    session straddles two splits, in train/val/test proportions.
+
+    log_ids follow the feature-engine convention "<source_name>:<row index>",
+    matching the structural CSV built from `raw_df`. The family column is
+    ground truth -- it decides the split and is never a model feature."""
+    for col in (family_col, session_col):
+        if col not in raw_df.columns:
+            raise ValueError(
+                f"family_holdout needs a {col!r} column in the raw CSV; {source_name} has "
+                f"{sorted(raw_df.columns)}. It can only be used on data that records campaign families.")
+    val_families, test_families = set(val_families), set(test_families)
+    overlap = val_families & test_families
+    if overlap:
+        raise ValueError(f"families in both val and test: {sorted(overlap)}")
+    families = set(raw_df[family_col].dropna().astype(str))
+    missing = (val_families | test_families) - families
+    if missing:
+        raise ValueError(f"held-out families not present in {source_name}: {sorted(missing)}")
+    if not families - val_families - test_families:
+        raise ValueError("every campaign family is held out; nothing left to train on")
+
+    split_of_family = {f: ("val" if f in val_families else "test" if f in test_families else "train")
+                       for f in families}
+    benign_sessions = sorted(set(raw_df.loc[raw_df[family_col].isna(), session_col].astype(str)))
+    rng = np.random.RandomState(seed)
+    rng.shuffle(benign_sessions)
+    n_train = int(len(benign_sessions) * train_ratio)
+    n_val = int(len(benign_sessions) * val_ratio)
+    split_of_session = {s: ("train" if i < n_train else "val" if i < n_train + n_val else "test")
+                        for i, s in enumerate(benign_sessions)}
+
+    assignment = {}
+    for i, (fam, sess) in enumerate(zip(raw_df[family_col], raw_df[session_col])):
+        split = split_of_family[str(fam)] if pd.notna(fam) else split_of_session[str(sess)]
+        assignment[f"{source_name}:{i}"] = split
+    return assignment
+
+
+def assignment_split(
+    data: HeteroData, split_of_log_id: Dict[str, str],
+) -> Tuple[Dict[tuple, torch.Tensor], Dict[tuple, torch.Tensor], Dict[tuple, torch.Tensor]]:
+    """Per-triple train/val/test masks from an explicit log_id -> split mapping
+    (e.g. family_holdout_assignment). Every scored edge must be assigned: an
+    unassigned edge means the graph and the mapping came from different files,
+    which is an error, not something to default silently."""
+    masks = {name: {} for name in SPLIT_NAMES}
+    unassigned = []
+    for t in scored_edge_types(data):
+        ids = list(data[t].log_id)
+        for name in SPLIT_NAMES:
+            masks[name][t] = torch.tensor([split_of_log_id.get(lid) == name for lid in ids], dtype=torch.bool)
+        unassigned += [lid for lid in ids if split_of_log_id.get(lid) not in SPLIT_NAMES]
+    if unassigned:
+        raise ValueError(f"{len(unassigned)} scored edges have no split assignment "
+                         f"(first: {unassigned[:3]}); the mapping does not match this graph")
+
+    y = global_labels(data)
+    for name in SPLIT_NAMES:
+        flat = flatten_mask_dict(data, masks[name]).cpu().numpy()
+        log.info("Assignment split — %s: %d edges, %d attack", name, int(flat.sum()), int(y[flat].sum()))
+        if name != "train" and flat.sum() and not y[flat].any():
+            log.warning("Assignment split: %s has no attack edges; its F1/recall are undefined", name)
+    return masks["train"], masks["val"], masks["test"]
+
+
 def compute_class_weights(data: HeteroData, train_masks: Dict[tuple, torch.Tensor]) -> torch.Tensor:
     n_pos, n_total = 0, 0
     for triple, mask in train_masks.items():

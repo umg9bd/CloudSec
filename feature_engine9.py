@@ -1,14 +1,31 @@
 import argparse
 import csv
 import gzip
+import hashlib
 import json
 import os
+import sys
 import time
 import uuid
 from datetime import datetime
 
 import ipaddress
 import numpy as np
+
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "graph_construction"))
+from identity_context import IdentityContext  # noqa: E402
+from privilege_features import DEFAULT_SENSITIVITY, SERVICE_SENSITIVITY  # noqa: E402
+
+# Ground truth a dataset may carry alongside the raw events. None of it may ever
+# become a model feature: normalize_cloudtrail_row() does not copy these into
+# the rows the feature code reads, with one exception -- `split`, which is
+# passed through ONLY so process_batch_file() can restrict label-fitted priors
+# to training rows. No feature reads it (tests/test_identity_features.py).
+GROUND_TRUTH_COLUMNS = (
+    "label", "session_label", "attack_technique", "attack_tactic", "attack_technique_id",
+    "campaign_id", "campaign_family", "chain_id", "stage_id", "hop_id",
+    "parent_event_id", "root_event_id", "causal_relation", "split",
+)
 
 # Best-effort JSON parse of a string value (or passthrough dict/list); returns None if unparseable -- not file I/O.
 def _parse_json_text(value):
@@ -156,6 +173,8 @@ def normalize_cloudtrail_row(row):
         'request_params_raw': request_params or '{}',
         'access_key_id': row.get('access_key_id') or row.get('accessKeyId') or user_identity.get('accessKeyId') or '',
         'recipient_account_id': str(recipient_account_id) if recipient_account_id else '',
+        # Evaluation metadata, NOT a feature -- see GROUND_TRUTH_COLUMNS.
+        'split': str(row.get('split') or '').strip().lower(),
     }
 
     return normalized
@@ -272,7 +291,7 @@ class VocabIndex:
 
 # Persisted as counts JSON -- .action_risk_prior.json or .principal_risk_prior.json, chosen by the caller's `path`.
 class AdaptiveRiskPrior:
-    """Hand-tuned prior blended with the observed attack rate per key.
+    """Shrinkage estimate of the attack rate per key, fitted on training labels.
 
     LABEL-DERIVED FEATURE. score() returns a value computed from ground-truth
     labels, and it is consumed as a model feature (action_risk_prior and
@@ -281,7 +300,15 @@ class AdaptiveRiskPrior:
     as every scaler in this project: FIT on the training input, FROZEN on every
     evaluation input. Without `frozen`, running feature engineering over a
     held-out split folds that split's own labels into the features it produces
-    -- classic target leakage, silent and unlogged."""
+    -- classic target leakage, silent and unlogged.
+
+    `priors` / `default` set the value a key shrinks toward. default=BASE_RATE
+    (what FeatureEngineer uses) shrinks every key toward the fitted overall
+    attack rate instead of toward a hand-assigned per-event number -- the old
+    1-10 "action_map" scores were unexplained magic numbers that also decided
+    the feature for every rarely-seen action."""
+
+    BASE_RATE = "base_rate"
 
     # Loads {key: [attacks, total]} counts from `path` json if present; frozen+missing file fails loudly.
     def __init__(self, priors, default=0.1, prior_weight=15, path=None, frozen=False):
@@ -305,9 +332,16 @@ class AdaptiveRiskPrior:
                 f"first so the prior is fitted, then re-run this evaluation."
             )
 
-    # Bayesian-style shrinkage: blends the hand-tuned prior toward the observed attack rate for `key`.
+    def base_rate(self):
+        """Overall attack rate across every fitted key; 0.0 before any fitting."""
+        attacks = sum(a for a, _ in self.counts.values())
+        total = sum(t for _, t in self.counts.values())
+        return attacks / total if total else 0.0
+
+    # Bayesian-style shrinkage: blends the prior toward the observed attack rate for `key`.
     def score(self, key):
-        prior = self.priors.get(key, self.default)
+        default = self.base_rate() if self.default == self.BASE_RATE else self.default
+        prior = self.priors.get(key, default)
         attacks, total = self.counts.get(key, (0, 0))
         return (self.prior_weight * prior + attacks) / (self.prior_weight + total)
 
@@ -398,41 +432,22 @@ def parse_policy_features(request_params_raw):
     return len(statements), has_wildcard_action, has_wildcard_resource, reach
 
 
-# ── fe9: resource criticality + privilege-level scoring ───────────────────
+# ── fe9: resource criticality ─────────────────────────────────────────────
+#
+# target_resource_criticality is the service tier from
+# privilege_features.SERVICE_SENSITIVITY (0 observability .. 3 identity/secrets),
+# the ONE documented convention the graph side already uses -- previously this
+# file kept a second, different hand table (values {2,3,4,5}) that also bumped
+# the score when the resource NAME contained "admin", "root" or "prod", which
+# rewards naming conventions rather than behavior.
+#
+# source_privilege_level is no longer a hand tier either: it comes from
+# identity_context (AWS access levels of permissions the actor is known to hold
+# or has demonstrated). See that module's docstring.
 
-DEFAULT_RESOURCE_CRITICALITY = 2
-
-
-# Hand-tuned 1-5 criticality score for a target resource, based on its AWS service and name.
-def get_resource_criticality(event_source, target_resource):
-    source = (event_source or '').lower()
-    target = str(target_resource or '').lower()
-
-    if 'secretsmanager' in source or 'kms' in source:
-        return 5
-    if 'iam' in source:
-        return 5 if any(x in target for x in ('admin', 'root')) else 4
-    if 's3' in source:
-        return 4 if 'prod' in target else 3
-    if 'ec2' in source:
-        return 3
-    if 'cloudwatch' in source or 'logs' in source:
-        return 1
-    return DEFAULT_RESOURCE_CRITICALITY
-
-PRIVILEGE_TIERS = {"ReadOnly": 0, "Developer": 1, "PowerUser": 2, "Admin": 3, "Root": 4}
-
-# Hand-tuned 0-4 privilege tier (PRIVILEGE_TIERS) for one event, from principal type and policy signals.
-def derive_privilege_signal(principal_type, is_write_action, wildcard_action, privileged_reach):
-    if principal_type == 'Root':
-        return PRIVILEGE_TIERS['Root']
-    if wildcard_action or privileged_reach >= 1.0:
-        return PRIVILEGE_TIERS['Admin']
-    if privileged_reach >= 0.6:
-        return PRIVILEGE_TIERS['PowerUser']
-    if is_write_action:
-        return PRIVILEGE_TIERS['Developer']
-    return PRIVILEGE_TIERS['ReadOnly']
+def get_resource_criticality(event_source, target_resource=None):
+    service = (event_source or '').lower().split('.')[0]
+    return SERVICE_SENSITIVITY.get(service, DEFAULT_SENSITIVITY)
 
 
 def _extract_account_id(arn):
@@ -619,95 +634,74 @@ class StateTracker:
 
 # Orchestrates all sub-trackers/priors (see their own JSON files) to turn one raw log row into structural+temporal features.
 class FeatureEngineer:
-    # Wires up VocabIndex/StateTracker/GraphNodeTracker/AdaptiveRiskPrior x2 from the given JSON file paths.
+    # Wires up VocabIndex/StateTracker/GraphNodeTracker/IdentityContext/AdaptiveRiskPrior x2 from the given JSON file paths.
     def __init__(self, event_name_vocab_path=None, state_tracker_path=None, graph_state_path=None,
                  action_prior_path=None, principal_prior_path=None, freeze_vocab=False,
-                 freeze_priors=False):
+                 freeze_priors=False, identity_state_path=None):
         self.tracker = StateTracker(path=state_tracker_path)
         self.graph_tracker = GraphNodeTracker(path=graph_state_path)
+        self.identity = IdentityContext(path=identity_state_path)
         self.principal_type_vocab = VocabIndex(fixed_tokens=FIXED_PRINCIPAL_TYPES)
         self.event_source_vocab = VocabIndex(fixed_tokens=FIXED_EVENT_SOURCES)
         self.event_name_vocab = VocabIndex(path=event_name_vocab_path, frozen=freeze_vocab)
 
-        self.action_map = {
-            # --- 1. RECONNAISSANCE ---
-            "GetCallerIdentity": 2,
-            "ListBuckets": 2,
-            "DescribeInstances": 2,
-            "ListUsers": 2,
-            "GetAccountAuthorizationDetails": 4,
-
-            # --- 2. PERSISTENCE (Creating Backdoors) ---
-            "CreateUser": 7,
-            "CreateRole": 7,
-            "CreateAccessKey": 8,
-            "CreateLoginProfile": 8,
-
-            # --- 3. PRIVILEGE ESCALATION---
-            "PutUserPolicy": 10,
-            "AttachUserPolicy": 10,
-            "UpdateAssumeRolePolicy": 10,
-            "PassRole": 9,
-            "CreatePolicyVersion": 9,
-            "SetDefaultPolicyVersion": 9,
-
-            # --- 4. CREDENTIAL ACCESS & EXFILTRATION ---
-            "GetSecretValue": 8,
-            "Decrypt": 7,
-            "AssumeRole": 6,
-
-            # --- 5. DEFENSE EVASION ---
-            "DeleteTrail": 10,
-            "StopLogging": 10,
-            "UpdateDetector": 9,
-            "DeleteFlowLogs": 8,
-
-            # --- 6. COMMAND & CONTROL / EXECUTION ---
-            "SendCommand": 8,
-            "InvokeFunction": 7,
-        }
-        self.default_risk = 1
-
         self.freeze_priors = freeze_priors
+        self.labels_observed = 0          # rows whose label was folded into the priors
+        self.labels_withheld = 0          # rows skipped because they are not training rows
 
+        # No hand-assigned per-event or per-principal-type scores: every key
+        # shrinks toward the fitted training base rate (see AdaptiveRiskPrior).
         self.action_risk_prior = AdaptiveRiskPrior(
-            priors={k: v / 10.0 for k, v in self.action_map.items()},
-            default=self.default_risk / 10.0,
-            prior_weight=15,
-            path=action_prior_path,
-            frozen=freeze_priors,
+            priors={}, default=AdaptiveRiskPrior.BASE_RATE, prior_weight=15,
+            path=action_prior_path, frozen=freeze_priors,
         )
-
         self.principal_risk_prior = AdaptiveRiskPrior(
-            priors={
-                "Root": 1.0, "IAMUser": 0.8, "FederatedUser": 0.6,
-                "AssumedRole": 0.5, "AWSService": 0.1,
-            },
-            default=0.3,
-            prior_weight=15,
-            path=principal_prior_path,
-            frozen=freeze_priors,
+            priors={}, default=AdaptiveRiskPrior.BASE_RATE, prior_weight=15,
+            path=principal_prior_path, frozen=freeze_priors,
         )
+        self._ctx_row = None
+        self._ctx = None
 
-    # Persists every sub-tracker -- event_name_vocab, state tracker, graph tracker, both risk priors -- to their JSON files.
+    # Persists every sub-tracker -- event_name_vocab, state tracker, graph tracker, identity context, both risk priors.
     def save_state(self):
         self.event_name_vocab.save()
         self.tracker.save()
         self.graph_tracker.save()
+        self.identity.save()
         self.action_risk_prior.save()
         self.principal_risk_prior.save()
 
     def observe_label(self, log):
         """Folds this row's ground-truth label into the adaptive priors.
 
-        MUST NOT be called with evaluation labels. Both priors ignore updates
-        while frozen, so this is a no-op on any non-training input; the guard
-        is kept here as well so the intent is visible at the call site."""
+        MUST NOT be called with evaluation labels. Two guards:
+          * frozen priors ignore every update (any non-training input), and
+          * on a training input that carries a `split` column, only rows with
+            split == "train" are folded in. Without this, fitting on a
+            synthetic file that also holds its own val/test rows put those
+            rows' labels into the features they are later scored with."""
         if self.freeze_priors:
+            return
+        split = log.get('split') or ''
+        if split and split != 'train':
+            self.labels_withheld += 1
             return
         label = log.get('label', '0')
         self.action_risk_prior.update(log.get('event_name'), label)
         self.principal_risk_prior.update(log.get('principal_type', ''), label)
+        self.labels_observed += 1
+
+    def _context(self, log):
+        """Identity/permission context for this row, computed once even though
+        both get_structural_data and get_temporal_features need it (the context
+        is stateful: observing the same row twice would count it twice)."""
+        if self._ctx_row is not log:
+            timestamp_str = log.get('timestamp') or log.get('eventTime')
+            if not timestamp_str:
+                raise ValueError(f"row for principal {log.get('principal_arn')!r} has no timestamp/eventTime")
+            self._ctx = self.identity.observe(log, _parse_timestamp(timestamp_str))
+            self._ctx_row = log
+        return self._ctx
 
     # Builds one row of GNN structural features (source/target node, edge type, graph-topology attrs) for the structural CSV.
     def get_structural_data(self, log):
@@ -721,16 +715,7 @@ class FeatureEngineer:
         dt = _parse_timestamp(timestamp_str)
 
         event_risk = self.action_risk_prior.score(event)
-
-        read_only = log.get('read_only')
-        is_write_action = 0 if read_only is None else (1 if str(read_only).lower() == 'false' else 0)
-
-        request_params_raw = str(log.get('request_params_raw', '{}'))
-        _, wildcard_action, _, privileged_reach = parse_policy_features(request_params_raw)
-
-        privilege_signal = derive_privilege_signal(
-            log.get('principal_type', ''), is_write_action, wildcard_action, privileged_reach
-        )
+        privilege_signal = self._context(log)['source_privilege_level']
 
         graph_attrs = self.graph_tracker.record_edge(p_arn, target, dt, event_risk, privilege_signal)
         graph_attrs['target_resource_criticality'] = get_resource_criticality(log.get('event_source'), target)
@@ -837,6 +822,11 @@ class FeatureEngineer:
         f.append(wildcard_resource)  # has_wildcard_resource
         f.append(privileged_reach)  # privileged_action_reach
 
+        # PILLAR 6: IDENTITY LINEAGE & PERMISSION STATE (inferred from the observable prefix)
+        ctx = self._context(log)
+        for col in IDENTITY_COLS:
+            f.append(ctx[col])
+
         return f
 
 
@@ -854,6 +844,15 @@ TEMPORAL_COLS = [
     "policy_statement_count_normalized", "has_wildcard_action",
     "has_wildcard_resource", "privileged_action_reach",
 ]
+# Appended, never inserted: models select temporal features by NAME
+# (pipeline.py reads the LSTM's own feature_cols), so existing checkpoints keep
+# reading the columns they were trained on.
+IDENTITY_COLS = [
+    "new_permission_count_log", "permission_expansion_score", "privilege_delta",
+    "target_permission_coverage", "actor_permission_coverage",
+    "principal_handoff", "causal_depth_normalized", "lineage_enabling_steps_normalized",
+]
+TEMPORAL_COLS = TEMPORAL_COLS + IDENTITY_COLS
 GRAPH_ATTR_FIELDS = [
     "source_node_degree", "edge_interaction_count", "source_node_age_normalized",
     "source_privilege_level", "source_historical_risk",
@@ -870,6 +869,7 @@ STATE_FILE = os.path.join(DATA_DIR, ".feature_engine9_state.json")
 EVENT_NAME_VOCAB_FILE = os.path.join(DATA_DIR, ".event_name_vocab.json")
 STATE_TRACKER_FILE = os.path.join(DATA_DIR, ".state_tracker.json")
 GRAPH_NODE_STATE_FILE = os.path.join(DATA_DIR, ".graph_node_state.json")
+IDENTITY_STATE_FILE = os.path.join(DATA_DIR, ".identity_state.json")
 ACTION_PRIOR_FILE = os.path.join(DATA_DIR, ".action_risk_prior.json")
 PRINCIPAL_PRIOR_FILE = os.path.join(DATA_DIR, ".principal_risk_prior.json")
 
@@ -894,15 +894,43 @@ def _derive_paths(input_path: str) -> dict:
             "struct_out": STRUCT_OUT, "temporal_out": TEMPORAL_OUT,
             "state_file": STATE_FILE, "state_tracker_file": STATE_TRACKER_FILE,
             "graph_node_state_file": GRAPH_NODE_STATE_FILE,
+            "identity_state_file": IDENTITY_STATE_FILE,
         }
-    stem = os.path.splitext(os.path.basename(input_path))[0]
+    stem = os.path.splitext(os.path.basename(os.path.normpath(input_path)))[0]
+    return _paths_for_stem(stem)
+
+
+def _paths_for_stem(stem: str) -> dict:
     return {
         "struct_out": os.path.join(DATA_DIR, f"{stem}_structural.csv"),
         "temporal_out": os.path.join(DATA_DIR, f"{stem}_temporal.csv"),
         "state_file": os.path.join(DATA_DIR, f".feature_engine9_state_{stem}.json"),
         "state_tracker_file": os.path.join(DATA_DIR, f".state_tracker_{stem}.json"),
         "graph_node_state_file": os.path.join(DATA_DIR, f".graph_node_state_{stem}.json"),
+        "identity_state_file": os.path.join(DATA_DIR, f".identity_state_{stem}.json"),
     }
+
+
+def file_fingerprint(path: str) -> str:
+    """sha256 of a file's bytes -- identifies WHICH version of an input a cached
+    output or a fitted prior came from."""
+    h = hashlib.sha256()
+    with open(path, 'rb') as f:
+        for chunk in iter(lambda: f.read(1 << 20), b''):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def prior_meta_path(prior_path: str) -> str:
+    return prior_path + ".meta.json"
+
+
+def read_prior_meta(prior_path: str):
+    meta = prior_meta_path(prior_path)
+    if not os.path.exists(meta):
+        return None
+    with open(meta, encoding='utf-8') as f:
+        return json.load(f)
 
 # ── Fast-lane: defense-evasion actions that get an immediate alert ───────────
 CRITICAL_ACTIONS = {
@@ -1045,10 +1073,14 @@ def process_batch_file(engine: FeatureEngineer, input_path: str) -> int:
 
     engine.save_state()
     print(f"[BATCH] {input_path} -> {count} rows (struct/temporal features written)")
+    if not engine.freeze_priors:
+        print(f"[PRIORS] fitted on {engine.labels_observed} training rows; "
+              f"{engine.labels_withheld} non-training rows (split != train) withheld")
     return count
 
 
-def run_batch(input_path: str, freeze_vocab: bool = False, freeze_priors: bool = None) -> None:
+def run_batch(input_path: str, freeze_vocab: bool = False, freeze_priors: bool = None,
+              rebuild: bool = False) -> None:
     """freeze_priors defaults to "frozen unless this IS the training input".
 
     The adaptive risk priors are fitted from ground-truth labels, so folding a
@@ -1056,8 +1088,16 @@ def run_batch(input_path: str, freeze_vocab: bool = False, freeze_priors: bool =
     off the input path means the safe behaviour is automatic: only the default
     (training) input may fit the priors, everything else reuses them read-only.
     Pass freeze_priors explicitly to override -- e.g. False when deliberately
-    refitting on a new training set."""
-    global STRUCT_OUT, TEMPORAL_OUT, STATE_FILE, STATE_TRACKER_FILE, GRAPH_NODE_STATE_FILE
+    refitting on a new training set. Within the training input, only rows whose
+    `split` column is "train" (or that have no split column) are fitted.
+
+    Cached outputs are tied to the CONTENT of the input they came from (sha256),
+    not just its file name. Regenerating an input under the same name used to be
+    skipped as "already processed", leaving features -- and priors fitted on the
+    OLD data -- in place with no warning. Now that is an error unless
+    rebuild=True, which deletes this input's derived outputs and tracker state
+    (and, when fitting, the priors) and starts clean."""
+    global STRUCT_OUT, TEMPORAL_OUT, STATE_FILE, STATE_TRACKER_FILE, GRAPH_NODE_STATE_FILE, IDENTITY_STATE_FILE
     if not os.path.exists(input_path):
         print(f"Error: Could not find {input_path}")
         raise SystemExit(1)
@@ -1072,18 +1112,58 @@ def run_batch(input_path: str, freeze_vocab: bool = False, freeze_priors: bool =
     STATE_FILE = paths["state_file"]
     STATE_TRACKER_FILE = paths["state_tracker_file"]
     GRAPH_NODE_STATE_FILE = paths["graph_node_state_file"]
+    IDENTITY_STATE_FILE = paths["identity_state_file"]
+
+    name = os.path.basename(input_path)
+    fingerprint = file_fingerprint(input_path)
+    prior_files = (ACTION_PRIOR_FILE, PRINCIPAL_PRIOR_FILE)
+
+    if rebuild:
+        doomed = [STRUCT_OUT, TEMPORAL_OUT, STATE_FILE, STATE_TRACKER_FILE,
+                  GRAPH_NODE_STATE_FILE, IDENTITY_STATE_FILE]
+        if not freeze_priors:
+            doomed += [p for f in prior_files for p in (f, prior_meta_path(f))]
+        for path in doomed:
+            if os.path.exists(path):
+                os.remove(path)
+                print(f"[REBUILD] removed {path}")
 
     state = load_state()
     processed = set(state["processed_files"])
-    name = os.path.basename(input_path)
+    fingerprints = state.setdefault("fingerprints", {})
     if name in processed:
-        print(f"[SKIP] {input_path} was already processed (in {STATE_FILE}) -- not re-appending.")
-        return
+        recorded = fingerprints.get(name)
+        if recorded == fingerprint:
+            print(f"[SKIP] {input_path} was already processed (in {STATE_FILE}) -- not re-appending.")
+            return
+        if recorded is None:
+            print(f"[SKIP] {input_path} was processed before content fingerprints were recorded, so "
+                  f"its outputs cannot be verified against the current file. Pass --rebuild to regenerate.")
+            return
+        raise SystemExit(
+            f"{input_path} has CHANGED since it was processed (sha256 {recorded[:12]} -> "
+            f"{fingerprint[:12]}). Its outputs in {STRUCT_OUT} / {TEMPORAL_OUT}"
+            f"{' and the fitted priors' if not freeze_priors else ''} describe the old file. "
+            f"Re-run with --rebuild."
+        )
+
+    if not freeze_priors:
+        for prior_file in prior_files:
+            if not os.path.exists(prior_file):
+                continue
+            meta = read_prior_meta(prior_file)
+            if meta is None or meta.get("sha256") != fingerprint:
+                fitted_on = "an unrecorded input" if meta is None else f"{meta.get('input')!r} (another version)"
+                raise SystemExit(
+                    f"{prior_file} holds priors fitted on {fitted_on}. Fitting on {name} would add "
+                    f"its labels on top of those. Re-run with --rebuild."
+                )
 
     engine = FeatureEngineer(
         event_name_vocab_path=EVENT_NAME_VOCAB_FILE,  # always shared, see _derive_paths
         state_tracker_path=STATE_TRACKER_FILE,
         graph_state_path=GRAPH_NODE_STATE_FILE,
+        identity_state_path=IDENTITY_STATE_FILE,
         action_prior_path=ACTION_PRIOR_FILE,
         principal_prior_path=PRINCIPAL_PRIOR_FILE,
         freeze_vocab=freeze_vocab,
@@ -1097,8 +1177,19 @@ def run_batch(input_path: str, freeze_vocab: bool = False, freeze_priors: bool =
           f"{'  (label-derived features are READ-ONLY on this input)' if freeze_priors else '  (FITTING on this input)'}")
     process_batch_file(engine, input_path)
 
+    if not freeze_priors:
+        if engine.labels_withheld == 0:
+            print(f"[PRIORS] WARNING: {name} has no `split` column (or no non-train rows), so every "
+                  f"row's label was fitted. Only do this on a file that holds training rows only.")
+        meta = {"input": name, "sha256": fingerprint, "rows_fitted": engine.labels_observed,
+                "rows_withheld": engine.labels_withheld, "fitted_at": datetime.now().isoformat()}
+        for prior_file in prior_files:
+            with open(prior_meta_path(prior_file), 'w', encoding='utf-8') as f:
+                json.dump(meta, f, indent=2, sort_keys=True)
+
     processed.add(name)
     state["processed_files"] = sorted(processed)
+    fingerprints[name] = fingerprint
     save_state(state)
 
 
@@ -1128,13 +1219,27 @@ def watch_folder(directory: str) -> None:
     from watchdog.events import FileSystemEventHandler
     from watchdog.observers import Observer
 
+    global STRUCT_OUT, TEMPORAL_OUT, STATE_FILE, STATE_TRACKER_FILE, GRAPH_NODE_STATE_FILE, IDENTITY_STATE_FILE
     os.makedirs(directory, exist_ok=True)
+    # Watched files are live/evaluation traffic. They previously wrote into the
+    # TRAINING outputs (cloudtrail_structural/temporal.csv), mutated the
+    # training trackers, and FITTED the label priors on whatever arrived. Now
+    # they get their own outputs and state, and read the vocab and priors only.
+    paths = _paths_for_stem("watch_" + os.path.basename(os.path.normpath(directory)))
+    STRUCT_OUT = paths["struct_out"]
+    TEMPORAL_OUT = paths["temporal_out"]
+    STATE_FILE = paths["state_file"]
+    STATE_TRACKER_FILE = paths["state_tracker_file"]
+    GRAPH_NODE_STATE_FILE = paths["graph_node_state_file"]
+    IDENTITY_STATE_FILE = paths["identity_state_file"]
     engine = FeatureEngineer(
         event_name_vocab_path=EVENT_NAME_VOCAB_FILE,
         state_tracker_path=STATE_TRACKER_FILE,
         graph_state_path=GRAPH_NODE_STATE_FILE,
+        identity_state_path=IDENTITY_STATE_FILE,
         action_prior_path=ACTION_PRIOR_FILE,
         principal_prior_path=PRINCIPAL_PRIOR_FILE,
+        freeze_vocab=True, freeze_priors=True,
     )
     state = load_state()
     processed = set(state["processed_files"])
@@ -1227,6 +1332,10 @@ def main():
                               "feature-engineering evaluation data (e.g. real_dataset_test.csv) against "
                               "a model already trained against the current vocab size. Unseen event "
                               "names map to <UNK> instead of growing the vocab out from under the model.")
+    parser.add_argument("--rebuild", action="store_true",
+                        help="Delete this input's derived outputs and tracker state (and, when fitting, "
+                             "the priors) and process it from scratch. Required after regenerating an "
+                             "input under the same file name.")
     args = parser.parse_args()
 
     if args.watch:
@@ -1235,7 +1344,7 @@ def main():
         watch_folder(args.watch)
     else:
         run_batch(args.input, freeze_vocab=args.freeze_vocab,
-                  freeze_priors=(False if args.fit_priors else None))
+                  freeze_priors=(False if args.fit_priors else None), rebuild=args.rebuild)
 
 
 if __name__ == "__main__":
