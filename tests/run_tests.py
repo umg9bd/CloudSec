@@ -67,6 +67,7 @@ FAST_SUITES = [
     "test_loader_metrics_feeder", # load_offline == OfflineGraphLoader, AUPR, demo feeder
     # ── real-time pipeline ───────────────────────────────────────────────
     "test_pipeline",              # streaming == batch (LSTM), fallback, alert schema
+    "test_watch_folder",          # one watcher per file, no crash when a file vanishes
     "test_lstm_scorer",           # v5/v6 checkpoints load with the right vocab; pipeline can feed both
     "test_lstm_v6_split",         # v6 campaign-family mode: events follow the shared split
     "test_cloudtrail_input",      # every accepted input format; raw-JSON identity + target parsing

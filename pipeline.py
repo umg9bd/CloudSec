@@ -282,28 +282,71 @@ class Pipeline:
         return scored
 
 
+CLAIM_DIR = ".processing"
+
+
+def _pending_files(directory: str):
+    names = [n for n in os.listdir(directory)
+             if n.endswith(INPUT_SUFFIXES) and os.path.isfile(os.path.join(directory, n))]
+    paths = []
+    for n in names:
+        try:
+            paths.append((os.path.getmtime(os.path.join(directory, n)), os.path.join(directory, n)))
+        except FileNotFoundError:
+            pass  # taken between listdir and stat
+    return [p for _, p in sorted(paths)]
+
+
+def scan_once(directory: str, pipeline: Pipeline) -> int:
+    """One poll: claims, scores and files away every stable input file in `directory`.
+
+    Each file is CLAIMED by an atomic rename into <directory>/.processing/ before it is
+    scored. If two pipelines watch the same folder, exactly one wins each file, instead of
+    both scoring it and one crashing when the other has already moved it away (a vanished
+    file used to raise inside the error handler's own move and stop the detector). The
+    basename is kept, so log_ids are unchanged. Returns the number of files scored."""
+    claim_dir = os.path.join(directory, CLAIM_DIR)
+    done_dir, failed_dir = os.path.join(directory, "processed"), os.path.join(directory, "failed")
+    scored = 0
+    for path in _pending_files(directory):
+        if not fe9._file_is_stable(path):
+            continue  # still being written (or already gone); next poll
+        claimed = os.path.join(claim_dir, os.path.basename(path))
+        try:
+            os.replace(path, claimed)
+        except FileNotFoundError:
+            continue  # another watcher on this folder claimed it
+        dest = done_dir
+        try:
+            pipeline.process_file(claimed)
+            scored += 1
+        except Exception as e:  # one bad file must not stop the detector
+            print(f"[ERROR] {os.path.basename(path)}: {type(e).__name__}: {e}", flush=True)
+            dest = failed_dir
+        try:
+            os.replace(claimed, os.path.join(dest, os.path.basename(path)))
+        except OSError as e:
+            print(f"[WARN] could not move {os.path.basename(path)} to {os.path.basename(dest)}/: {e}", flush=True)
+    return scored
+
+
 def watch(directory: str, pipeline: Pipeline, poll_seconds: float = 2.0) -> None:
     """Scores every file that lands in `directory`, oldest first, then moves it to
     <directory>/processed/ (or <directory>/failed/ if it could not be read)."""
-    done_dir, failed_dir = os.path.join(directory, "processed"), os.path.join(directory, "failed")
-    for d in (directory, done_dir, failed_dir):
+    claim_dir = os.path.join(directory, CLAIM_DIR)
+    for d in (directory, claim_dir, os.path.join(directory, "processed"), os.path.join(directory, "failed")):
         os.makedirs(d, exist_ok=True)
+    # Files a previous run claimed but never finished (it was stopped mid-file): back in the queue.
+    for name in os.listdir(claim_dir):
+        try:
+            os.replace(os.path.join(claim_dir, name), os.path.join(directory, name))
+        except OSError:
+            pass
     print(f"Watching {directory}/ for CloudTrail files (Ctrl+C to stop) -- "
           f"alerts -> {pipeline.alert_dir}/, scores -> {pipeline.output_csv}", flush=True)
     try:
         while True:
-            files = sorted((os.path.join(directory, n) for n in os.listdir(directory)
-                            if n.endswith(INPUT_SUFFIXES) and os.path.isfile(os.path.join(directory, n))),
-                           key=os.path.getmtime)
-            for path in files:
-                if not fe9._file_is_stable(path):
-                    continue  # still being written; next poll
-                try:
-                    pipeline.process_file(path)
-                    shutil.move(path, os.path.join(done_dir, os.path.basename(path)))
-                except Exception as e:  # one bad file must not stop the detector
-                    print(f"[ERROR] {path}: {type(e).__name__}: {e}", flush=True)
-                    shutil.move(path, os.path.join(failed_dir, os.path.basename(path)))
+            scan_once(directory, pipeline)
             time.sleep(poll_seconds)
     except KeyboardInterrupt:
         print("\nStopped watching.")
@@ -315,7 +358,8 @@ def clear_unscored_feed(directory: str) -> int:
     next batch; without this, the next run scored that stale batch before its own first one.
     Scored files in <directory>/processed/ are kept."""
     removed = 0
-    for folder in (directory, os.path.join(os.path.dirname(os.path.abspath(directory)), ".incoming_staging")):
+    for folder in (directory, os.path.join(directory, CLAIM_DIR),
+                   os.path.join(os.path.dirname(os.path.abspath(directory)), ".incoming_staging")):
         if not os.path.isdir(folder):
             continue
         for name in os.listdir(folder):
