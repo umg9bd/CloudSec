@@ -57,15 +57,24 @@ FAST_SUITES = [
     "test_models",                # logit/label alignment contract
     "test_evaluation_integrity",  # edge->session join, guards, paired baseline
     "test_model_hgt",             # HGT output shape/order contract
+    "test_hgt_attention_dropout", # attn_dropout really applied on PyG without the kwarg
+    "test_neighbor_sampling",     # relation-aware sampler + sampled training view (GNN-final)
+    "test_ensemble",              # HGT/SAGE/GAT ensemble coverage fallback (GNN-final)
     # ── real-time pipeline ───────────────────────────────────────────────
     "test_pipeline",              # streaming == batch (LSTM), fallback, alert schema
+    "test_lstm_scorer",           # v5/v6 checkpoints load with the right vocab; pipeline can feed both
+    "test_lstm_v6_split",         # v6 campaign-family mode: events follow the shared split
+    "test_cloudtrail_input",      # every accepted input format; raw-JSON identity + target parsing
     # ── shared: the train/eval boundary both tracks must respect ─────────
     "test_leakage_guard",         # held-out detection, label-derived prior freeze
     "test_causal_features",       # temporal leakage: causal ordering + frozen-on-eval prior
     "test_feature_engine_cache",  # priors fit on train rows only; stale cached outputs refused
     "test_family_split",          # campaign-family holdout: no family or session crosses splits
+    "test_campaign_split",        # one family assignment for both tracks; priors fit train families only
     # ── feature semantics ────────────────────────────────────────────────
     "test_identity_features",     # ground truth never a feature; handoffs, permission deltas
+    "test_lineage_verification",  # inferred lineage == generator hop_id; dataset link checks
+    "test_policy_features",       # policy-document features the LSTM consumes
     "test_iam_permissions",       # permission state from observed policy content
     "test_attack_taxonomy",       # tactic vs technique, ATT&CK-consistent pairs
 ]

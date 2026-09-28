@@ -38,6 +38,7 @@ from sklearn.metrics import (
     classification_report,
     confusion_matrix,
     roc_auc_score,
+    average_precision_score,
 )
 from torch_geometric.data import HeteroData
 
@@ -108,6 +109,10 @@ def evaluate(
         "recall":    report["attack"]["recall"],
         "f1":        report["attack"]["f1-score"],
         "roc_auc":   roc_auc_score(y_true, y_prob) if len(np.unique(y_true)) > 1 else 0.0,
+        # AUPR (from GNN-final): more informative than AUROC under this data's
+        # class imbalance, since it is sensitive to precision on the rare
+        # positive class an edge-level attack detector is judged on.
+        "aupr":      average_precision_score(y_true, y_prob) if len(np.unique(y_true)) > 1 else 0.0,
         "confusion": confusion_matrix(y_true, y_pred).tolist(),
         "report":    report,
     }
@@ -115,15 +120,15 @@ def evaluate(
         metrics["probs"], metrics["labels"] = y_prob, y_true
 
     log.info(
-        "Acc=%.4f  P=%.4f  R=%.4f  F1=%.4f  AUC=%.4f  (n=%d)",
+        "Acc=%.4f  P=%.4f  R=%.4f  F1=%.4f  AUROC=%.4f  AUPR=%.4f  (n=%d)",
         metrics["accuracy"], metrics["precision"], metrics["recall"],
-        metrics["f1"], metrics["roc_auc"], mask_full.sum(),
+        metrics["f1"], metrics["roc_auc"], metrics["aupr"], mask_full.sum(),
     )
     return metrics
 
 
 def print_comparison_table(sage_metrics: dict, gat_metrics: dict):
-    keys = ["accuracy", "precision", "recall", "f1", "roc_auc"]
+    keys = ["accuracy", "precision", "recall", "f1", "roc_auc", "aupr"]
     header = f"{'Metric':<15} {'GraphSAGE':>12} {'GAT':>12}  {'Δ (SAGE-GAT)':>14}"
     print("\n" + "=" * 60)
     print("  GraphSAGE vs GAT — Performance Comparison")

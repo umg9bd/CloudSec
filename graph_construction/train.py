@@ -55,14 +55,13 @@ from data_loader import (
     compute_class_weights,
     flatten_mask_dict,
     global_labels,
-    assignment_split,
-    family_holdout_assignment,
     principal_disjoint_split,
     campaign_family_split,
     stratified_edge_split,
 )
 from model_gat import GATAnomalyDetector
 from model_hgt import HGTAnomalyDetector
+from neighbor_sampling import SamplingConfig, build_sampled_training_view
 from model_graphsage import GraphSAGEAnomalyDetector
 from explainability import EdgeExplainer, FeatureAblation, TargetEdge
 from utils import (
@@ -90,6 +89,19 @@ def parse_args():
     p.add_argument("--hidden",   type=int,   default=128)
     p.add_argument("--layers",   type=int,   default=2)
     p.add_argument("--heads",    type=int,   default=4, help="attention heads (GAT, HGT)")
+    p.add_argument("--attn_dropout", type=float, default=0.1,
+                   help="HGT attention dropout (applied even on PyG versions whose HGTConv "
+                        "dropped the kwarg -- see model_hgt._HGTConvAttnDropout)")
+    # Neighbour sampling (from GNN-final; see neighbor_sampling.py). Default "none"
+    # keeps full-batch training unchanged; sampling is opt-in.
+    p.add_argument("--sampling", choices=["none", "relation_aware", "uniform", "full"], default="none",
+                   help="none (default) = full-batch. relation_aware = floor-then-proportional "
+                        "per-relation allocator. uniform = naive baseline. full = sampler runs but "
+                        "never caps (isolates hop-limiting from degree-capping in an ablation).")
+    p.add_argument("--max_neighbors", type=int, default=50)
+    p.add_argument("--num_hops", type=int, default=2)
+    p.add_argument("--num_samples_per_relation", type=int, default=5)
+    p.add_argument("--sampling_seed", type=int, default=42)
     p.add_argument("--lr",       type=float, default=1e-3)
     p.add_argument("--dropout",  type=float, default=0.3)
     p.add_argument("--loss",     choices=["focal", "bce"], default="focal")
@@ -103,22 +115,23 @@ def parse_args():
     p.add_argument("--threshold", type=float, default=0.5)
     p.add_argument("--patience", type=int,   default=15,
                    help="Early stopping patience (epochs without val F1 improvement)")
-    p.add_argument("--split",    choices=["stratified", "principal_disjoint", "family_holdout", "campaign_family"],
+    p.add_argument("--split",    choices=["stratified", "principal_disjoint", "campaign_family"],
                    default="stratified",
                    help="stratified = random edge split preserving label ratio (default, "
                         "no ordering assumption). principal_disjoint = entity-disjoint split "
                         "for testing inductive generalisation; HIGH VARIANCE on this dataset "
                         "(only 13 principal-side identities, 2 with attack edges) — see "
                         "data_loader.py's principal_disjoint_split docstring. "
-                        "family_holdout = whole campaign families held out for val/test "
-                        "(needs --raw-csv with campaign_family/session_id columns, "
-                        "--val-families and --test-families).")
-    p.add_argument("--raw-csv", default=None,
-                   help="Raw event CSV the structural CSV was built from (family_holdout only).")
-    p.add_argument("--val-families", nargs="+", default=[],
-                   help="Campaign families held out for validation (family_holdout only).")
-    p.add_argument("--test-families", nargs="+", default=[],
-                   help="Campaign families held out for test (family_holdout only).")
+                        "campaign_family = whole attack families held out for val/test "
+                        "(synthetic_campaign_annotations.csv); see campaign_family_split.")
+    p.add_argument("--val-families", nargs="+", default=None,
+                   help="campaign_family only: families held out for validation. With "
+                        "--test-families, replaces the seeded random family assignment.")
+    p.add_argument("--test-families", nargs="+", default=None,
+                   help="campaign_family only: families held out for test.")
+    p.add_argument("--split-file", default=None,
+                   help="campaign_family only: a split file from campaign_split.py. Use the same "
+                        "file for the LSTM and for feature_engine9 --split-file.")
     p.add_argument("--reverse-edges", action="store_true",
                    help="Add mirrored reverse edges so principal nodes (User, "
                         "UnresolvedPrincipal) receive messages during aggregation. "
@@ -174,6 +187,7 @@ def build_model(name: str, meta: dict, args) -> nn.Module:
             heads=args.heads,
             num_hgt_layers=args.layers,
             dropout=args.dropout,
+            attn_dropout=getattr(args, "attn_dropout", 0.1),
         )
     else:
         raise ValueError(f"Unknown model: {name}")
@@ -233,7 +247,12 @@ def train_model(
     test_masks:  dict,
     args,
     pos_weight:  torch.Tensor,
+    train_view:  tuple = None,
 ) -> dict:
+    """train_view: optional (sampled_train_data, sampled_train_masks) from
+    neighbor_sampling.build_sampled_training_view. When given, the forward/
+    backward pass runs on that smaller graph; validation and test always run on
+    the full, unsampled `data`. None (--sampling none) = full-batch, unchanged."""
     device    = torch.device(args.device)
     model     = model.to(device)
     criterion = build_loss(args.loss, pos_weight.to(device))
@@ -242,9 +261,15 @@ def train_model(
     scheduler = CosineAnnealingLR(optimizer, T_max=args.epochs, eta_min=1e-5)
 
     # Precompute the flat label vector and the flat train mask ONCE — both
-    # are pure functions of `data`/`train_masks` and don't change per epoch.
-    y_full          = torch.tensor(global_labels(data), dtype=torch.long, device=device)
-    train_flat_mask = flatten_mask_dict(data, train_masks).to(device)
+    # are pure functions of `train_data`/`train_masks` and don't change per epoch.
+    train_data = data
+    if train_view is not None:
+        train_data, train_masks = train_view
+        log.info("[%s] training on SAMPLED view: %d edges (full graph %d) — --sampling %s",
+                 name, sum(train_data[t].edge_index.shape[1] for t in train_data.edge_types),
+                 sum(data[t].edge_index.shape[1] for t in data.edge_types), args.sampling)
+    y_full          = torch.tensor(global_labels(train_data), dtype=torch.long, device=device)
+    train_flat_mask = flatten_mask_dict(train_data, train_masks).to(device)
 
     best_val_f1  = -1.0
     best_state   = None
@@ -263,7 +288,7 @@ def train_model(
         model.train()
         optimizer.zero_grad()
 
-        logits = model(data)  # flat, ordered by sorted(data.edge_types)
+        logits = model(train_data)  # flat, ordered by scored_edge_types(train_data)
 
         y_train = y_full[train_flat_mask].float()
         loss = criterion(logits[train_flat_mask], y_train)
@@ -369,15 +394,10 @@ def main():
     # ── 2. Train/val/test split ───────────────────────────────────────────────
     if args.split == "stratified":
         train_masks, val_masks, test_masks = stratified_edge_split(data, seed=args.seed)
-    elif args.split == "family_holdout":
-        if not (args.raw_csv and args.val_families and args.test_families):
-            raise SystemExit("--split family_holdout needs --raw-csv, --val-families and --test-families")
-        assignment = family_holdout_assignment(
-            pd.read_csv(args.raw_csv, low_memory=False), os.path.basename(args.raw_csv),
-            args.val_families, args.test_families, seed=args.seed)
-        train_masks, val_masks, test_masks = assignment_split(data, assignment)
     elif args.split == "campaign_family":
-        train_masks, val_masks, test_masks = campaign_family_split(data, seed=args.seed)
+        train_masks, val_masks, test_masks = campaign_family_split(
+            data, seed=args.seed, val_families=args.val_families, test_families=args.test_families,
+            split_file=args.split_file)
     else:
         train_masks, val_masks, test_masks = principal_disjoint_split(data, seed=args.seed)
 
@@ -387,6 +407,23 @@ def main():
 
     # ── 3. Class imbalance weight ─────────────────────────────────────────────
     pos_weight = compute_class_weights(data, train_masks).to(device)
+
+    # ── 3b. Optional shared sampled training view ────────────────────────────
+    # Built ONCE from train-split edges only and reused for every model in this
+    # run, so a sampling ablation compares models on the same sampled subgraph.
+    train_view = None
+    if args.sampling != "none":
+        sampling_cfg = SamplingConfig(
+            max_neighbors=args.max_neighbors,
+            num_hops=args.num_hops,
+            num_samples_per_relation=args.num_samples_per_relation,
+            strategy=args.sampling,
+            seed=args.sampling_seed,
+        )
+        log.info("Building shared sampled training view: %s", sampling_cfg)
+        train_view = build_sampled_training_view(
+            data, meta["populated_triples"], train_masks, sampling_cfg, device=args.device,
+        )
 
     # ── 4. Train models ───────────────────────────────────────────────────────
     results = {}
@@ -398,7 +435,7 @@ def main():
 
         sage_metrics = train_model(
             "GraphSAGE", sage_model, data,
-            train_masks, val_masks, test_masks, args, pos_weight
+            train_masks, val_masks, test_masks, args, pos_weight, train_view=train_view,
         )
         results["GraphSAGE"] = sage_metrics
         save_inference_checkpoint("GraphSAGE", sage_model, meta, loader, args)
@@ -413,7 +450,7 @@ def main():
 
         gat_metrics = train_model(
             "GAT", gat_model, data,
-            train_masks, val_masks, test_masks, args, pos_weight
+            train_masks, val_masks, test_masks, args, pos_weight, train_view=train_view,
         )
         results["GAT"] = gat_metrics
         save_inference_checkpoint("GAT", gat_model, meta, loader, args)
@@ -422,7 +459,8 @@ def main():
         hgt_model = build_model("hgt", meta, args)
         log.info("HGT parameters: %d", sum(p.numel() for p in hgt_model.parameters()))
         results["HGT"] = train_model("HGT", hgt_model, data,
-                                     train_masks, val_masks, test_masks, args, pos_weight)
+                                     train_masks, val_masks, test_masks, args, pos_weight,
+                                     train_view=train_view)
         save_inference_checkpoint("HGT", hgt_model, meta, loader, args)
 
     # ── 5. Comparison table ───────────────────────────────────────────────────
