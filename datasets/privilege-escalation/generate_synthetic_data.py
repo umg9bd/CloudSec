@@ -145,6 +145,16 @@ ATTACK_CHAINS = {
     ],
 }
 
+# Per-chain metadata (review point 8): credential-access sweeps fire in tight
+# sub-second bursts in the real capture (DescribeParameters/GetParameters
+# repeated at effectively the same second), so those chains are marked bursty;
+# the rest keep realistic multi-second spacing. This is timing only, not labels.
+ATTACK_CHAINS_META = {
+    "ssm_parameter_harvest":     {"burst": True},
+    "secrets_manager_sweep":     {"burst": True},
+    "ec2_credential_extraction": {"burst": True},
+}
+
 RECON_EVENTS = [
     ("GetAccountSummary",             "iam.amazonaws.com",            True),
     ("ListUsers",                     "iam.amazonaws.com",            True),
@@ -331,6 +341,74 @@ _ASSUME_ACTIONS = {"AssumeRole", "AssumeRoleWithSAML", "AssumeRoleWithWebIdentit
 
 
 # ── Attack session generator (unchanged logic; recon/noise now use the patches) ─
+# ── Real AWS requestParameters + embedded policy state (review points 5, 4) ────
+# Each attack event carries the parameter shape CloudTrail actually emits (so the
+# graph builder's target extraction and any permission-aware feature has real
+# structure to read), plus, for permission-mutating events, the after-state
+# policy document. Before/after permission SETS are attached to the row
+# separately (PERM_CHANGE) so privilege_delta is derivable as ground truth.
+_ADMIN_ARN = "arn:aws:iam::aws:policy/AdministratorAccess"
+_PRIV_DOC = {"Version": "2012-10-17", "Statement": [
+    {"Effect": "Allow", "Action": ["iam:*", "s3:*", "sts:AssumeRole"], "Resource": "*"}]}
+
+def _trust_doc(account_id):
+    return {"Version": "2012-10-17", "Statement": [
+        {"Effect": "Allow", "Principal": {"AWS": f"arn:aws:iam::{account_id}:root"},
+         "Action": "sts:AssumeRole"}]}
+
+# event_name -> (before_permissions, after_permissions). Ground truth only; the
+# feature engine must infer privilege_delta from the observable event, not read
+# these directly (they are annotation, like campaign_id).
+PERM_CHANGE = {
+    "AttachRolePolicy":       (["s3:GetObject", "s3:ListBucket"], ["*"]),
+    "AttachUserPolicy":       (["s3:GetObject", "s3:ListBucket"], ["*"]),
+    "PutRolePolicy":          (["s3:GetObject"], ["iam:*", "s3:*", "sts:AssumeRole"]),
+    "PutUserPolicy":          (["s3:GetObject"], ["iam:*", "s3:*", "sts:AssumeRole"]),
+    "CreatePolicyVersion":    (["s3:GetObject"], ["iam:*", "s3:*"]),
+    "UpdateAssumeRolePolicy": ([], ["sts:AssumeRole/*"]),
+}
+
+def _attack_request_params(event_name, target_key, resources, account_id):
+    r = resources.get(target_key)
+    role_arn = f"arn:aws:iam::{account_id}:role/{r}"
+    policy_arn = resources.get("policy", _ADMIN_ARN)
+    m = {
+        "AssumeRole":               {"roleArn": role_arn, "roleSessionName": rand_str(8)},
+        "AssumeRoleWithSAML":       {"roleArn": role_arn, "principalArn": f"arn:aws:iam::{account_id}:saml-provider/idp"},
+        "GetSecretValue":           {"secretId": r},
+        "DescribeSecret":           {"secretId": r},
+        "ListSecrets":              {},
+        "GetPasswordData":          {"instanceId": r},
+        "DescribeInstances":        {},
+        "DescribeParameters":       {},
+        "GetParameters":            {"names": [r]},
+        "GetParameter":             {"name": r},
+        "Decrypt":                  {"keyId": r},
+        "StopLogging":              {"name": r},
+        "DeleteTrail":              {"name": r},
+        "PutEventSelectors":        {"trailName": r, "eventSelectors": [{"readWriteType": "None"}]},
+        "CreateRole":               {"roleName": r, "assumeRolePolicyDocument": json.dumps(_trust_doc(account_id))},
+        "CreateUser":               {"userName": r},
+        "CreateAccessKey":          {"userName": r},
+        "CreateLoginProfile":       {"userName": r},
+        "UpdateLoginProfile":       {"userName": r},
+        "AddUserToGroup":           {"userName": r, "groupName": resources.get("group", "admins")},
+        "AttachRolePolicy":         {"roleName": r, "policyArn": policy_arn},
+        "AttachUserPolicy":         {"userName": r, "policyArn": policy_arn},
+        "PutRolePolicy":            {"roleName": r, "policyName": "inline-esc", "policyDocument": json.dumps(_PRIV_DOC)},
+        "PutUserPolicy":            {"userName": r, "policyName": "inline-esc", "policyDocument": json.dumps(_PRIV_DOC)},
+        "CreatePolicyVersion":      {"policyArn": policy_arn, "policyDocument": json.dumps(_PRIV_DOC), "setAsDefault": True},
+        "SetDefaultPolicyVersion":  {"policyArn": policy_arn, "versionId": "v2"},
+        "UpdateAssumeRolePolicy":   {"roleName": r, "policyDocument": json.dumps(_trust_doc(account_id))},
+        "PutBucketPolicy":          {"bucketName": r, "policy": json.dumps(
+            {"Statement": [{"Effect": "Allow", "Principal": "*", "Action": "s3:GetObject",
+                            "Resource": f"arn:aws:s3:::{r}/*"}]})},
+        "DeleteBucketPolicy":       {"bucketName": r},
+        "AddPermission20150331v2":  {"functionName": r, "statementId": rand_str(6), "action": "lambda:InvokeFunction"},
+    }
+    return m.get(event_name, {(target_key or "resource") + "Name": r})
+
+
 def generate_attack_session(chain_name, recon_events=5, noise_events=3):
     chain      = ATTACK_CHAINS[chain_name]
     account_id = rand_account(); attacker = rand_str(random.randint(4, 12))
@@ -374,17 +452,27 @@ def generate_attack_session(chain_name, recon_events=5, noise_events=3):
     principal_arn  = f"arn:aws:iam::{account_id}:user/{attacker}"
     principal_name = attacker
 
+    # Full lineage (review point 2): a stable id per event, its parent (the prior
+    # chain step), the campaign root, and a hop id that increments on every
+    # principal handoff (AssumeRole). All ground truth, never model features.
+    # burst: some campaigns fire in tight sub-second bursts (review point 8).
+    burst = ATTACK_CHAINS_META.get(chain_name, {}).get("burst", False)
+    event_uids = ["evt-" + rand_str(12) for _ in chain]
+    root_uid = event_uids[0] if event_uids else None
+    hop_id = 0
     for stage_index, step in enumerate(chain):
-        t += jitter(5, 60)
+        t += (timedelta(seconds=random.choice([0, 0, 1])) if burst else jitter(5, 60))
         ep = step.get("error_probability", 0)
         ec = random.choice(ATTACK_ERROR_CODES) if random.random() < ep else None
+        before_perms, after_perms = PERM_CHANGE.get(step["event_name"], ([], []))
         rows.append({"timestamp": t.isoformat(), "event_name": step["event_name"],
             "event_source": step["event_source"], "aws_region": "us-east-1",
             "source_ip": source_ip, "error_code": ec, "label": 1,
             "attack_technique": step["attack_technique"], "read_only": step["read_only"],
             "user_agent": ua, "access_key_id": access_key, "mfa_authenticated": "False",
             "target_resource": resources[step["target_key"]],
-            "request_params_raw": json.dumps({step["target_key"]+"Name": resources[step["target_key"]]}),
+            "request_params_raw": json.dumps(
+                _attack_request_params(step["event_name"], step["target_key"], resources, account_id)),
             "principal_type": principal_type,
             "principal_arn": principal_arn,
             "username": principal_name, "session_label": 1, "synthetic": True,
@@ -393,13 +481,18 @@ def generate_attack_session(chain_name, recon_events=5, noise_events=3):
             # kept separate per review point 15 (don't encode a tactic as a
             # technique id).
             "campaign_id": campaign_id, "chain_name": chain_name, "stage_index": stage_index,
-            "attack_tactic": step["attack_technique"], "attack_technique_id": chain_name})
+            "attack_tactic": step["attack_technique"], "attack_technique_id": chain_name,
+            "event_uid": event_uids[stage_index], "hop_id": hop_id,
+            "parent_event_id": event_uids[stage_index - 1] if stage_index > 0 else "",
+            "root_event_id": root_uid,
+            "before_permissions": ";".join(before_perms), "after_permissions": ";".join(after_perms)})
 
         if step["event_name"] in _ASSUME_ACTIONS:
             role_name = resources[step["target_key"]]
             principal_type = "AssumedRole"
             principal_arn  = f"arn:aws:sts::{account_id}:assumed-role/{role_name}/{rand_str(16)}"
             principal_name = role_name
+            hop_id += 1  # a real principal handoff -- the next event acts as the new principal
 
     for name, source, ro in _weighted_sample(BENIGN_EVENTS_WEIGHTED, noise_events):
         t += jitter(10, 90)
@@ -658,7 +751,34 @@ def generate_root_billing_session(n_events=8):
 
 
 def main():
-    N_PER_CHAIN       = 20
+    # Deliberate, DOCUMENTED malicious mixture (review point 1). The real capture
+    # is ~95% credential-access, but blindly copying that would starve the
+    # multi-hop privilege-escalation research question. Instead we choose a
+    # mixture that is credential-access-leaning (matching the real dominance
+    # DIRECTION) while retaining enough privilege-escalation and multi-hop
+    # campaigns to test the mechanism. Per-chain repetition counts below are set
+    # to approximate, over malicious EVENTS:
+    #   credential-access ~45% | privilege-escalation ~30% | persistence ~15%
+    #   defense-evasion/exfiltration ~10%.  Tune here, not by multiplying one
+    #   tactic blindly. Default (no entry) = N_PER_CHAIN_DEFAULT.
+    N_PER_CHAIN_DEFAULT = 12
+    N_PER_CHAIN = {
+        # credential-access (dominant, like the real data) -- these are short
+        # chains, so they need higher reps to dominate the event count
+        "ssm_parameter_harvest":     40,
+        "secrets_manager_sweep":     40,
+        "ec2_credential_extraction": 40,
+        # privilege-escalation / multi-hop (the research question) -- kept
+        # substantial but no longer the majority
+        "assume_admin_then_backdoor_role": 16,
+        "assume_then_attach_admin":        14,
+        "assume_then_backdoor_key":        14,
+        "full_kill_chain":                 12,
+        # persistence-leaning IAM chains
+        "create_user_accesskey_policy": 10,
+        "create_user_console_access":   8,
+        "add_user_to_admin_group":      8,
+    }
     N_BENIGN_IAMUSER  = 340
     N_BENIGN_ASSUMED  = 60
     # Sized so the IAM-mutation event names shared with ATTACK_CHAINS (CreateRole,
@@ -673,7 +793,8 @@ def main():
 
     all_rows = []
     for chain_name in ATTACK_CHAINS:
-        for _ in range(N_PER_CHAIN):
+        reps = N_PER_CHAIN.get(chain_name, N_PER_CHAIN_DEFAULT)
+        for _ in range(reps):
             all_rows.extend(generate_attack_session(
                 chain_name, recon_events=random.randint(3, 8), noise_events=random.randint(2, 5),
             ))
@@ -697,14 +818,17 @@ def main():
 
     # Benign sessions carry no campaign; give the lineage columns explicit empty
     # values (not NaN) so the annotation layer is clean.
-    LINEAGE_COLS = ["campaign_id", "chain_name", "attack_tactic", "attack_technique_id"]
+    LINEAGE_COLS = ["campaign_id", "chain_name", "attack_tactic", "attack_technique_id",
+                    "event_uid", "parent_event_id", "root_event_id",
+                    "before_permissions", "after_permissions"]
     for c in LINEAGE_COLS:
         if c not in df.columns:
             df[c] = ""
         df[c] = df[c].fillna("")
-    if "stage_index" not in df.columns:
-        df["stage_index"] = -1
-    df["stage_index"] = df["stage_index"].fillna(-1).astype(int)
+    for c in ("stage_index", "hop_id"):
+        if c not in df.columns:
+            df[c] = -1
+        df[c] = df[c].fillna(-1).astype(int)
 
     print(f"Shape: {df.shape}")
     print(f"Label split: benign={  (df['label']==0).sum() }  attack={ (df['label']==1).sum() }")
@@ -722,7 +846,7 @@ def main():
     # "synthetic_cloudtrail.csv:i". Emitting the annotation with that exact key
     # gives a strict 1:1 join to the structural graph. These columns are ground
     # truth for evaluating attack progression and are NOT model features.
-    ann = df[LINEAGE_COLS + ["stage_index", "label"]].copy()
+    ann = df[LINEAGE_COLS + ["stage_index", "hop_id", "label"]].copy()
     ann.insert(0, "log_id", [f"synthetic_cloudtrail.csv:{i}" for i in range(len(df))])
     ann.to_csv("synthetic_campaign_annotations.csv", index=False)
     n_camp = df.loc[df.campaign_id != "", "campaign_id"].nunique()

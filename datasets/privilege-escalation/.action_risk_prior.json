@@ -1,107 +1,107 @@
 {
   "AddUserToGroup": [
-    20,
-    30
+    8,
+    37
   ],
   "AssumeRole": [
-    120,
-    1333
+    84,
+    1294
   ],
   "AttachRolePolicy": [
-    80,
-    109
+    54,
+    83
   ],
   "AttachUserPolicy": [
-    60,
-    84
+    32,
+    63
   ],
   "CreateAccessKey": [
-    40,
-    50
+    24,
+    44
   ],
   "CreateLoginProfile": [
-    20,
-    26
+    8,
+    16
   ],
   "CreatePolicyVersion": [
-    20,
-    27
+    12,
+    18
   ],
   "CreateRole": [
-    100,
-    128
+    64,
+    83
   ],
   "CreateSnapshot": [
     0,
-    70
+    72
   ],
   "CreateUser": [
-    40,
-    55
+    18,
+    38
   ],
   "Decrypt": [
-    20,
-    20
+    40,
+    40
   ],
   "DescribeBudgets": [
     0,
-    18
+    19
   ],
   "DescribeDBInstances": [
     0,
-    247
+    241
   ],
   "DescribeInstanceInformation": [
     0,
-    289
+    255
   ],
   "DescribeInstances": [
-    20,
-    613
+    40,
+    586
   ],
   "DescribeKey": [
     0,
-    185
+    194
   ],
   "DescribeLoadBalancers": [
     0,
-    154
+    133
   ],
   "DescribeParameters": [
-    20,
-    20
+    40,
+    40
   ],
   "DescribeSecret": [
-    20,
-    20
+    40,
+    40
   ],
   "DescribeSecurityGroups": [
     0,
-    315
+    340
   ],
   "DescribeSubnets": [
     0,
-    287
+    274
   ],
   "DescribeTrails": [
     0,
-    128
+    112
   ],
   "DescribeVpcs": [
     0,
-    250
+    241
   ],
   "EndSecretVersionDelete": [
     0,
-    83
+    82
   ],
   "GetAccountAuthorizationDetails": [
     0,
-    111
+    101
   ],
   "GetAccountPlanState": [
     0,
-    6
+    9
   ],
   "GetAccountSummary": [
     0,
@@ -109,91 +109,91 @@
   ],
   "GetBucketAcl": [
     0,
-    885
+    850
   ],
   "GetBucketLogging": [
     0,
-    277
+    250
   ],
   "GetBucketPolicy": [
     0,
-    255
+    249
   ],
   "GetCallerIdentity": [
     0,
-    125
+    100
   ],
   "GetCostAndUsage": [
     0,
-    16
+    23
   ],
   "GetParameter": [
     0,
-    485
+    479
   ],
   "GetParameters": [
-    20,
-    20
-  ],
-  "GetPasswordData": [
     40,
     40
   ],
+  "GetPasswordData": [
+    52,
+    52
+  ],
   "GetRegionOptStatus": [
     0,
-    128
+    121
   ],
   "GetRole": [
     0,
-    195
+    197
   ],
   "GetRolePolicy": [
     0,
-    146
+    136
   ],
   "GetSecretValue": [
     80,
-    441
+    424
   ],
   "GetUser": [
     0,
-    180
+    182
   ],
   "GetUserPolicy": [
     0,
-    68
+    82
   ],
   "ListAccessKeys": [
     0,
-    120
+    113
   ],
   "ListAttachedRolePolicies": [
     0,
-    132
+    104
   ],
   "ListAttachedUserPolicies": [
     0,
-    137
+    112
   ],
   "ListBuckets": [
     0,
-    126
+    103
   ],
   "ListEnrollmentStatuses": [
     0,
-    13
+    6
   ],
   "ListFunctions": [
     0,
-    129
+    126
   ],
   "ListGroups": [
     0,
-    133
+    128
   ],
   "ListGroupsForUser": [
     0,
-    61
+    50
   ],
   "ListIndexes": [
     0,
@@ -201,102 +201,102 @@
   ],
   "ListKeys": [
     0,
-    333
+    330
   ],
   "ListManagedNotificationEvents": [
     0,
-    85
+    73
   ],
   "ListPolicies": [
     0,
-    127
+    104
   ],
   "ListResources": [
     0,
-    130
+    121
   ],
   "ListRolePolicies": [
     0,
-    116
+    112
   ],
   "ListRoles": [
     0,
-    138
+    115
   ],
   "ListSecrets": [
-    20,
-    143
+    40,
+    152
   ],
   "ListUsers": [
     0,
-    111
+    105
   ],
   "ModifyDBInstance": [
     0,
-    64
+    82
   ],
   "ModifyInstanceAttribute": [
     0,
-    147
+    136
   ],
   "PutBucketPolicy": [
-    20,
-    25
+    12,
+    16
   ],
   "PutParameter": [
     0,
-    230
+    226
   ],
   "PutRolePolicy": [
-    60,
-    77
+    36,
+    49
   ],
   "PutSecretValue": [
     0,
-    131
+    123
   ],
   "PutUserPolicy": [
-    20,
-    20
+    14,
+    14
   ],
   "RebootInstances": [
     0,
-    68
+    67
   ],
   "RotateSecret": [
     0,
-    139
+    126
   ],
   "Search": [
     0,
-    74
+    82
   ],
   "SendCommand": [
     0,
-    247
+    237
   ],
   "SetDefaultPolicyVersion": [
-    20,
-    28
+    12,
+    17
   ],
   "StartInstances": [
     0,
-    131
+    148
   ],
   "StartSecretVersionDelete": [
     0,
-    83
+    82
   ],
   "StopInstances": [
     0,
-    145
+    134
   ],
   "StopLogging": [
-    20,
-    20
+    12,
+    12
   ],
   "UpdateAssumeRolePolicy": [
-    20,
-    25
+    12,
+    20
   ]
 }
