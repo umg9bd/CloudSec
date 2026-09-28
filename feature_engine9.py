@@ -173,6 +173,12 @@ def normalize_cloudtrail_row(row):
         'request_params_raw': request_params or '{}',
         'access_key_id': row.get('access_key_id') or row.get('accessKeyId') or user_identity.get('accessKeyId') or '',
         'recipient_account_id': str(recipient_account_id) if recipient_account_id else '',
+        # The acting identity's own ARN. For raw CloudTrail an assumed-role call's
+        # principal_arn above is the role (sessionIssuer.arn), which drops the
+        # session name identity_context needs to link the session to the
+        # AssumeRole that created it. CSV datasets already store the session ARN
+        # in principal_arn, so this is empty for them and principal_arn is used.
+        'session_arn': user_identity.get('arn') or '',
         # Evaluation metadata, NOT a feature -- see GROUND_TRUTH_COLUMNS.
         'split': str(row.get('split') or '').strip().lower(),
     }

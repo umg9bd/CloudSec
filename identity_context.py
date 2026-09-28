@@ -89,11 +89,18 @@ def _target_identity(params):
     return None
 
 
+def acting_arn(log):
+    """ARN of the identity that performed the event: the session ARN when the
+    row carries one (raw CloudTrail), else principal_arn (CSV datasets)."""
+    arn = log.get("session_arn") or log.get("principal_arn")
+    return None if arn in (None, "", "unknown_principal") else str(arn)
+
+
 def actor_node(log):
     """Stable node id for the identity that performed an event."""
-    arn = log.get("principal_arn")
-    if arn and arn != "unknown_principal":
-        return str(arn)
+    arn = acting_arn(log)
+    if arn:
+        return arn
     return f"service:{log.get('username') or 'unknown'}"
 
 
@@ -150,11 +157,11 @@ class IdentityContext:
         if node in self.parent:
             return
         origin = None
-        session = ip.assumed_session(log.get("principal_arn"))
+        session = ip.assumed_session(acting_arn(log))
         if session:
             origin = self.pending_sessions.get(f"{session[0]}|{session[1]}")
         else:
-            key = ip.actor_key(log.get("principal_type"), log.get("principal_arn"), log.get("username"))
+            key = ip.actor_key(log.get("principal_type"), acting_arn(log), log.get("username"))
             if key and key.startswith("user/"):
                 origin = self.issued.get(key)
         if origin and origin != node:
@@ -189,7 +196,7 @@ class IdentityContext:
         Then folds the event into the state."""
         node = actor_node(log)
         self._resolve_parent(node, log)
-        key = ip.actor_key(log.get("principal_type"), log.get("principal_arn"), log.get("username"))
+        key = ip.actor_key(log.get("principal_type"), acting_arn(log), log.get("username"))
         event_name = log.get("event_name") or ""
         succeeded = not log.get("error_code")
         params = _params(log)
