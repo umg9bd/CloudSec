@@ -484,7 +484,7 @@ def generate_attack_session(chain_name, recon_events=5, noise_events=3):
             "attack_tactic": step["attack_technique"], "attack_technique_id": chain_name,
             "event_uid": event_uids[stage_index], "hop_id": hop_id,
             "parent_event_id": event_uids[stage_index - 1] if stage_index > 0 else "",
-            "root_event_id": root_uid,
+            "root_event_id": root_uid, "recipient_account_id": "",
             "before_permissions": ";".join(before_perms), "after_permissions": ";".join(after_perms)})
 
         if step["event_name"] in _ASSUME_ACTIONS:
@@ -552,6 +552,24 @@ CAMPAIGN_LIBRARY = {
             {"event": "AttachUserPolicy", "actor": "user_A", "target": "user_B",  "tactic": "privilege-escalation"},
             {"event": "GetParameters",    "actor": "user_B", "target": "param_A", "tactic": "credential-access"},
         ]},
+    # CROSS-ACCOUNT campaigns (review #5 / is_cross_account variance): user_A in
+    # account A assumes a role that lives in account B, then acts there. The
+    # assumption crosses the account boundary (principal in A, recipient B), so
+    # is_cross_account fires; without campaigns like this the feature has no
+    # positive class in synthetic training.
+    "cross_account_role_assumption": {
+        "cross_account": True,
+        "events": [
+            {"event": "AssumeRole",     "actor": "user_A", "assumes": "role_A", "target": "role_A",  "tactic": "privilege-escalation"},
+            {"event": "GetSecretValue", "actor": "role_A", "target": "secret_A", "tactic": "credential-access"},
+        ]},
+    "cross_account_escalate_secret": {
+        "cross_account": True,
+        "events": [
+            {"event": "AssumeRole",       "actor": "user_A", "assumes": "role_A", "target": "role_A",  "tactic": "privilege-escalation"},
+            {"event": "AttachRolePolicy", "actor": "role_A", "target": "role_A",  "tactic": "privilege-escalation"},
+            {"event": "GetPasswordData",  "actor": "role_A", "target": "instance_A", "tactic": "credential-access"},
+        ]},
 }
 
 
@@ -567,7 +585,16 @@ def _campaign_resource(named):
 
 def generate_campaign_session(campaign_name, noise_events=3):
     camp = CAMPAIGN_LIBRARY[campaign_name]
-    account_id = rand_account()
+    account_id = rand_account()          # account A -- the attacker's home account
+    cross = camp.get("cross_account", False)
+    account_b = rand_account()
+    while cross and account_b == account_id:
+        account_b = rand_account()
+
+    def acct_of(name):
+        # user_A lives in account A; every role/resource lives in account B when
+        # the campaign is cross-account (else B == A and nothing crosses).
+        return account_id if (name == "user_A" or not cross) else account_b
     attacker = rand_str(random.randint(4, 12))
     source_ip = rand_ip(); access_key = rand_key(); ua = random.choice(ATTACKER_UAS)
     t = datetime(2024, random.randint(1, 12), random.randint(1, 28),
@@ -586,7 +613,7 @@ def generate_campaign_session(campaign_name, noise_events=3):
         else:
             key_of[nm], resolved[nm] = _campaign_resource(nm)
 
-    identity = {"user_A": ("IAMUser", "arn:aws:iam::" + account_id + ":user/" + attacker, attacker)}
+    identity = {"user_A": ("IAMUser", "arn:aws:iam::" + acct_of("user_A") + ":user/" + attacker, attacker)}
     event_uids = ["evt-" + rand_str(12) for _ in camp["events"]]
     root_uid = event_uids[0]
     rows, hop_id, last_actor = [], 0, None
@@ -595,7 +622,7 @@ def generate_campaign_session(campaign_name, noise_events=3):
         if actor not in identity:
             rname = resolved.get(actor, actor)
             identity[actor] = ("AssumedRole",
-                               "arn:aws:sts::" + account_id + ":assumed-role/" + rname + "/" + rand_str(16), rname)
+                               "arn:aws:sts::" + acct_of(actor) + ":assumed-role/" + rname + "/" + rand_str(16), rname)
         if last_actor is not None and actor != last_actor:
             hop_id += 1
         last_actor = actor
@@ -619,13 +646,13 @@ def generate_campaign_session(campaign_name, noise_events=3):
             "attack_tactic": e["tactic"], "attack_technique_id": campaign_name,
             "event_uid": event_uids[stage_index], "hop_id": hop_id,
             "parent_event_id": event_uids[stage_index - 1] if stage_index > 0 else "",
-            "root_event_id": root_uid,
+            "root_event_id": root_uid, "recipient_account_id": acct_of(tgt),
             "before_permissions": ";".join(before_perms), "after_permissions": ";".join(after_perms)})
 
         if e["event"] == "AssumeRole" and e.get("assumes"):
             rr = e["assumes"]; rname = resolved.get(rr, rr)
             identity[rr] = ("AssumedRole",
-                            "arn:aws:sts::" + account_id + ":assumed-role/" + rname + "/" + rand_str(16), rname)
+                            "arn:aws:sts::" + acct_of(rr) + ":assumed-role/" + rname + "/" + rand_str(16), rname)
         if e.get("creates", "").startswith("user"):
             cu = e["creates"]; uname = resolved.get(cu, cu)
             identity[cu] = ("IAMUser", "arn:aws:iam::" + account_id + ":user/" + uname, uname)
@@ -963,10 +990,25 @@ def main():
     LINEAGE_COLS = ["campaign_id", "chain_name", "attack_tactic", "attack_technique_id",
                     "event_uid", "parent_event_id", "root_event_id",
                     "before_permissions", "after_permissions"]
-    for c in LINEAGE_COLS:
+    # recipient_account_id is a real feature input (drives is_cross_account), not
+    # lineage: empty for non-cross-account rows so it never becomes the string
+    # "nan" downstream (NaN is truthy in Python).
+    for c in LINEAGE_COLS + ["recipient_account_id"]:
         if c not in df.columns:
             df[c] = ""
         df[c] = df[c].fillna("")
+    # Default recipient_account_id to the row's OWN principal account, so
+    # is_cross_account is 0 for ordinary same-account activity and fires (1) ONLY
+    # on genuine cross-account events (where a cross-account campaign explicitly
+    # set recipient = a different account). Without this, feature_engine9's
+    # home-account fallback misfires -- every session uses a random account, so
+    # most principals differ from the global "home" and get spuriously flagged.
+    import re as _re
+    def _acct_from_arn(a):
+        m = _re.search(r"::(\d+):", str(a))
+        return m.group(1) if m else ""
+    empty = df["recipient_account_id"] == ""
+    df.loc[empty, "recipient_account_id"] = df.loc[empty, "principal_arn"].map(_acct_from_arn)
     for c in ("stage_index", "hop_id"):
         if c not in df.columns:
             df[c] = -1
