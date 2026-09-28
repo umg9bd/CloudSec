@@ -55,6 +55,7 @@ from data_loader import (
     flatten_mask_dict,
     global_labels,
     principal_disjoint_split,
+    campaign_family_split,
     stratified_edge_split,
 )
 from model_gat import GATAnomalyDetector
@@ -99,7 +100,7 @@ def parse_args():
     p.add_argument("--threshold", type=float, default=0.5)
     p.add_argument("--patience", type=int,   default=15,
                    help="Early stopping patience (epochs without val F1 improvement)")
-    p.add_argument("--split",    choices=["stratified", "principal_disjoint"],
+    p.add_argument("--split",    choices=["stratified", "principal_disjoint", "campaign_family"],
                    default="stratified",
                    help="stratified = random edge split preserving label ratio (default, "
                         "no ordering assumption). principal_disjoint = entity-disjoint split "
@@ -357,6 +358,8 @@ def main():
     # ── 2. Train/val/test split ───────────────────────────────────────────────
     if args.split == "stratified":
         train_masks, val_masks, test_masks = stratified_edge_split(data, seed=args.seed)
+    elif args.split == "campaign_family":
+        train_masks, val_masks, test_masks = campaign_family_split(data, seed=args.seed)
     else:
         train_masks, val_masks, test_masks = principal_disjoint_split(data, seed=args.seed)
 

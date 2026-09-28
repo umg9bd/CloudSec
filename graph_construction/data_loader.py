@@ -735,6 +735,83 @@ def compute_class_weights(data: HeteroData, train_masks: Dict[tuple, torch.Tenso
     return pos_weight
 
 
+def campaign_family_split(
+    data: HeteroData,
+    train_ratio: float = 0.70, val_ratio: float = 0.15, seed: int = 42,
+    annotation_path: Optional[str] = None,
+) -> Tuple[Dict[tuple, torch.Tensor], Dict[tuple, torch.Tensor], Dict[tuple, torch.Tensor]]:
+    """Inductive split by attack CAMPAIGN FAMILY (review points 9, 20).
+
+    Whole attack families (synthetic `chain_name`, read from
+    synthetic_campaign_annotations.csv by log_id) are assigned to exactly one of
+    train / val / test, so the model is evaluated on UNSEEN attack TOPOLOGIES,
+    not just unseen instances of seen chains. Benign edges carry no family and
+    are split randomly (stratified is meaningless -- they're all label 0), since
+    benign behaviour must appear in every split.
+
+    This complements, and is stricter than, the default train-on-synthetic /
+    test-on-real protocol: it isolates "generalises to an attack shape never
+    seen in training" within one labelled graph.
+    """
+    import csv as _csv
+    import os as _os
+    if annotation_path is None:
+        here = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
+        annotation_path = _os.path.join(
+            here, "datasets", "privilege-escalation", "synthetic_campaign_annotations.csv")
+    fam_by_logid = {}
+    with open(annotation_path, newline="") as fh:
+        for row in _csv.DictReader(fh):
+            fam_by_logid[row["log_id"]] = row.get("chain_name") or ""
+
+    triples = scored_edge_types(data)
+    triple_lengths = [data[t].y.shape[0] for t in triples]
+    offsets = np.cumsum([0] + triple_lengths[:-1])
+    y = global_labels(data)
+    log_ids = []
+    for t in triples:
+        log_ids.extend(str(x) for x in data[t].log_id)
+
+    families = sorted({fam_by_logid.get(l, "") for l, yi in zip(log_ids, y) if yi == 1 and fam_by_logid.get(l, "")})
+    rng = np.random.default_rng(seed)
+    rng.shuffle(families)
+    n_train = max(1, int(round(len(families) * train_ratio)))
+    n_val = max(1, int(round(len(families) * val_ratio))) if len(families) - n_train > 1 else 0
+    fam_split = {}
+    for i, f in enumerate(families):
+        fam_split[f] = "train" if i < n_train else ("val" if i < n_train + n_val else "test")
+
+    # benign edges: random 70/15/15
+    benign_idx = np.array([i for i, yi in enumerate(y) if yi == 0])
+    rng.shuffle(benign_idx)
+    b_tr = int(len(benign_idx) * train_ratio); b_va = int(len(benign_idx) * val_ratio)
+    benign_assign = {}
+    for j, gi in enumerate(benign_idx):
+        benign_assign[int(gi)] = "train" if j < b_tr else ("val" if j < b_tr + b_va else "test")
+
+    sel = {"train": [], "val": [], "test": []}
+    for gi, (l, yi) in enumerate(zip(log_ids, y)):
+        if yi == 1:
+            sel[fam_split.get(fam_by_logid.get(l, ""), "test")].append(gi)
+        else:
+            sel[benign_assign[gi]].append(gi)
+
+    def _project(global_idx_subset):
+        masks = {t: torch.zeros(l, dtype=torch.bool) for t, l in zip(triples, triple_lengths)}
+        for gi in global_idx_subset:
+            ti = int(np.searchsorted(offsets, gi, side="right") - 1)
+            masks[triples[ti]][int(gi - offsets[ti])] = True
+        return masks
+
+    log.info("campaign_family_split: %d families -> train %d / val %d / test %d families; "
+             "edges train %d / val %d / test %d",
+             len(families), sum(v == "train" for v in fam_split.values()),
+             sum(v == "val" for v in fam_split.values()),
+             sum(v == "test" for v in fam_split.values()),
+             len(sel["train"]), len(sel["val"]), len(sel["test"]))
+    return _project(sel["train"]), _project(sel["val"]), _project(sel["test"])
+
+
 def principal_disjoint_split(
     data: HeteroData,
     train_ratio: float = 0.70, val_ratio: float = 0.15, seed: int = 42,
