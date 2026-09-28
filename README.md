@@ -106,19 +106,19 @@ test was used, and each system was run on test once.
 
 | | Precision | Recall | F1 [95% CI] |
 |---|---|---|---|
-| **Real-time pipeline** (HGT + LSTM, `pipeline.py`) | 0.780 | 0.920 | **0.844** [0.788, 0.893] |
-| Random Forest (temporal features) | 0.827 | 0.860 | 0.843 [0.786, 0.893] |
-| XGBoost (temporal features) | 0.817 | 0.850 | 0.833 [0.772, 0.885] |
-| Logistic regression (bag of actions) | 0.706 | 0.960 | 0.814 [0.756, 0.864] |
-| Curated IAM rule baseline (11 rules) | 0.878 | 0.650 | 0.747 [0.671, 0.815] |
-| GraphSAGE alone (batch, combined pipeline + real escalation in test) | 0.868 | 0.925 | **0.896** |
+| **Real-time pipeline** (HGT + LSTM, `pipeline.py`) | 0.825 | 0.925 | **0.872** [0.823, 0.915] |
+| Random Forest (temporal features) | 0.841 | 0.888 | 0.864 [0.812, 0.909] |
+| XGBoost (temporal features) | 0.838 | 0.916 | 0.875 [0.825, 0.918] |
+| Logistic regression (bag of actions) | 0.600 | 0.869 | 0.710 [0.644, 0.769] |
+| Curated IAM rule baseline (11 rules) | 0.904 | 0.701 | 0.789 [0.720, 0.849] |
+| GraphSAGE alone (batch, session-level) | 0.868 | 0.925 | **0.896** |
 
-> **Number provenance (integration note):** the pipeline / RF / XGBoost / logistic rows were measured on the teammate's data snapshot; the GraphSAGE row is now the COMBINED pipeline (all fixes + Udita's fe9 canonicalization applied to the real data, one consistent feature engine). After folding in 30 real Stratus privilege-escalation detonations, the test set (821 sessions, 4 collectors) contains genuine escalation. Paired improvement over the rule baseline: +0.107 [+0.053, +0.166], p=0.0002 (significant); session AUC 0.987, beats all 200 size-preserving permutations. The pipeline/RF/XGBoost rows still need re-running on this same combined data.
+> **All rows are on one footing** — the same 821-session real test set (4 collectors, including 30 real Stratus privilege-escalation detonations), one consistent feature engine, each model's threshold/config frozen on dev and test scored once. GraphSAGE (batch) leads at 0.896 (paired +0.107 over rules, p=0.0002; session AUC 0.987, beats all 200 size-preserving permutations). The pipeline, XGBoost and Random Forest are statistically tied (pipeline vs XGBoost -0.003 p=0.92; vs RF +0.009 p=0.68); all beat the rule baseline except logistic regression.
 
-The pipeline beats the rule baseline significantly (paired bootstrap +0.097
-F1, 95% CI [+0.028, +0.168], p = 0.008). It is statistically tied with the
-classical ML baselines: vs Random Forest +0.001 (p = 0.98), vs XGBoost +0.011
-(p = 0.65), vs logistic regression +0.030 (p = 0.21).
+The pipeline beats the rule baseline significantly (paired bootstrap +0.083
+F1, 95% CI [+0.023, +0.148], p = 0.008). It is statistically tied with the
+classical ML baselines: vs Random Forest +0.009 (p = 0.68), vs XGBoost -0.003
+(p = 0.92), vs logistic regression +0.162 (p < 0.001).
 
 On dev, the ensemble beats each of its branches:
 
