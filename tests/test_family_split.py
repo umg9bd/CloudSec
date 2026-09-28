@@ -135,6 +135,26 @@ class TestSeededAssignment(SplitSandbox):
                     self.assertEqual(rows[f"{SRC}:{i}"][0], expected[fam], (seed, fam))
 
 
+class TestSplitFile(SplitSandbox):
+    """split_file lets the graph track use the exact file the LSTM and the
+    feature engine use (campaign_split.py)."""
+
+    def test_masks_follow_the_split_file(self):
+        import campaign_split as cs
+        path = os.path.join(self.tmp, "split.csv")
+        assignment = {f"{SRC}:{i}": ("test" if i % 3 == 0 else "train") for i in range(len(ROWS))}
+        cs.write_split_file(assignment, path)
+        rows = split_of_each_row(self.data, campaign_family_split(self.data, split_file=path))
+        self.assertEqual({k: v[0] for k, v in rows.items()}, assignment)
+
+    def test_split_file_missing_an_edge_is_an_error(self):
+        import campaign_split as cs
+        path = os.path.join(self.tmp, "split.csv")
+        cs.write_split_file({f"{SRC}:{i}": "train" for i in range(len(ROWS) - 1)}, path)
+        with self.assertRaises(ValueError):
+            campaign_family_split(self.data, split_file=path)
+
+
 class TestFailsLoudly(SplitSandbox):
     def test_family_in_both_val_and_test(self):
         with self.assertRaises(ValueError):

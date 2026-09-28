@@ -744,6 +744,7 @@ def campaign_family_split(
     annotation_path: Optional[str] = None,
     val_families=None, test_families=None,
     family_col: str = "chain_name",
+    split_file: Optional[str] = None,
 ) -> Tuple[Dict[tuple, torch.Tensor], Dict[tuple, torch.Tensor], Dict[tuple, torch.Tensor]]:
     """Inductive split by attack CAMPAIGN FAMILY (review points 9, 20).
 
@@ -768,88 +769,56 @@ def campaign_family_split(
     file (graph and annotations come from different files), an unknown or
     doubly-assigned family, or nothing left to train on.
 
+    The assignment itself lives in campaign_split.py, so the LSTM trainer and
+    the feature engine's prior fitting use exactly the same one. Pass
+    split_file (written by `python campaign_split.py --out ...`) to use a fixed
+    file; otherwise it is computed from the annotations with the arguments above.
+
     The family is ground truth: it decides the split and is never a feature.
     This complements, and is stricter than, the default train-on-synthetic /
     test-on-real protocol: it isolates "generalises to an attack shape never
     seen in training" within one labelled graph.
     """
-    import csv as _csv
     import os as _os
-    if annotation_path is None:
-        here = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
-        annotation_path = _os.path.join(
-            here, "datasets", "privilege-escalation", "synthetic_campaign_annotations.csv")
-    fam_by_logid = {}
-    with open(annotation_path, newline="", encoding="utf-8") as fh:
-        for row in _csv.DictReader(fh):
-            fam_by_logid[row["log_id"]] = row.get(family_col) or ""
-
-    triples = scored_edge_types(data)
-    triple_lengths = [data[t].y.shape[0] for t in triples]
-    offsets = np.cumsum([0] + triple_lengths[:-1])
-    y = global_labels(data)
-    log_ids = []
-    for t in triples:
-        log_ids.extend(str(x) for x in data[t].log_id)
-
-    missing = [l for l in log_ids if l not in fam_by_logid]
-    if missing:
-        raise ValueError(f"{len(missing)} scored edges are not in {annotation_path} (first: "
-                         f"{missing[:3]}); the graph and the annotations come from different files")
-    edge_family = [fam_by_logid[l] for l in log_ids]
-
-    # Families are those with at least one attack edge, as before, so a seeded
-    # run assigns families exactly as the original version did.
-    families = sorted({f for f, yi in zip(edge_family, y) if yi == 1 and f})
-    rng = np.random.default_rng(seed)
-    if val_families or test_families:
-        val_families, test_families = set(val_families or ()), set(test_families or ())
-        overlap = val_families & test_families
-        if overlap:
-            raise ValueError(f"families in both val and test: {sorted(overlap)}")
-        unknown = (val_families | test_families) - set(families)
-        if unknown:
-            raise ValueError(f"unknown families {sorted(unknown)}; known: {families}")
-        if not set(families) - val_families - test_families:
-            raise ValueError("every campaign family is held out; nothing left to train on")
-        fam_split = {f: ("val" if f in val_families else "test" if f in test_families else "train")
-                     for f in families}
+    import sys as _sys
+    _root = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
+    if _root not in _sys.path:
+        _sys.path.insert(0, _root)
+    import campaign_split as cs
+    if split_file is not None:
+        split_of = cs.read_split_file(split_file)
+        source = split_file
+    elif annotation_path is not None:
+        source = annotation_path
+        split_of = cs.family_assignment(cs.load_annotations(source), seed=seed,
+                                        train_ratio=train_ratio, val_ratio=val_ratio,
+                                        val_families=val_families, test_families=test_families,
+                                        family_col=family_col)
     else:
-        shuffled = list(families)
-        rng.shuffle(shuffled)
-        n_train = max(1, int(round(len(shuffled) * train_ratio)))
-        n_val = max(1, int(round(len(shuffled) * val_ratio))) if len(shuffled) - n_train > 1 else 0
-        fam_split = {f: "train" if i < n_train else ("val" if i < n_train + n_val else "test")
-                     for i, f in enumerate(shuffled)}
+        # The project default: identical to `python campaign_split.py --out ...`.
+        source = cs.DEFAULT_ANNOTATIONS
+        split_of = cs.build_assignment(seed=seed, train_ratio=train_ratio, val_ratio=val_ratio,
+                                       val_families=val_families, test_families=test_families,
+                                       family_col=family_col)
 
-    # Edges with no family: random 70/15/15.
-    free_idx = np.array([i for i, f in enumerate(edge_family) if f not in fam_split])
-    rng.shuffle(free_idx)
-    b_tr = int(len(free_idx) * train_ratio); b_va = int(len(free_idx) * val_ratio)
-    free_assign = {int(gi): "train" if j < b_tr else ("val" if j < b_tr + b_va else "test")
-                   for j, gi in enumerate(free_idx)}
+    y = global_labels(data)
+    masks = {name: {} for name in SPLIT_NAMES}
+    missing = []
+    for t in scored_edge_types(data):
+        ids = [str(x) for x in data[t].log_id]
+        missing += [lid for lid in ids if lid not in split_of]
+        for name in SPLIT_NAMES:
+            masks[name][t] = torch.tensor([split_of.get(lid) == name for lid in ids], dtype=torch.bool)
+    if missing:
+        raise ValueError(f"{len(missing)} scored edges are not in {source} (first: {missing[:3]}); "
+                         f"the graph and the split come from different files")
 
-    sel = {name: [] for name in SPLIT_NAMES}
-    for gi, f in enumerate(edge_family):
-        sel[fam_split[f] if f in fam_split else free_assign[gi]].append(gi)
-
-    def _project(global_idx_subset):
-        masks = {t: torch.zeros(l, dtype=torch.bool) for t, l in zip(triples, triple_lengths)}
-        for gi in global_idx_subset:
-            ti = int(np.searchsorted(offsets, gi, side="right") - 1)
-            masks[triples[ti]][int(gi - offsets[ti])] = True
-        return masks
-
-    log.info("campaign_family_split: %d families -> train %d / val %d / test %d families; "
-             "edges train %d / val %d / test %d",
-             len(families), sum(v == "train" for v in fam_split.values()),
-             sum(v == "val" for v in fam_split.values()),
-             sum(v == "test" for v in fam_split.values()),
-             len(sel["train"]), len(sel["val"]), len(sel["test"]))
-    for name in ("val", "test"):
-        if sel[name] and not any(y[gi] for gi in sel[name]):
+    for name in SPLIT_NAMES:
+        flat = flatten_mask_dict(data, masks[name]).cpu().numpy()
+        log.info("campaign_family_split — %s: %d edges, %d attack", name, int(flat.sum()), int(y[flat].sum()))
+        if name != "train" and flat.sum() and not y[flat].any():
             log.warning("campaign_family_split: %s has no attack edges; its F1/recall are undefined", name)
-    return _project(sel["train"]), _project(sel["val"]), _project(sel["test"])
+    return masks["train"], masks["val"], masks["test"]
 
 
 def principal_disjoint_split(

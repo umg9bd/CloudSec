@@ -1007,9 +1007,14 @@ def _rewrite_temporal_sorted(new_rows) -> None:
     os.replace(tmp_path, TEMPORAL_OUT)
 
 
-def process_batch_file(engine: FeatureEngineer, input_path: str) -> int:
+def process_batch_file(engine: FeatureEngineer, input_path: str, split_of_log_id=None) -> int:
     """Processes a single arrived log file, appending features to the
-    structural/temporal output CSVs. Returns rows processed."""
+    structural/temporal output CSVs. Returns rows processed.
+
+    split_of_log_id (optional, log_id -> train/val/test, e.g. from
+    campaign_split.read_split_file) overrides each row's `split`, so the
+    label-fitted priors learn from that split's TRAIN rows only. Every row
+    must be assigned."""
     _check_output_schema(STRUCT_OUT, STRUCT_FIELDS)
     _check_output_schema(TEMPORAL_OUT, TEMP_FIELDS)
 
@@ -1044,12 +1049,17 @@ def process_batch_file(engine: FeatureEngineer, input_path: str) -> int:
                 print(f"[SKIP] {input_path} row {source_row_index}: {e}")
                 continue
 
+            label = row.get("label", "0")
+            log_id = f"{os.path.basename(input_path)}:{source_row_index}"
+            if split_of_log_id is not None:
+                if log_id not in split_of_log_id:
+                    raise ValueError(f"{log_id} has no entry in the split file; the split file "
+                                     f"was built for a different input")
+                row['split'] = split_of_log_id[log_id]
+
             # Update the adaptive priors *after* scoring this row, so its own
             # label can't leak into its own action_risk_prior/principal_risk_prior features.
             engine.observe_label(row)
-
-            label = row.get("label", "0")
-            log_id = f"{os.path.basename(input_path)}:{source_row_index}"
 
             struct_row = {
                 "log_id": log_id,
@@ -1086,7 +1096,7 @@ def process_batch_file(engine: FeatureEngineer, input_path: str) -> int:
 
 
 def run_batch(input_path: str, freeze_vocab: bool = False, freeze_priors: bool = None,
-              rebuild: bool = False) -> None:
+              rebuild: bool = False, split_file: str = None, tag: str = None) -> None:
     """freeze_priors defaults to "frozen unless this IS the training input".
 
     The adaptive risk priors are fitted from ground-truth labels, so folding a
@@ -1102,17 +1112,28 @@ def run_batch(input_path: str, freeze_vocab: bool = False, freeze_priors: bool =
     skipped as "already processed", leaving features -- and priors fitted on the
     OLD data -- in place with no warning. Now that is an error unless
     rebuild=True, which deletes this input's derived outputs and tracker state
-    (and, when fitting, the priors) and starts clean."""
+    (and, when fitting, the priors) and starts clean.
+
+    split_file + tag: build a SEPARATE feature set for a within-synthetic
+    evaluation split (campaign_split.py). Priors learn from the split file's
+    train rows only, and every output -- features, tracker state, priors -- gets
+    the tag in its name, so the default training artifacts (and the live
+    pipeline that reads them) are never touched. A split file without a tag is
+    refused for exactly that reason."""
     global STRUCT_OUT, TEMPORAL_OUT, STATE_FILE, STATE_TRACKER_FILE, GRAPH_NODE_STATE_FILE, IDENTITY_STATE_FILE
     if not os.path.exists(input_path):
         print(f"Error: Could not find {input_path}")
         raise SystemExit(1)
+    if split_file and not tag:
+        raise SystemExit("--split-file needs --tag, so the split-specific priors and features get "
+                         "their own files instead of replacing the default training artifacts.")
 
     is_training_input = os.path.abspath(input_path) == os.path.abspath(DEFAULT_INPUT)
     if freeze_priors is None:
-        freeze_priors = not is_training_input
+        freeze_priors = not (is_training_input or split_file)
 
-    paths = _derive_paths(input_path)
+    stem = os.path.splitext(os.path.basename(os.path.normpath(input_path)))[0]
+    paths = _paths_for_stem(f"{stem}_{tag}") if tag else _derive_paths(input_path)
     STRUCT_OUT = paths["struct_out"]
     TEMPORAL_OUT = paths["temporal_out"]
     STATE_FILE = paths["state_file"]
@@ -1122,7 +1143,16 @@ def run_batch(input_path: str, freeze_vocab: bool = False, freeze_priors: bool =
 
     name = os.path.basename(input_path)
     fingerprint = file_fingerprint(input_path)
-    prior_files = (ACTION_PRIOR_FILE, PRINCIPAL_PRIOR_FILE)
+    split_of_log_id = None
+    if split_file:
+        import campaign_split
+        split_of_log_id = campaign_split.read_split_file(split_file)
+        fingerprint = f"{fingerprint}+split:{file_fingerprint(split_file)}"
+    if tag:
+        prior_files = tuple(os.path.join(DATA_DIR, os.path.basename(p).replace(".json", f"_{tag}.json"))
+                            for p in (ACTION_PRIOR_FILE, PRINCIPAL_PRIOR_FILE))
+    else:
+        prior_files = (ACTION_PRIOR_FILE, PRINCIPAL_PRIOR_FILE)
 
     if rebuild:
         doomed = [STRUCT_OUT, TEMPORAL_OUT, STATE_FILE, STATE_TRACKER_FILE,
@@ -1170,8 +1200,8 @@ def run_batch(input_path: str, freeze_vocab: bool = False, freeze_priors: bool =
         state_tracker_path=STATE_TRACKER_FILE,
         graph_state_path=GRAPH_NODE_STATE_FILE,
         identity_state_path=IDENTITY_STATE_FILE,
-        action_prior_path=ACTION_PRIOR_FILE,
-        principal_prior_path=PRINCIPAL_PRIOR_FILE,
+        action_prior_path=prior_files[0],
+        principal_prior_path=prior_files[1],
         freeze_vocab=freeze_vocab,
         freeze_priors=freeze_priors,
     )
@@ -1181,14 +1211,15 @@ def run_batch(input_path: str, freeze_vocab: bool = False, freeze_priors: bool =
     print(f"  vocab frozen:  {freeze_vocab}")
     print(f"  priors frozen: {freeze_priors}"
           f"{'  (label-derived features are READ-ONLY on this input)' if freeze_priors else '  (FITTING on this input)'}")
-    process_batch_file(engine, input_path)
+    process_batch_file(engine, input_path, split_of_log_id)
 
     if not freeze_priors:
         if engine.labels_withheld == 0:
             print(f"[PRIORS] WARNING: {name} has no `split` column (or no non-train rows), so every "
                   f"row's label was fitted. Only do this on a file that holds training rows only.")
         meta = {"input": name, "sha256": fingerprint, "rows_fitted": engine.labels_observed,
-                "rows_withheld": engine.labels_withheld, "fitted_at": datetime.now().isoformat()}
+                "rows_withheld": engine.labels_withheld, "fitted_at": datetime.now().isoformat(),
+                "split_file": os.path.basename(split_file) if split_file else None}
         for prior_file in prior_files:
             with open(prior_meta_path(prior_file), 'w', encoding='utf-8') as f:
                 json.dump(meta, f, indent=2, sort_keys=True)
@@ -1342,6 +1373,12 @@ def main():
                         help="Delete this input's derived outputs and tracker state (and, when fitting, "
                              "the priors) and process it from scratch. Required after regenerating an "
                              "input under the same file name.")
+    parser.add_argument("--split-file", default=None,
+                        help="A campaign_split.py split file (log_id,split): fit the priors on its "
+                             "train rows only, for a within-synthetic evaluation. Needs --tag.")
+    parser.add_argument("--tag", default=None,
+                        help="Suffix for every output of a --split-file run (features, state, "
+                             "priors), e.g. campaign_family. Keeps the default artifacts untouched.")
     args = parser.parse_args()
 
     if args.watch:
@@ -1350,7 +1387,8 @@ def main():
         watch_folder(args.watch)
     else:
         run_batch(args.input, freeze_vocab=args.freeze_vocab,
-                  freeze_priors=(False if args.fit_priors else None), rebuild=args.rebuild)
+                  freeze_priors=(False if args.fit_priors else None), rebuild=args.rebuild,
+                  split_file=args.split_file, tag=args.tag)
 
 
 if __name__ == "__main__":

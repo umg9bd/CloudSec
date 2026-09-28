@@ -115,6 +115,9 @@ def parse_args():
                         "--test-families, replaces the seeded random family assignment.")
     p.add_argument("--test-families", nargs="+", default=None,
                    help="campaign_family only: families held out for test.")
+    p.add_argument("--split-file", default=None,
+                   help="campaign_family only: a split file from campaign_split.py. Use the same "
+                        "file for the LSTM and for feature_engine9 --split-file.")
     p.add_argument("--reverse-edges", action="store_true",
                    help="Add mirrored reverse edges so principal nodes (User, "
                         "UnresolvedPrincipal) receive messages during aggregation. "
@@ -367,7 +370,8 @@ def main():
         train_masks, val_masks, test_masks = stratified_edge_split(data, seed=args.seed)
     elif args.split == "campaign_family":
         train_masks, val_masks, test_masks = campaign_family_split(
-            data, seed=args.seed, val_families=args.val_families, test_families=args.test_families)
+            data, seed=args.seed, val_families=args.val_families, test_families=args.test_families,
+            split_file=args.split_file)
     else:
         train_masks, val_masks, test_masks = principal_disjoint_split(data, seed=args.seed)
 

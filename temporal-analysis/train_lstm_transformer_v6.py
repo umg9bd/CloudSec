@@ -7,11 +7,27 @@ Data: data/lstm/cloudtrail_temporal_final.csv
 Split: GroupShuffleSplit by username (~70/15/15). No locked bert-jan/stratus.
 Labels: CSV labels only (no Invictus campaign relabel).
 Architecture: same BiLSTM + 1-layer Transformer as v5 (imported, not copied-and-forked in v5 file).
+
+Campaign-family split (review point 20), the same assignment the graph track uses:
+
+    python campaign_split.py --out splits/campaign_family_seed42.csv
+    python feature_engine9.py --split-file splits/campaign_family_seed42.csv --tag campaign_family
+    python temporal-analysis/train_lstm_transformer_v6.py --split campaign_family \\
+        --split-file splits/campaign_family_seed42.csv \\
+        --csv datasets/privilege-escalation/synthetic_cloudtrail_campaign_family_temporal.csv
+
+Whole campaign families are held out for val/test, and the temporal features
+come from the tagged feature-engine run, whose risk priors were fitted on the
+TRAIN families only -- the default temporal CSV's priors saw every family's
+labels. Outputs go to artifacts/lstm_transformer_v6_campaign_family/ (vocab
+included), so the committed v6 model and its vocab file are untouched.
 """
 
 from __future__ import annotations
 
+import argparse
 import json
+import sys
 import math
 import random
 from collections import Counter
@@ -45,6 +61,9 @@ CSV_PATH = ROOT / "data" / "lstm" / "cloudtrail_temporal_final.csv"
 V5_VOCAB_PATH = ROOT / "data" / "lstm" / "event_name_vocab.json"
 VOCAB_PATH = ROOT / "data" / "lstm" / "event_name_vocab_v6.json"
 OUT_DIR = ROOT / "artifacts" / "lstm_transformer_v6"
+REPO_ROOT = ROOT.parent
+FE_VOCAB_PATH = REPO_ROOT / "datasets" / "privilege-escalation" / ".event_name_vocab.json"
+CAMPAIGN_OUT_DIR = ROOT / "artifacts" / "lstm_transformer_v6_campaign_family"
 
 SEED = 42
 SCHEMA_VERSION = "lstm_transformer_v6.0"
@@ -72,18 +91,27 @@ def dedupe_events(df: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
-def load_and_validate(path: Path) -> tuple[pd.DataFrame, list[str], int]:
+def load_and_validate(path: Path, strict: bool = True) -> tuple[pd.DataFrame, list[str], int]:
+    """strict: the committed cloudtrail_temporal_final.csv schema (40 columns,
+    35 features). A feature_engine9 temporal CSV has more feature columns
+    (identity/permission features appended), so it is validated by the
+    required columns instead."""
     df = pd.read_csv(path)
-    assert df.shape[1] == 40, df.shape
-    df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True)
+    if strict:
+        assert df.shape[1] == 40, df.shape
+    missing = META_COLS - set(df.columns)
+    assert not missing, f"{path} lacks {sorted(missing)}"
+    df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True, format="mixed")
     for col in ["username", "timestamp", "event_name_idx", "label"]:
         assert df[col].isna().sum() == 0, col
-    assert int(df["event_name_idx"].min()) >= 1
+    if strict:
+        assert int(df["event_name_idx"].min()) >= 1
     df["username"] = df["username"].astype(str)
     df["log_id"] = df["log_id"].astype(str)
     df = dedupe_events(df)
     feature_cols = [c for c in df.columns if c not in META_COLS]
-    assert len(feature_cols) == 35, len(feature_cols)
+    if strict:
+        assert len(feature_cols) == 35, len(feature_cols)
     vocab_size = int(df["event_name_idx"].max()) + 1
     print("=== Validation PASSED (v6 general) ===", flush=True)
     print(
@@ -105,6 +133,50 @@ def write_vocab_v6(vocab_size: int) -> dict[str, int]:
     VOCAB_PATH.write_text(json.dumps(vocab, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     print(f"wrote {VOCAB_PATH} entries={len(vocab)} (v5 file not modified)", flush=True)
     return vocab
+
+
+def vocab_from_feature_engine(vocab_size: int, out_path: Path) -> dict[str, int]:
+    """event_name_idx in a feature_engine9 CSV indexes feature_engine9's own
+    vocab (datasets/privilege-escalation/.event_name_vocab.json), not the v5
+    LSTM vocab -- mapping it through write_vocab_v6 would name the wrong
+    events. Written next to the model, never over the committed v6 vocab."""
+    src = FE_VOCAB_PATH
+    vocab = {str(k): int(v) for k, v in json.loads(src.read_text(encoding="utf-8")).items()
+             if 0 <= int(v) < vocab_size}
+    vocab.setdefault("<UNK>", 0)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text(json.dumps(vocab, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    print(f"wrote {out_path} entries={len(vocab)} (from {src.name})", flush=True)
+    return vocab
+
+
+def campaign_family_split_seqs(seqs, split_of_log_id: dict[str, str]):
+    """Each sequence goes to the split of the event it scores (its log_id).
+    Every sequence must be assigned; the file must come from campaign_split.py
+    for the same synthetic input the temporal CSV was built from."""
+    missing = [s.log_id for s in seqs if s.log_id not in split_of_log_id]
+    if missing:
+        raise SystemExit(f"{len(missing)} events have no split (first: {missing[:3]}); the split file "
+                         f"and the temporal CSV come from different inputs")
+    parts = {"train": [], "val": [], "test": []}
+    for s in seqs:
+        parts[split_of_log_id[s.log_id]].append(s)
+    print(
+        "campaign-family split events={}/{}/{} pos={}/{}/{}".format(
+            *(len(parts[k]) for k in parts), *(sum(s.label for s in parts[k]) for k in parts)),
+        flush=True,
+    )
+    for k in ("val", "test"):
+        if not any(s.label for s in parts[k]):
+            print(f"WARN: {k} has no attack events; its metrics are undefined", flush=True)
+    # Window metrics select test windows by user, so users must not straddle
+    # splits (campaign_split groups background rows by username for this).
+    users = {k: {s.username for s in v} for k, v in parts.items()}
+    shared = (users["train"] & users["val"]) | (users["train"] & users["test"]) | (users["val"] & users["test"])
+    if shared:
+        raise SystemExit(f"{len(shared)} users appear in more than one split (e.g. {sorted(shared)[:3]}); "
+                         f"build the split file with campaign_split.py, which groups by user")
+    return parts["train"], parts["val"], parts["test"]
 
 
 def maybe_pe_ids(vocab: dict[str, int]) -> tuple[set[int], set[int]]:
@@ -253,16 +325,37 @@ def train_model(train_s, val_s, vocab_size, n_features, device, risk_idx=None, s
     return model, history
 
 
-def main() -> None:
+def parse_args(argv=None):
+    p = argparse.ArgumentParser(description="Train LSTM-Transformer v6")
+    p.add_argument("--split", choices=["users", "campaign_family"], default="users",
+                   help="users = user-disjoint 70/15/15 (default, the committed v6 model). "
+                        "campaign_family = whole campaign families held out (campaign_split.py).")
+    p.add_argument("--split-file", default=None, help="campaign_family: split file from campaign_split.py")
+    p.add_argument("--csv", default=None,
+                   help="campaign_family: temporal CSV from feature_engine9 --split-file ... --tag ...")
+    p.add_argument("--out-dir", default=None, help="output directory (default depends on --split)")
+    return p.parse_args(argv)
+
+
+def main(argv=None) -> None:
+    args = parse_args(argv)
+    campaign = args.split == "campaign_family"
+    if campaign and not (args.split_file and args.csv):
+        raise SystemExit("--split campaign_family needs --split-file and --csv (see module docstring)")
+    global OUT_DIR, CSV_PATH
+    OUT_DIR = Path(args.out_dir) if args.out_dir else (CAMPAIGN_OUT_DIR if campaign else OUT_DIR)
+    CSV_PATH = Path(args.csv).resolve() if args.csv else CSV_PATH
     set_seed()
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"device={device}", flush=True)
-    print("model=LSTMTransformerV6 (general user-disjoint, CSV labels)", flush=True)
+    print(f"model=LSTMTransformerV6 ({'campaign-family holdout' if campaign else 'general user-disjoint'}, "
+          f"CSV labels)", flush=True)
     print(f"csv={CSV_PATH}", flush=True)
 
-    df, feature_cols, vocab_size = load_and_validate(CSV_PATH)
-    vocab = write_vocab_v6(vocab_size)
+    df, feature_cols, vocab_size = load_and_validate(CSV_PATH, strict=not campaign)
+    vocab = (vocab_from_feature_engine(vocab_size, OUT_DIR / "event_name_vocab.json") if campaign
+             else write_vocab_v6(vocab_size))
     pe_ids, sec_ids = maybe_pe_ids(vocab)
     if pe_ids:
         df = attach_pe_context(df, pe_ids)
@@ -276,7 +369,14 @@ def main() -> None:
         flush=True,
     )
 
-    train_s, val_s, test_s = group_split_users(seqs)
+    if campaign:
+        sys.path.insert(0, str(REPO_ROOT))
+        import campaign_split
+        train_s, val_s, test_s = campaign_family_split_seqs(seqs, campaign_split.read_split_file(args.split_file))
+    else:
+        train_s, val_s, test_s = group_split_users(seqs)
+    split_desc = ("campaign-family holdout (" + Path(args.split_file).name + ")" if campaign
+                  else "GroupShuffleSplit user-disjoint 70/15/15")
     risk_idx = feature_cols.index("action_risk_prior") if "action_risk_prior" in feature_cols else None
 
     model, history = train_model(
@@ -334,7 +434,7 @@ def main() -> None:
                 "stride_minutes": v5.STRIDE_MINUTES,
                 "train_unit": "event (10-min history, loss on last step)",
                 "p_seq": "max(P_event) in fusion window",
-                "split": "GroupShuffleSplit user-disjoint 70/15/15",
+                "split": split_desc,
                 "secret_ids": sorted(sec_ids),
                 "campaign_relabel": False,
                 "locked_test_user": None,
@@ -358,7 +458,7 @@ def main() -> None:
         "n_users": int(df["username"].nunique()),
         "protocol": {
             "model": "LSTMTransformerV6",
-            "split": "user-disjoint 70/15/15",
+            "split": split_desc,
             "test_attacker": None,
             "campaign_relabel": False,
         },
