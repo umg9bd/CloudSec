@@ -17,15 +17,13 @@ Two different questions are kept apart:
     inferred depth must equal hop_id on every campaign event.
   * Does the DATASET carry the links a real CloudTrail log carries? Two
     defects currently break them, so on the file as committed the engine
-    recovers only 14 of 252 handoff events:
-      1. AssumeRole requests roleSessionName X, but the role's later events act
-         as assumed-role/ROLE/Y with Y != X (0 of 126 match). Real CloudTrail
-         always uses the requested name; it is the only observable link.
-      2. 72 of 640 campaign events precede their own parent in file order
-         (same-second ties sorted without regard to causality), e.g. AssumeRole
-         listed before the CreateRole that makes it possible.
-    Those checks are marked expectedFailure. When the generator is fixed they
-    will report "unexpected success": delete the decorator then.
+    Both generator bugs are now FIXED, so these checks assert normally:
+      1. AssumeRole requests roleSessionName X and the role's later events act
+         as assumed-role/ROLE/X (the acting session equals the requested name --
+         the only observable link, and what real CloudTrail guarantees).
+      2. No event precedes its own parent in file order: main() sorts with a
+         stable kind, so same-second burst events keep emission order (parent
+         before child).
 """
 
 import json
@@ -133,14 +131,12 @@ class TestNoInventedHandoffs(unittest.TestCase):
 
 
 class TestDatasetLineagePreconditions(unittest.TestCase):
-    """What a real CloudTrail log guarantees and the synthetic data must too.
-    Known failures -- see the module docstring."""
+    """What a real CloudTrail log guarantees and the synthetic data must too."""
 
     @classmethod
     def setUpClass(cls):
         cls.events = load()
 
-    @unittest.expectedFailure
     def test_assumed_sessions_use_the_requested_session_name(self):
         acting = set(self.events.principal_arn)
         ar = self.events[(self.events.event_name == "AssumeRole") & (self.events.request_params_raw != "")]
@@ -155,7 +151,6 @@ class TestDatasetLineagePreconditions(unittest.TestCase):
                 missing += 1
         self.assertEqual(missing, 0, f"{missing} AssumeRole calls whose session acts under another name")
 
-    @unittest.expectedFailure
     def test_parents_precede_children_in_file_order(self):
         position = {u: i for i, u in enumerate(self.events._uid) if u}
         late = sum(1 for i, p in enumerate(self.events._parent) if p and position.get(p, -1) > i)

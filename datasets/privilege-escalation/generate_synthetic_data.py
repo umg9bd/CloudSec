@@ -368,12 +368,12 @@ PERM_CHANGE = {
     "UpdateAssumeRolePolicy": ([], ["sts:AssumeRole/*"]),
 }
 
-def _attack_request_params(event_name, target_key, resources, account_id):
+def _attack_request_params(event_name, target_key, resources, account_id, session_name=None):
     r = resources.get(target_key)
     role_arn = f"arn:aws:iam::{account_id}:role/{r}"
     policy_arn = resources.get("policy", _ADMIN_ARN)
     m = {
-        "AssumeRole":               {"roleArn": role_arn, "roleSessionName": rand_str(8)},
+        "AssumeRole":               {"roleArn": role_arn, "roleSessionName": session_name or rand_str(8)},
         "AssumeRoleWithSAML":       {"roleArn": role_arn, "principalArn": f"arn:aws:iam::{account_id}:saml-provider/idp"},
         "GetSecretValue":           {"secretId": r},
         "DescribeSecret":           {"secretId": r},
@@ -462,6 +462,7 @@ def generate_attack_session(chain_name, recon_events=5, noise_events=3):
     hop_id = 0
     for stage_index, step in enumerate(chain):
         t += (timedelta(seconds=random.choice([0, 0, 1])) if burst else jitter(5, 60))
+        assume_session = rand_str(16) if step["event_name"] in _ASSUME_ACTIONS else None
         ep = step.get("error_probability", 0)
         ec = random.choice(ATTACK_ERROR_CODES) if random.random() < ep else None
         before_perms, after_perms = PERM_CHANGE.get(step["event_name"], ([], []))
@@ -472,7 +473,8 @@ def generate_attack_session(chain_name, recon_events=5, noise_events=3):
             "user_agent": ua, "access_key_id": access_key, "mfa_authenticated": "False",
             "target_resource": resources[step["target_key"]],
             "request_params_raw": json.dumps(
-                _attack_request_params(step["event_name"], step["target_key"], resources, account_id)),
+                _attack_request_params(step["event_name"], step["target_key"], resources, account_id,
+                                       session_name=assume_session)),
             "principal_type": principal_type,
             "principal_arn": principal_arn,
             "username": principal_name, "session_label": 1, "synthetic": True,
@@ -490,7 +492,9 @@ def generate_attack_session(chain_name, recon_events=5, noise_events=3):
         if step["event_name"] in _ASSUME_ACTIONS:
             role_name = resources[step["target_key"]]
             principal_type = "AssumedRole"
-            principal_arn  = f"arn:aws:sts::{account_id}:assumed-role/{role_name}/{rand_str(16)}"
+            # the acting session is the SAME roleSessionName recorded in this
+            # AssumeRole's request params -- real CloudTrail guarantees this.
+            principal_arn  = f"arn:aws:sts::{account_id}:assumed-role/{role_name}/{assume_session}"
             principal_name = role_name
             hop_id += 1  # a real principal handoff -- the next event acts as the new principal
 
@@ -629,6 +633,7 @@ def generate_campaign_session(campaign_name, noise_events=3):
         p_type, p_arn, p_name = identity[actor]
 
         t += (timedelta(seconds=random.choice([0, 1])) if campaign_name.endswith("access") else jitter(5, 60))
+        assume_session = rand_str(16) if (e["event"] == "AssumeRole" and e.get("assumes")) else None
         tgt = e.get("target", "")
         tgt_key = key_of.get(tgt, "resource")
         step_resources = {tgt_key: resolved.get(tgt, tgt), "policy": _ADMIN_ARN, "group": "admins-" + rand_str(4)}
@@ -639,7 +644,8 @@ def generate_campaign_session(campaign_name, noise_events=3):
             "attack_technique": e["tactic"], "read_only": EVENT_META.get(e["event"], ("", False))[1],
             "user_agent": ua, "access_key_id": access_key, "mfa_authenticated": "False",
             "target_resource": resolved.get(tgt, tgt),
-            "request_params_raw": json.dumps(_attack_request_params(e["event"], tgt_key, step_resources, account_id)),
+            "request_params_raw": json.dumps(_attack_request_params(e["event"], tgt_key, step_resources, account_id,
+                                                    session_name=assume_session)),
             "principal_type": p_type, "principal_arn": p_arn, "username": p_name,
             "session_label": 1, "synthetic": True,
             "campaign_id": campaign_id, "chain_name": campaign_name, "stage_index": stage_index,
@@ -651,8 +657,9 @@ def generate_campaign_session(campaign_name, noise_events=3):
 
         if e["event"] == "AssumeRole" and e.get("assumes"):
             rr = e["assumes"]; rname = resolved.get(rr, rr)
+            # act under the exact roleSessionName this AssumeRole recorded.
             identity[rr] = ("AssumedRole",
-                            "arn:aws:sts::" + acct_of(rr) + ":assumed-role/" + rname + "/" + rand_str(16), rname)
+                            "arn:aws:sts::" + acct_of(rr) + ":assumed-role/" + rname + "/" + assume_session, rname)
         if e.get("creates", "").startswith("user"):
             cu = e["creates"]; uname = resolved.get(cu, cu)
             identity[cu] = ("IAMUser", "arn:aws:iam::" + account_id + ":user/" + uname, uname)
@@ -982,7 +989,7 @@ def main():
 
     df = pd.DataFrame(all_rows)
     df["timestamp"] = pd.to_datetime(df["timestamp"])
-    df.sort_values("timestamp", inplace=True)
+    df.sort_values("timestamp", kind="mergesort", inplace=True)  # stable: equal-timestamp burst events keep emission order (parent before child)
     df.reset_index(drop=True, inplace=True)
 
     # Benign sessions carry no campaign; give the lineage columns explicit empty
