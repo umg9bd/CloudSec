@@ -1,43 +1,43 @@
 {
   "AddUserToGroup": [
     8,
-    37
+    23
   ],
   "AssumeRole": [
-    84,
-    1294
+    126,
+    1308
   ],
   "AttachRolePolicy": [
-    54,
-    83
+    82,
+    113
   ],
   "AttachUserPolicy": [
-    32,
-    63
+    46,
+    68
   ],
   "CreateAccessKey": [
-    24,
-    44
+    38,
+    48
   ],
   "CreateLoginProfile": [
     8,
-    16
+    19
   ],
   "CreatePolicyVersion": [
     12,
-    18
+    27
   ],
   "CreateRole": [
-    64,
-    83
+    92,
+    113
   ],
   "CreateSnapshot": [
     0,
-    72
+    77
   ],
   "CreateUser": [
-    18,
-    38
+    32,
+    58
   ],
   "Decrypt": [
     40,
@@ -45,27 +45,27 @@
   ],
   "DescribeBudgets": [
     0,
-    19
+    11
   ],
   "DescribeDBInstances": [
     0,
-    241
+    260
   ],
   "DescribeInstanceInformation": [
     0,
-    255
+    260
   ],
   "DescribeInstances": [
     40,
-    586
+    625
   ],
   "DescribeKey": [
     0,
-    194
+    209
   ],
   "DescribeLoadBalancers": [
     0,
-    133
+    141
   ],
   "DescribeParameters": [
     40,
@@ -77,11 +77,11 @@
   ],
   "DescribeSecurityGroups": [
     0,
-    340
+    351
   ],
   "DescribeSubnets": [
     0,
-    274
+    289
   ],
   "DescribeTrails": [
     0,
@@ -89,11 +89,11 @@
   ],
   "DescribeVpcs": [
     0,
-    241
+    252
   ],
   "EndSecretVersionDelete": [
     0,
-    82
+    78
   ],
   "GetAccountAuthorizationDetails": [
     0,
@@ -101,7 +101,7 @@
   ],
   "GetAccountPlanState": [
     0,
-    9
+    8
   ],
   "GetAccountSummary": [
     0,
@@ -109,15 +109,15 @@
   ],
   "GetBucketAcl": [
     0,
-    850
+    869
   ],
   "GetBucketLogging": [
     0,
-    250
+    247
   ],
   "GetBucketPolicy": [
     0,
-    249
+    259
   ],
   "GetCallerIdentity": [
     0,
@@ -125,19 +125,19 @@
   ],
   "GetCostAndUsage": [
     0,
-    23
+    16
   ],
   "GetParameter": [
     0,
-    479
+    448
   ],
   "GetParameters": [
-    40,
-    40
+    54,
+    54
   ],
   "GetPasswordData": [
-    52,
-    52
+    66,
+    66
   ],
   "GetRegionOptStatus": [
     0,
@@ -149,19 +149,19 @@
   ],
   "GetRolePolicy": [
     0,
-    136
+    139
   ],
   "GetSecretValue": [
-    80,
-    424
+    94,
+    446
   ],
   "GetUser": [
     0,
-    182
+    184
   ],
   "GetUserPolicy": [
     0,
-    82
+    86
   ],
   "ListAccessKeys": [
     0,
@@ -181,11 +181,11 @@
   ],
   "ListEnrollmentStatuses": [
     0,
-    6
+    3
   ],
   "ListFunctions": [
     0,
-    126
+    133
   ],
   "ListGroups": [
     0,
@@ -193,19 +193,19 @@
   ],
   "ListGroupsForUser": [
     0,
-    50
+    60
   ],
   "ListIndexes": [
     0,
-    53
+    40
   ],
   "ListKeys": [
     0,
-    330
+    321
   ],
   "ListManagedNotificationEvents": [
     0,
-    73
+    88
   ],
   "ListPolicies": [
     0,
@@ -213,11 +213,11 @@
   ],
   "ListResources": [
     0,
-    121
+    126
   ],
   "ListRolePolicies": [
     0,
-    112
+    111
   ],
   "ListRoles": [
     0,
@@ -233,27 +233,27 @@
   ],
   "ModifyDBInstance": [
     0,
-    82
+    86
   ],
   "ModifyInstanceAttribute": [
     0,
-    136
+    140
   ],
   "PutBucketPolicy": [
     12,
-    16
+    19
   ],
   "PutParameter": [
     0,
-    226
+    228
   ],
   "PutRolePolicy": [
     36,
-    49
+    53
   ],
   "PutSecretValue": [
     0,
-    123
+    121
   ],
   "PutUserPolicy": [
     14,
@@ -261,19 +261,19 @@
   ],
   "RebootInstances": [
     0,
-    67
+    62
   ],
   "RotateSecret": [
     0,
-    126
+    138
   ],
   "Search": [
     0,
-    82
+    93
   ],
   "SendCommand": [
     0,
-    237
+    225
   ],
   "SetDefaultPolicyVersion": [
     12,
@@ -281,15 +281,15 @@
   ],
   "StartInstances": [
     0,
-    148
+    133
   ],
   "StartSecretVersionDelete": [
     0,
-    82
+    78
   ],
   "StopInstances": [
     0,
-    134
+    140
   ],
   "StopLogging": [
     12,
@@ -297,6 +297,6 @@
   ],
   "UpdateAssumeRolePolicy": [
     12,
-    20
+    18
   ]
 }
