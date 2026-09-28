@@ -176,6 +176,15 @@ EDGE_CAT_COLS = ["edge_type"]  # label-encoded GLOBALLY across all 260 actions,
                                 # consistent feature schema regardless of
                                 # which relation an edge belongs to.
 
+# THE edge_attr column layout _edge_features() builds, in order:
+#   EDGE_NUM_COLS (scaled), then abnormal_path_frequency_rank, then a one-hot
+#   block over the fitted edge_type classes (width varies per checkpoint).
+# Anything that reads edge_attr columns by position (explainability's feature
+# names, feature ablation, node_importance) must derive from this, never from
+# its own copy -- two such copies had drifted to a different order, so the
+# explainer reported features under the wrong names.
+EDGE_ATTR_NUMERIC_COLS = EDGE_NUM_COLS + ["abnormal_path_frequency_rank"]
+
 
 class PrivilegePropagationGraphLoader:
     """Loads the Neo4j Privilege Propagation Graph and converts it to HeteroData."""

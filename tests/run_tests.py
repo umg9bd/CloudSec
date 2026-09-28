@@ -60,6 +60,11 @@ FAST_SUITES = [
     "test_hgt_attention_dropout", # attn_dropout really applied on PyG without the kwarg
     "test_neighbor_sampling",     # relation-aware sampler + sampled training view (GNN-final)
     "test_ensemble",              # HGT/SAGE/GAT ensemble coverage fallback (GNN-final)
+    "test_explainability",        # feature names match edge_attr columns; explains the right edge
+    "test_infer_checkpoint",      # sage/gat/hgt/ensemble checkpoints load back identically
+    "test_sampled_training",      # --sampling trains on the sampled view, evaluates on the full graph
+    "test_node_importance",       # importance ranks on the right columns; ties share a rank
+    "test_loader_metrics_feeder", # load_offline == OfflineGraphLoader, AUPR, demo feeder
     # ── real-time pipeline ───────────────────────────────────────────────
     "test_pipeline",              # streaming == batch (LSTM), fallback, alert schema
     "test_lstm_scorer",           # v5/v6 checkpoints load with the right vocab; pipeline can feed both

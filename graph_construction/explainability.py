@@ -69,11 +69,25 @@ log = logging.getLogger(__name__)
 EdgeTriple = Tuple[str, str, str]
 
 # Order MUST match data_loader.py's EDGE_NUM_COLS + EDGE_CAT_COLS concatenation.
-EDGE_FEATURE_NAMES = [
-    "hop_count", "privilege_gain", "privilege_gain_defined",
-    "abnormal_path_frequency", "action_global_frequency_log",
-    "is_privilege_escalation_technique", "is_read_only", "edge_type",
-]
+from data_loader import EDGE_ATTR_NUMERIC_COLS  # noqa: E402
+
+# One name per numeric edge_attr column, in data_loader's actual order, then
+# "edge_type" standing for the whole one-hot block after them. This list used
+# to be hand-written in a different order (abnormal_path_frequency third), so
+# every importance from column 3 on was reported under the wrong name, and the
+# one-hot block was cut to its first column.
+EDGE_FEATURE_NAMES = list(EDGE_ATTR_NUMERIC_COLS) + ["edge_type"]
+
+
+def _feature_groups(n_cols: int, feat_names: List[str]) -> List[Tuple[str, List[int]]]:
+    """(name, column indices) per reported feature: one column for each name
+    but the last, and every remaining column (the one-hot block) for the last."""
+    head = feat_names[:-1]
+    groups = [(name, [i]) for i, name in enumerate(head) if i < n_cols]
+    rest = list(range(len(head), n_cols))
+    if rest:
+        groups.append((feat_names[-1], rest))
+    return groups
 
 
 @dataclass(frozen=True)
@@ -208,8 +222,8 @@ class EdgeExplainer:
     def _normalise(self, importance: np.ndarray) -> Dict[str, float]:
         total = importance.sum() + 1e-9
         importance = importance / total
-        n = min(len(self.feat_names), len(importance))
-        result = {self.feat_names[i]: float(importance[i]) for i in range(n)}
+        result = {name: float(importance[cols].sum())
+                  for name, cols in _feature_groups(len(importance), self.feat_names)}
         return dict(sorted(result.items(), key=lambda x: -x[1]))
 
     # ── Public API ───────────────────────────────────────────────────────────
@@ -262,13 +276,13 @@ class FeatureAblation:
         baseline_f1 = baseline["f1"]
 
         originals = {t: data[t].edge_attr.clone() for t in data.edge_types}
+        n_cols = max((originals[t].shape[1] for t in data.edge_types), default=0)
         results = {}
-        for i, feat_name in enumerate(self.feat_names):
+        for feat_name, cols in _feature_groups(n_cols, self.feat_names):
             for t in data.edge_types:
-                if i < data[t].edge_attr.shape[1]:
-                    ablated = originals[t].clone()
-                    ablated[:, i] = 0.0
-                    data[t].edge_attr = ablated
+                ablated = originals[t].clone()
+                ablated[:, [c for c in cols if c < ablated.shape[1]]] = 0.0
+                data[t].edge_attr = ablated
             m = evaluate_fn(self.model, data, mask_dict)
             drop = baseline_f1 - m["f1"]
             results[feat_name] = float(drop)

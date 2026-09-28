@@ -58,19 +58,18 @@ from torch_geometric.data import HeteroData
 
 EdgeTriple = Tuple[str, str, str]
 
-# Position of each edge feature within data_loader.py's EDGE_NUM_COLS
-# layout (see that file / explainability.py's EDGE_FEATURE_NAMES for the
-# authoritative order this must track — passed in, not hardcoded, would
-# be more robust still, but every existing model file already hardcodes
-# this same list independently rather than importing it, so this matches
-# that precedent).
-_EDGE_NUM_COLS = [
-    "hop_count", "privilege_gain", "privilege_gain_defined",
-    "abnormal_path_frequency", "action_global_frequency_log",
-    "is_privilege_escalation_technique", "is_read_only",
-]
+# Position of each edge feature in edge_attr, taken from data_loader's own
+# layout. This used to be a hand-copied list with abnormal_path_frequency in
+# fourth place; the loader puts it LAST (as abnormal_path_frequency_rank, after
+# the scaled columns), so two of the four ranking signals were read from the
+# wrong columns (action_global_frequency_log and is_read_only). Percentile
+# ranks are unaffected by the loader's scaling, so scaled columns are fine here.
+from data_loader import EDGE_ATTR_NUMERIC_COLS  # noqa: E402
+
 _EDGE_SIGNALS = ["hop_count", "privilege_gain", "abnormal_path_frequency", "is_privilege_escalation_technique"]
-_EDGE_SIGNAL_IDX = {name: _EDGE_NUM_COLS.index(name) for name in _EDGE_SIGNALS}
+_EDGE_SIGNAL_COLUMN = {"abnormal_path_frequency": "abnormal_path_frequency_rank"}
+_EDGE_SIGNAL_IDX = {name: EDGE_ATTR_NUMERIC_COLS.index(_EDGE_SIGNAL_COLUMN.get(name, name))
+                    for name in _EDGE_SIGNALS}
 
 
 def _percentile_rank(x: torch.Tensor) -> torch.Tensor:
@@ -80,11 +79,18 @@ def _percentile_rank(x: torch.Tensor) -> torch.Tensor:
     a singleton node type in the later average)."""
     n = x.shape[0]
     if n <= 1:
-        return torch.full_like(x, 0.5)
-    order = x.argsort()
-    ranks = torch.empty_like(order, dtype=torch.float)
-    ranks[order] = torch.arange(n, dtype=torch.float)
-    return ranks / (n - 1)
+        return torch.full_like(x, 0.5, dtype=torch.float)
+    # Ties share their AVERAGE rank. Plain argsort ranks gave tied values
+    # distinct ranks in index order, so a signal every node shared (e.g. all
+    # zero) still ranked nodes by their position in the tensor -- and a
+    # constant signal did not fall back to 0.5 as documented above.
+    values, inverse = torch.unique(x, sorted=True, return_inverse=True)
+    if values.numel() == 1:
+        return torch.full_like(x, 0.5, dtype=torch.float)
+    counts = torch.bincount(inverse, minlength=values.numel()).float()
+    last = torch.cumsum(counts, dim=0) - 1
+    average = last - (counts - 1) / 2
+    return average[inverse] / (n - 1)
 
 
 def _aggregate_edge_signals_onto_nodes(
