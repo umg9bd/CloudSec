@@ -129,6 +129,16 @@ class TestNoInventedHandoffs(unittest.TestCase):
         c = self.as_is[self.as_is._hop >= 0]
         self.assertTrue((c._inferred_depth <= c._hop).all())
 
+    def test_committed_data_yields_the_exact_ground_truth(self):
+        """With the generator's session-name and ordering fixes, the engine
+        recovers hop_id exactly from the file as committed (1,026 of 1,026
+        campaign events at the time of writing), not only from the repaired
+        in-memory copy. A generator regression breaks this first."""
+        c = self.as_is[self.as_is._hop >= 0]
+        wrong = c[c._inferred_depth != c._hop]
+        self.assertEqual(len(wrong), 0, wrong[["event_name", "_hop", "_inferred_depth"]].head().to_string())
+        self.assertTrue((c._inferred_handoff == (c._hop >= 1).astype(int)).all())
+
 
 class TestDatasetLineagePreconditions(unittest.TestCase):
     """What a real CloudTrail log guarantees and the synthetic data must too."""
