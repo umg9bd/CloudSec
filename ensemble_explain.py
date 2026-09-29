@@ -46,6 +46,64 @@ TOP_K = 5
 MIN_RELATED_SHARE = 0.05   # a related event must carry >= 5% of the graph attribution to be named
 MIN_DRIVER_SHARE = 0.25    # a model's reasons go in the summary only if it carries >= 25% of the risk
 
+# Plain-English names for the summary line. The JSON keeps each raw feature name next to its
+# label, so nothing is lost; an unlisted feature is shown by its raw name.
+FEATURE_LABELS = {
+    # graph model: edge features (data_loader.EDGE_ATTR_NUMERIC_COLS) + the one-hot action block
+    "hop_count": "identity hops from the original principal",
+    "privilege_gain": "privilege gained over the role that granted it",
+    "privilege_gain_defined": "privilege gain is measurable",
+    "action_global_frequency_log": "how common this action is overall",
+    "is_privilege_escalation_technique": "known privilege-escalation action",
+    "is_read_only": "read-only action",
+    "abnormal_path_frequency_rank": "unusual principal-to-target path",
+    "edge_type": "the action type itself",
+    # sequence model: feature_engine9.TEMPORAL_COLS
+    "no_mfa": "no MFA on the session",
+    "mfa_absent": "MFA status not recorded",
+    "principal_type_prior_risk": "risk learned for this principal type",
+    "principal_type_idx": "principal type",
+    "has_access_key": "uses an access key",
+    "action_velocity": "short gap since this principal's previous action",
+    "is_new_action": "first time this principal does this action",
+    "session_duration_normalized": "session length",
+    "events_per_minute_normalized": "events per minute in the session",
+    "time_sin": "time of day", "time_cos": "time of day",
+    "is_weekend": "weekend activity", "is_off_hours": "off-hours activity",
+    "action_risk_prior": "risk learned for this action",
+    "event_name_idx": "the action itself", "event_source_idx": "the AWS service called",
+    "is_write_action": "write action", "read_only_absent": "read/write not recorded",
+    "has_error": "the call returned an error", "is_access_denied": "access denied",
+    "is_iam_event": "IAM call", "is_recon_action": "reconnaissance-style call (Describe/List/Get)",
+    "is_defense_evasion": "logging disabled or deleted", "is_get_caller_identity": "GetCallerIdentity check",
+    "is_malicious_user_agent": "attack-tool user agent", "is_public_ip": "public source IP",
+    "params_length_normalized": "size of the request parameters",
+    "targets_sensitive_resource": "targets a sensitive-looking resource",
+    "is_non_default_region": "unusual AWS region", "is_create_key": "creates an access key",
+    "is_secrets_or_kms": "Secrets Manager / KMS call", "is_permission_modification": "changes permissions",
+    "policy_statement_count_normalized": "size of the policy document",
+    "has_wildcard_action": "policy grants wildcard actions", "has_wildcard_resource": "policy grants wildcard resources",
+    "privileged_action_reach": "policy reaches privileged actions",
+    "new_permission_count_log": "number of permissions newly granted",
+    "permission_expansion_score": "share of AWS actions newly granted",
+    "privilege_delta": "increase in the highest access level held",
+    "target_permission_coverage": "permissions held by the identity acted on",
+    "actor_permission_coverage": "permissions the actor is known to hold",
+    "principal_handoff": "identity obtained from another principal (role assumption / issued keys)",
+    "causal_depth_normalized": "identity-chain depth",
+    "lineage_enabling_steps_normalized": "recent identity-enabling steps along the chain",
+    "pe_write_recent": "a privilege-escalation write just before",
+    "log_secs_since_pe": "time since the last privilege-escalation write",
+    "log_seconds_since_prev": "gap since the previous event",
+}
+
+
+def label(feature: str) -> str:
+    """Plain-English name of a graph or LSTM feature (event_name=X -> 'the action X')."""
+    if feature.startswith("event_name="):
+        return f"the action {feature.split('=', 1)[1]}"
+    return FEATURE_LABELS.get(feature, feature)
+
 
 # ── 2. graph model ──────────────────────────────────────────────────────────
 
@@ -156,15 +214,15 @@ def _lstm_reasons(seq_exp: Optional[dict], k: int = 2) -> List[str]:
         return []
     feats = [f for f in seq_exp.get("top_features", []) if f["contribution_window"] > 0][:k]
     events = [e for e in seq_exp.get("top_events", []) if e["effect"] > 0][:k]
-    out = [f"{f['feature']} ({f['contribution_window']:+.2f})" for f in feats]
-    out += [f"{e['event_name']} {e['minutes_before']:g} min earlier ({e['effect']:+.2f})" for e in events]
+    out = [f"{label(f['feature'])} ({f['contribution_window']:+.2f})" for f in feats]
+    out += [f"earlier {e['event_name']} {e['minutes_before']:g} min before ({e['effect']:+.2f})" for e in events]
     return out
 
 
 def _graph_reasons(graph_exp: Optional[dict], k: int = 2) -> List[str]:
     if not graph_exp:
         return []
-    out = [f"{f['feature']} ({f['share']:.0%})" for f in graph_exp.get("top_features", [])[:k]]
+    out = [f"{label(f['feature'])} ({f['share']:.0%})" for f in graph_exp.get("top_features", [])[:k]]
     out += [f"related {r.get('edge_type') or r['log_id']} ({r['share']:.0%})"
             for r in graph_exp.get("related_events", [])[:1] if r["share"] >= MIN_RELATED_SHARE]
     return out
@@ -175,14 +233,17 @@ def combine(event: dict, graph_exp: Optional[dict], seq_exp: Optional[dict], wei
     """One flagged event's ensemble explanation. `event` needs log_id, event_name, username,
     timestamp, p_graph, p_sequence (the pipeline's scored row)."""
     shares = _model_shares(event.get("p_graph"), event["p_sequence"], weight_graph)
+    for exp in (graph_exp, seq_exp):      # label every reported feature in the JSON too
+        for f in (exp or {}).get("top_features", []):
+            f.setdefault("label", label(f["feature"]))
     driver = "graph" if shares["graph"]["share"] >= shares["sequence"]["share"] else "sequence"
     reasons = {"graph": _graph_reasons(graph_exp), "sequence": _lstm_reasons(seq_exp)}
     parts = [f"risk {shares['risk'] * 10:.2f}/10 (alert at {threshold * 10:.2f})"]
-    for name, label in (("sequence", "LSTM"), ("graph", "HGT")):
+    for name, model_name in (("sequence", "LSTM"), ("graph", "HGT")):
         if name == "graph" and not shares["graph_scored"]:
             parts.append("HGT: relation not seen in training, LSTM only")
             continue
-        head = f"{label} {shares[name]['share']:.0%} (p={shares[name]['probability']:.2f})"
+        head = f"{model_name} {shares[name]['share']:.0%} (p={shares[name]['probability']:.2f})"
         if shares[name]["share"] < MIN_DRIVER_SHARE:
             parts.append(f"{head}: not a driver")
             continue

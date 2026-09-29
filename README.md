@@ -14,8 +14,8 @@ accounts.
 ``` text
                         +-> structural row -> graph (rolling 24 h window) -> HGT  -> p_graph ----+
 incoming/<file> -> feature_engine9                                                               +-> ensemble -> alert
- (CloudTrail JSON,      +-> temporal row   -> the principal's last hour   -> LSTM -> p_sequence -+   0.4 p_graph + 0.6 p_sequence
-  JSONL, or CSV)                                                                                     alert at >= 5.92/10
+ (CloudTrail JSON,      +-> temporal row   -> the principal's last hour   -> LSTM -> p_sequence -+   w p_graph + (1-w) p_sequence
+  JSONL, or CSV)                                                                                     w, threshold: pipeline_config.json
 ```
 
 `pipeline.py` runs this. It watches `incoming/` and scores each new file's
@@ -38,6 +38,42 @@ are moved to `incoming/processed/`.
   window live in `pipeline_config.json`. Its weight and threshold were chosen
   on `real_dataset_dev.csv` only, by
   `datasets/privilege-escalation/evaluate_pipeline.py`.
+
+### Alert explanations
+
+Every alert says why it was flagged. The top `explain_top_events` events of each
+alert (default 3, in `pipeline_config.json`; `--no-explain` turns it off) get an
+explanation, computed on the exact graph window and LSTM history they were
+scored with (`ensemble_explain.py`). A one-line summary prints under the alert:
+
+``` text
+[ALERT] stratus-redteam: 133 event(s), max risk 8.43/10 (top: PutRolePolicy)
+        why: risk 8.43/10 (alert at 5.14) | LSTM 49% (p=0.82): the action PutRolePolicy (+2.40);
+             risk learned for this action (+1.05); earlier GetUser 0.08 min before (+0.19)
+             | HGT 51% (p=0.86): how common this action is overall (49%); known privilege-escalation action (39%)
+```
+
+How to read it:
+- **Model shares** (`LSTM 49%`, `HGT 51%`) are exact: the ensemble is
+  `w p_graph + (1-w) p_sequence`, so each term's share of the risk is its share
+  of the alert. A model under 25% of the risk is reported as "not a driver". When
+  the graph model has no weights for an event's relation, the LSTM decides alone
+  and the summary says so.
+- **LSTM reasons** come from `temporal-analysis/lstm_explain.py`: feature
+  contributions by Integrated Gradients (logit units; they add up to the score's
+  change from an all-absent input), and "earlier X n min before", the effect of
+  removing that earlier event from the principal's 10-minute window.
+- **HGT reasons** are gradient x input on the flagged event's edge in the window
+  graph, as shares of the total (a first-order attribution, not an exact
+  decomposition). Other events that moved the score through the graph are named
+  when they carry at least 5% of it.
+- **Fast-lane** events (trail deletion and similar) are flagged by rule whatever
+  their risk; the summary starts with the rule.
+
+The alert JSON's `explanations` list has the full detail per event: each model's
+probability, weight, contribution and share, the graph's feature shares and
+related events (with source, target and action), and the LSTM's per-feature and
+per-earlier-event effects. Every feature carries its raw name and a label.
 
 ## Run it
 

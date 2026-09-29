@@ -90,7 +90,8 @@ class TestCombine(unittest.TestCase):
                                     "related_events": []}, None, 0.5, 0.5)
         self.assertEqual(e["driven_by"], "graph")
         self.assertIn("HGT", e["summary"])
-        self.assertIn("privilege_gain", e["summary"])
+        self.assertIn("privilege gained over the role that granted it", e["summary"])
+        self.assertEqual(e["graph"]["top_features"][0]["label"], ee.label("privilege_gain"))
         self.assertIn("LSTM 5% (p=0.05): not a driver", e["summary"])
 
     def test_fast_lane_and_unscored_graph_are_stated(self):
@@ -99,6 +100,24 @@ class TestCombine(unittest.TestCase):
         self.assertTrue(e["summary"].startswith("FAST-LANE rule: CloudTrail trail deleted"))
         self.assertIn("HGT: relation not seen in training, LSTM only", e["summary"])
         self.assertEqual(e["driven_by"], "sequence")
+
+
+class TestLabels(unittest.TestCase):
+    """Every feature either model can report has a plain-English label, so a
+    newly added feature cannot silently reach the summary as a raw column name."""
+
+    def test_every_graph_feature_is_labelled(self):
+        for name in EDGE_FEATURE_NAMES:
+            self.assertIn(name, ee.FEATURE_LABELS, name)
+
+    def test_every_sequence_input_is_labelled(self):
+        import feature_engine9 as fe9
+        for name in fe9.TEMPORAL_COLS + tlt.PE_CONTEXT_COLS + [lx.DT_FEATURE]:
+            self.assertIn(name, ee.FEATURE_LABELS, name)
+
+    def test_event_name_and_unknown_features(self):
+        self.assertEqual(ee.label("event_name=AttachRolePolicy"), "the action AttachRolePolicy")
+        self.assertEqual(ee.label("brand_new_feature"), "brand_new_feature")
 
 
 class TestGraphExplanations(unittest.TestCase):
