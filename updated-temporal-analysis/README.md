@@ -28,29 +28,36 @@ Real dev = `real_dataset_dev.csv` (546 sessions, 71 attacks). LSTM alone, no gra
 
 | Model | Session AUC-PR | Session best F1 | Session AUC | Event AUC-PR |
 |---|---|---|---|---|
-| Live v5 (`lstm_transformer_clean`) | 0.805 | **0.863** | **0.970** | 0.190 |
+| Live v5 (`lstm_transformer_clean`) | 0.805 | **0.863** | 0.970 | 0.190 |
 | v6.2 recipe on the new data | 0.534 | 0.515 | 0.764 | 0.206 |
 | v5 recipe on the new data | 0.825 | 0.816 | 0.954 | 0.328 |
-| **v6.3** | **0.852** | 0.829 | 0.961 | 0.314 |
-| v6.3 fine-tuned (5-fold out-of-fold) | 0.894 | 0.853 | 0.970 | 0.625 |
-| Random forest baseline | 0.769 | 0.795 | 0.957 | 0.433 |
+| **v6.3** (served priors, current) | **0.846** | 0.829 | 0.960 | 0.316 |
+| v6.3 fine-tuned, L2-SP 0.01 (5-fold out-of-fold) | 0.902 | 0.842 | 0.980 | 0.928 |
+| Random forest baseline (served priors) | 0.817 | 0.855 | **0.978** | 0.434 |
+
+The previous v6.3 (streamed priors, see section 3) scored 0.852 / 0.829 / 0.961 / 0.314, and its
+fine-tune (L2-SP 1.0) 0.894 / 0.853 / 0.970 / 0.625. The prior fix changed the LSTM's dev numbers
+within noise; the random forest gained the most from it (0.769 → 0.817 session AUC-PR).
 
 Real test = `real_dataset_test.csv` (821 sessions, 107 attacks), scored **once** by
 `finetune_lstm_v6_3.py --test` with thresholds frozen on dev. Nothing was chosen on test.
+**These are the previous models (streamed priors).** The current v6.3 / v6.3-ft have not been
+scored on test, so test stays a one-shot check.
 
 | Model | Session AUC-PR | Session best F1 | Session AUC | Event AUC-PR |
 |---|---|---|---|---|
 | Live v5 | **0.895** | **0.869** | **0.978** | 0.165 |
-| v6.3 | 0.822 | 0.796 | 0.957 | 0.251 |
-| v6.3 fine-tuned | 0.870 | 0.836 | 0.977 | **0.493** |
+| v6.3 (streamed priors) | 0.822 | 0.796 | 0.957 | 0.251 |
+| v6.3 fine-tuned (streamed priors) | 0.870 | 0.836 | 0.977 | **0.493** |
 
 Takeaway: v5 still ranks sessions best. v6.3-ft is close on sessions and 3x better at pointing to
 the actual attack events, and it does it without the label-leaking features (see Explainability).
 
-**Did the fine-tune help?** Yes, on every real-test metric: session AUC-PR 0.822 → 0.870, best F1
-0.796 → 0.836, session AUC 0.957 → 0.977, event AUC-PR 0.251 → 0.493.
+**Did the fine-tune help?** Yes, on every real-test metric (previous models): session AUC-PR
+0.822 → 0.870, best F1 0.796 → 0.836, session AUC 0.957 → 0.977, event AUC-PR 0.251 → 0.493. On
+dev (out-of-fold) it helps the current v6.3 the same way: 0.846 → 0.902 session AUC-PR.
 
-Accuracy, precision and recall on real test, at the thresholds frozen on dev:
+Accuracy, precision and recall on real test (previous models), at the thresholds frozen on dev:
 
 | Model | Session accuracy | Session precision / recall | Event accuracy | Event precision / recall |
 |---|---|---|---|---|
@@ -93,7 +100,25 @@ v6.2 as-is scored 0.534 session AUC-PR on real dev. Ablations, one change at a t
 
 Dropping the leaky features is **not** what hurt v6.2. Keeping them made it worse (0.381).
 
-### 3. Fixes carried over (the audit issues, from v6.2)
+### 3. Label priors: train == serve (fix)
+`action_risk_prior` and `principal_type_prior_risk` are fitted from labels. In the training CSV they
+are **streamed**: each row got the estimate from the rows before it, so attack names start near the
+base rate and climb. The live pipeline serves the **frozen** prior files (final counts). Attack rows
+averaged **0.395 in training vs 0.500 live** (e.g. `GetPasswordData` 0.68 vs 0.86), so live attack
+names looked riskier than anything the model trained on. Benign rows were close (0.046 vs 0.040).
+
+Fix (`--priors serve`, the default): the trainer replaces both columns with the frozen values from
+`feature_engine9`'s prior files, the same ones `Pipeline.featurize` uses. Train and serve now match
+exactly (max per-name difference 1e-16 against the live-featurised dev). No label leakage: a frozen
+prior is one constant per event name / principal type, and real dev / test never enter those files.
+
+Out-of-fold priors were tried first and are wrong here: leaving a user out sends benign `AssumeRole`
+(1,206 rows from 6 users) from 0.11 to 0.65, because removing a heavy user leaves mostly attacks.
+
+The previous models are kept locally as `lstm_transformer_v6_3_streamed` / `lstm_transformer_v6_3_ft_streamed`
+and in this branch's history.
+
+### 4. Fixes carried over (the audit issues, from v6.2)
 - **Label-leaking features dropped:** `no_mfa`, `mfa_absent` and `params_length_normalized` separate
   classes on synthetic data but not on real data (`--audit` prints the gap).
 - **`<UNK>` training:** the current event's name is hidden 15% of the time, so unseen API names still
@@ -107,13 +132,13 @@ Dropping the leaky features is **not** what hurt v6.2. Keeping them made it wors
   the embedding.
 - **Real test is never read** by the trainer (`real_test_scored: false` in `metrics.json`).
 
-### 4. Fine-tune (`finetune_lstm_v6_3.py`)
+### 5. Fine-tune (`finetune_lstm_v6_3.py`)
 Only the 3 scoring heads are refit on real dev labels. The embedding, BiLSTM and Transformer stay
 frozen. An L2-SP penalty pulls the heads back to their v6.3 weights, so 71 attack sessions can't drag
-them far. The penalty strength (1.0) is picked by 5-fold cross-validation over dev sessions, and the
-thresholds come from out-of-fold scores.
+them far. The penalty strength is picked by 5-fold cross-validation over dev sessions (0.01 for the
+current v6.3; 1.0 for the previous one), and the thresholds come from out-of-fold scores.
 
-### 5. Explainability (`lstm_explain.py`)
+### 6. Explainability (`lstm_explain.py`)
 For each alert:
 - **Top earlier events:** each earlier event in the 10-min window is removed and the event
   re-scored. The effect is in logit units, so it stays readable when scores are near 1.
