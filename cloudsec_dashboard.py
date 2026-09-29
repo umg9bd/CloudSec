@@ -9,15 +9,16 @@ triplet, and a per-event breakdown.
 Explainability -- the SHAP feature weights and the natural-language narrative --
 is a PLACEHOLDER, clearly marked, to be wired to the XAI module later.
 
-Run:
+Run (with the live pipeline, one command -- the page refreshes as new scores land):
+    run.cmd  /  ./run.sh        ->  http://localhost:8501
+Or on its own, over output a pipeline run already wrote:
     streamlit run cloudsec_dashboard.py
-Generate the numbers it reads first (once):
-    python pipeline.py --files datasets/privilege-escalation/real_dataset_test.csv
 """
 
 import glob
 import json
 import os
+import time
 
 import pandas as pd
 import streamlit as st
@@ -27,6 +28,7 @@ SCORES = os.path.join(HERE, "output", "risk_scores.csv")
 ALERTS = os.path.join(HERE, "alerts")
 RAW = os.path.join(HERE, "datasets", "privilege-escalation", "real_dataset_test.csv")
 HIGH_RISK = 8.0   # the ">0.8 threshold" band in the log stream (risk_score is 0-10)
+REFRESH_SECONDS = 5
 
 st.set_page_config(page_title="CloudSec-XAI Console", page_icon="🛡️", layout="wide")
 
@@ -77,30 +79,49 @@ CSS = """
 st.markdown(CSS, unsafe_allow_html=True)
 
 
+def output_version():
+    """Changes whenever the pipeline appends scores or writes an alert, so the cached load below
+    re-reads only then."""
+    scores = os.path.getmtime(SCORES) if os.path.exists(SCORES) else None
+    return scores, tuple(sorted(glob.glob(os.path.join(ALERTS, "*.json"))))
+
+
 @st.cache_data
-def load():
-    if not os.path.exists(SCORES):
-        return None, None, None
+def load_raw():
+    if not os.path.exists(RAW):
+        return None
+    r = pd.read_csv(RAW, low_memory=False, dtype=str)
+    r["log_id"] = "real_dataset_test.csv:" + r.index.astype(str)
+    return r.set_index("log_id")
+
+
+@st.cache_data
+def load(version):
+    if version[0] is None:
+        return None, []
     df = pd.read_csv(SCORES, low_memory=False)
     df = df.drop_duplicates("log_id", keep="last")
-    raw = None
-    if os.path.exists(RAW):
-        r = pd.read_csv(RAW, low_memory=False, dtype=str)
-        r["log_id"] = "real_dataset_test.csv:" + r.index.astype(str)
-        raw = r.set_index("log_id")
     alerts = []
-    for f in sorted(glob.glob(os.path.join(ALERTS, "*.json"))):
+    for f in version[1]:
         try:
             alerts.append(json.load(open(f, encoding="utf-8")))
         except Exception:
             pass
-    return df, raw, alerts
+    return df, alerts
 
 
-df, raw, alerts = load()
-if df is None:
-    st.error("No pipeline output found. Run:  python pipeline.py --files "
-             "datasets/privilege-escalation/real_dataset_test.csv")
+def refresh_later():
+    """The pipeline keeps writing while the page is open: rerun every few seconds."""
+    time.sleep(REFRESH_SECONDS)
+    st.rerun()
+
+
+df, alerts = load(output_version())
+raw = load_raw()
+if df is None or df.empty:
+    st.info("Waiting for the pipeline's first scores (output/risk_scores.csv) -- start it with "
+            "run.cmd / ./run.sh. This page refreshes on its own.")
+    refresh_later()
     st.stop()
 
 n_alerts = len(alerts)
@@ -152,13 +173,14 @@ st.markdown(f'<div class="card"><div class="hd">Real-time High Risk Logs (&gt;0.
             f'<span class="live"></span></div>{rows_html}</div>', unsafe_allow_html=True)
 
 # ── selected-log breakdown ──
-labels = [f"{r['risk_score']:.2f}  {r['event_name']}  ·  {str(r['username'])[-24:]}"
-          for _, r in high.iterrows()]
-pick = st.selectbox("Selected log for XAI breakdown", range(len(high)),
-                    format_func=lambda i: labels[i]) if len(high) else None
+# keyed by log_id, not position: the list re-sorts as new events arrive on each refresh
+labels = {r["log_id"]: f"{r['risk_score']:.2f}  {r['event_name']}  ·  {str(r['username'])[-24:]}"
+          for _, r in high.iterrows()}
+pick = st.selectbox("Selected log for XAI breakdown", list(labels),
+                    format_func=labels.get) if len(high) else None
 
 if pick is not None:
-    r = high.iloc[pick]
+    r = high[high["log_id"] == pick].iloc[0]
     lid = r["log_id"]
     # real CloudTrail-ish JSON from the raw event
     fields = {"eventName": r["event_name"], "eventSource": "", "userIdentity.arn": "",
@@ -224,3 +246,5 @@ st.markdown(
     '<div style="color:#646b82;font-size:11px;margin-top:10px">Model: CloudSec-XAI · '
     'HGT + LSTM ensemble · numbers are the live pipeline output on the real held-out test capture · '
     'MITRE ATT&CK TA0004 / TA0008</div>', unsafe_allow_html=True)
+
+refresh_later()

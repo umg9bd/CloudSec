@@ -34,6 +34,7 @@ Usage (inside the Docker image -- see Dockerfile; torch is blocked natively on t
     python pipeline.py --watch incoming                # run forever on a folder
     python pipeline.py --watch incoming --show-events  # ... printing every event's scores
     python pipeline.py --watch incoming --show-events --feed   # ... and stream a dataset into it
+    python pipeline.py --watch incoming --dashboard    # ... with the Streamlit dashboard on :8501
     run.cmd  /  ./run.sh                               # all of the above in Docker, one command
     python pipeline.py --files a.json b.json           # score files once
 """
@@ -43,6 +44,7 @@ import argparse
 import json
 import os
 import shutil
+import subprocess
 import sys
 import time
 import uuid
@@ -421,6 +423,47 @@ def clear_unscored_feed(directory: str) -> int:
     return removed
 
 
+def clear_previous_output(cfg: PipelineConfig) -> int:
+    """Removes the risk scores and alert files a previous run wrote. Scores are appended to
+    output_csv, so without this a fresh (--reset-state) run's dashboard mixed in the last run's
+    events and alerts."""
+    path = lambda p: p if os.path.isabs(p) else os.path.join(ROOT, p)
+    removed = []
+    if os.path.isfile(path(cfg.output_csv)):
+        os.remove(path(cfg.output_csv))
+        removed.append(cfg.output_csv)
+    alert_dir = path(cfg.alert_dir)
+    n_alerts = 0
+    if os.path.isdir(alert_dir):
+        for name in os.listdir(alert_dir):
+            if name.startswith("alert_") and name.endswith(".json"):
+                os.remove(os.path.join(alert_dir, name))
+                n_alerts += 1
+    if n_alerts:
+        removed.append(f"{n_alerts} alert file(s) in {cfg.alert_dir}/")
+    if removed:
+        print(f"[RESET] removed the previous run's output: {', '.join(removed)}", flush=True)
+    return len(removed)
+
+
+DASHBOARD_PORT = 8501
+
+
+def start_dashboard(log_dir: str, port: int = DASHBOARD_PORT) -> subprocess.Popen:
+    """Starts cloudsec_dashboard.py (Streamlit) in the background, reading the output this
+    pipeline writes. Its own log goes to <log_dir>/dashboard.log so it doesn't interleave with
+    the event stream."""
+    os.makedirs(log_dir, exist_ok=True)
+    log = open(os.path.join(log_dir, "dashboard.log"), "w", encoding="utf-8")
+    proc = subprocess.Popen(
+        [sys.executable, "-m", "streamlit", "run", os.path.join(ROOT, "cloudsec_dashboard.py"),
+         "--server.address", "0.0.0.0", "--server.port", str(port), "--server.headless", "true",
+         "--browser.gatherUsageStats", "false"],
+        cwd=ROOT, stdout=log, stderr=subprocess.STDOUT)
+    print(f"Dashboard: http://localhost:{port}  (log: {os.path.relpath(log.name, ROOT)})", flush=True)
+    return proc
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     src = ap.add_mutually_exclusive_group(required=True)
@@ -438,7 +481,10 @@ def main():
     ap.add_argument("--no-explain", action="store_true",
                     help="Skip the per-alert HGT + LSTM explanations (explain_top_events in the config)")
     ap.add_argument("--reset-state", action="store_true",
-                    help="Forget per-principal history and the event buffer before starting")
+                    help="Start fresh: forget per-principal history and the event buffer, and remove "
+                         "the previous run's risk scores and alert files")
+    ap.add_argument("--dashboard", action="store_true",
+                    help=f"Also serve the Streamlit dashboard (cloudsec_dashboard.py) on port {DASHBOARD_PORT}")
     args = ap.parse_args()
 
     cfg = PipelineConfig.load(args.config)
@@ -446,22 +492,37 @@ def main():
         cfg.explain_top_events = 0
     if args.reset_state:
         shutil.rmtree(os.path.join(ROOT, cfg.state_dir), ignore_errors=True)
+        clear_previous_output(cfg)
         if args.watch and args.feed:
             clear_unscored_feed(args.watch)
+    dashboard = start_dashboard(os.path.join(ROOT, cfg.state_dir)) if args.dashboard else None
     print(f"Ensemble: {cfg.weight_graph:g} x HGT + {1 - cfg.weight_graph:g} x LSTM, alert at "
           f"{cfg.alert_threshold * 10:.2f}/10 ({cfg.tuned_on})", flush=True)
-    pipeline = Pipeline(cfg, show_events=args.show_events)
-    if args.watch:
-        if args.feed:
-            import threading
-            from feed_incoming import feed
-            threading.Thread(target=feed, daemon=True, kwargs=dict(
-                dataset=args.feed, incoming=args.watch, batch_size=args.feed_batch_size,
-                interval=args.feed_interval, limit=args.feed_limit)).start()
-        watch(args.watch, pipeline)
-    else:
-        for f in args.files:
-            pipeline.process_file(f)
+    try:
+        pipeline = Pipeline(cfg, show_events=args.show_events)
+        if args.watch:
+            if args.feed:
+                import threading
+                from feed_incoming import feed
+                threading.Thread(target=feed, daemon=True, kwargs=dict(
+                    dataset=args.feed, incoming=args.watch, batch_size=args.feed_batch_size,
+                    interval=args.feed_interval, limit=args.feed_limit)).start()
+            watch(args.watch, pipeline)
+        else:
+            for f in args.files:
+                pipeline.process_file(f)
+            if dashboard is not None:
+                print("Scoring done; the dashboard stays up until Ctrl+C.", flush=True)
+                dashboard.wait()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        if dashboard is not None:
+            dashboard.terminate()
+            try:
+                dashboard.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                dashboard.kill()
 
 
 if __name__ == "__main__":

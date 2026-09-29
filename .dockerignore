@@ -1,0 +1,4 @@
+# The image is only the Python runtime: code, checkpoints and data are mounted at run time
+# (docker run -v <repo>:/app), so no build context is needed. Without this, every build sent the
+# whole 1.5 GB repo to Docker.
+*

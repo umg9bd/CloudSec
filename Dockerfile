@@ -3,6 +3,7 @@
 #
 #   docker build -t cloudsec .
 #   docker run --rm -v "$PWD:/app" cloudsec python pipeline.py --watch incoming
+#   (or just run.cmd / ./run.sh: pipeline + demo feed + dashboard on http://localhost:8501)
 FROM python:3.14-slim
 
 ENV PYTHONUNBUFFERED=1 PYTHONIOENCODING=utf-8 PIP_NO_CACHE_DIR=1
@@ -11,4 +12,9 @@ RUN pip install --index-url https://download.pytorch.org/whl/cpu torch==2.13.0 \
         scipy==1.18.1 scikit-learn==1.9.0 xgboost==3.4.1 networkx==3.6.1 policy_sentry==0.15.2 \
         neo4j==6.2.0 PyYAML watchdog tqdm python-dateutil
 
+# The dashboard (cloudsec_dashboard.py); its own layer so adding it didn't rebuild torch.
+# streamlit 1.64 excludes pyarrow 25.0.0, hence the patch upgrade from the line above.
+RUN pip install streamlit==1.64.0 pyarrow==25.0.1
+
 WORKDIR /app
+EXPOSE 8501
