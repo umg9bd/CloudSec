@@ -85,6 +85,7 @@ DROP_FEATURES: tuple[str, ...] = ("params_length_normalized", "no_mfa", "mfa_abs
 SECRET_NAMES = v5.SECRET_NAMES | {"GetParameters", "GetParameter", "BatchGetSecretValue"}
 SELECTION = "epochs >= MIN_EPOCHS: real-dev session AUC-PR > session best F1 > event AUC-PR"
 UNK_LAST_P = 0.15
+PRIOR_WEIGHT = 15  # feature_engine9.FeatureEngineer's AdaptiveRiskPrior prior_weight
 UNK_READ_P = 0.0  # --unk-read: helped HGT+LSTM, not LSTM alone (dev: 0 -> 0.852, 0.6 -> 0.848, 1.0 -> 0.822)
 # recipe -> (last-event <UNK> rate, secret-positive weight, campaign relabel, read-name <UNK> rate)
 RECIPES = {"v6.3": (UNK_LAST_P, 4.0, True, UNK_READ_P), "v6.2": (UNK_LAST_P, 2.0, False, 0.0),
@@ -111,8 +112,38 @@ def fe9_vocab() -> dict[str, int]:
     return vocab
 
 
-def load_train(drop: tuple[str, ...]) -> tuple[pd.DataFrame, list[str], dict[str, int]]:
-    """Synthetic feature_engine9 features + campaign-family split. Vocab = <UNK> + names seen here."""
+def serve_priors(df: pd.DataFrame) -> pd.DataFrame:
+    """Replace the CSV's action_risk_prior / principal_type_prior_risk with the values the live pipeline
+    serves: feature_engine9's frozen prior files (the same files Pipeline.featurize and real dev use).
+
+    The training CSV holds STREAMED priors: each row got the shrinkage estimate from the rows before it,
+    so attack names start near the base rate and climb. Serving uses the final counts. On this data
+    attack rows average 0.395 streamed vs 0.500 served, so live attack names looked riskier than
+    anything seen in training. With the served values train == serve exactly.
+
+    Not target leakage: a frozen prior is one constant per event name / principal type, so it tells
+    the model nothing the name itself does not, and real dev / test never enter the prior files.
+    (Out-of-fold priors were tried and are wrong here: leave-one-user-out sends benign AssumeRole --
+    1,206 rows from 6 users -- from 0.11 to 0.65, because removing a heavy user leaves mostly attacks.)"""
+    import feature_engine9 as fe9
+
+    def frozen(path):
+        return fe9.AdaptiveRiskPrior(priors={}, default=fe9.AdaptiveRiskPrior.BASE_RATE,
+                                     prior_weight=PRIOR_WEIGHT, path=path, frozen=True)
+
+    act, prin = frozen(fe9.ACTION_PRIOR_FILE), frozen(fe9.PRINCIPAL_PRIOR_FILE)
+    ptypes = list(fe9.FIXED_PRINCIPAL_TYPES)
+    out = df.copy()
+    names = df["event_name"].astype(str)
+    out["action_risk_prior"] = names.map({n: act.score(n) for n in names.unique()}).to_numpy()
+    ptype = df["principal_type_idx"].astype(int).map(lambda i: ptypes[i] if 0 < i < len(ptypes) else "unknown")
+    out["principal_type_prior_risk"] = ptype.map({p: prin.score(p) for p in ptype.unique()}).to_numpy()
+    return out
+
+
+def load_train(drop: tuple[str, ...], priors: str = "serve") -> tuple[pd.DataFrame, list[str], dict[str, int]]:
+    """Synthetic feature_engine9 features + campaign-family split. Vocab = <UNK> + names seen here.
+    priors='serve' swaps the streamed label priors for the frozen values the pipeline serves (serve_priors)."""
     import campaign_split
 
     df = pd.read_csv(TRAIN_CSV, dtype={"log_id": str})
@@ -127,6 +158,12 @@ def load_train(drop: tuple[str, ...]) -> tuple[pd.DataFrame, list[str], dict[str
     assert df["split"].notna().all(), f"{SPLIT_FILE} does not cover {TRAIN_CSV.name}; rebuild it with campaign_split.py"
     users = df.groupby("username")["split"].nunique()
     assert (users == 1).all(), "users straddle splits; rebuild the split file with campaign_split.py"
+    if priors == "serve":
+        streamed = df["action_risk_prior"].to_numpy()
+        df = serve_priors(df)
+        atk = df["label"].to_numpy() == 1
+        print(f"priors: served (frozen feature_engine9 files). action_risk_prior on attack rows: streamed "
+              f"{streamed[atk].mean():.3f} -> served {df['action_risk_prior'].to_numpy()[atk].mean():.3f}", flush=True)
     pairs = df[["event_name", "event_name_idx"]].drop_duplicates()
     vocab = {"<UNK>": 0, **{str(n): int(i) for n, i in zip(pairs["event_name"], pairs["event_name_idx"])}}
     feats = [c for c in df.columns if c not in META_COLS and c not in drop]
@@ -403,6 +440,8 @@ def main() -> None:
     ap.add_argument("--secret-weight", type=float, default=None, help="override the recipe's secret-positive weight")
     ap.add_argument("--relabel", choices=["on", "off"], default=None, help="override the recipe's campaign relabel")
     ap.add_argument("--unk-read", type=float, default=None, help="override the recipe's read-name <UNK> rate")
+    ap.add_argument("--priors", choices=["serve", "streamed"], default="serve",
+                    help="label priors: serve = the frozen values the pipeline serves (default); streamed = as in the CSV")
     args = ap.parse_args()
     global OUT_DIR, CKPT_PATH
     if args.out_dir:
@@ -414,7 +453,7 @@ def main() -> None:
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     drop = tuple(c for c in args.drop.split(",") if c) if args.drop is not None else DROP_FEATURES
 
-    df, feats, vocab = load_train(drop)
+    df, feats, vocab = load_train(drop, args.priors)
     dev_df = real_dev_features()
     if args.audit:
         table = audit(df, feats, dev_df)
@@ -481,6 +520,7 @@ def main() -> None:
         "split_users": split_users, "vocab_size": vocab_size, "n_features": int(seqs[0].feats.shape[1]),
         "seq_len": v5.SEQ_LEN, "window_minutes": v5.WINDOW_MINUTES, "stride_minutes": v5.STRIDE_MINUTES,
         "secret_ids": sorted(sec_ids), "dropped_features": list(drop), "unk_last_p": unk_p, "unk_read_p": unk_read,
+        "priors": args.priors,
         "recipe": args.recipe, "campaign_relabel": relabel, "secret_weight": secret_weight,
         "selection": SELECTION, "selected_epoch": best_epoch, "threshold_margin": THRESHOLD_MARGIN,
         "real_test_scored": False,
