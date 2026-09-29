@@ -100,11 +100,22 @@ class TestCheckpoints(unittest.TestCase):
             self.assertTrue(((out["P_seq"] >= 0) & (out["P_seq"] <= 1)).all(), name)
 
 
-class TestPipelineStillUsesV5(unittest.TestCase):
-    def test_pipeline_config_points_at_v5(self):
+class TestConfiguredLiveLstm(unittest.TestCase):
+    """Whatever pipeline_config.json serves (v6.3-ft since 2026-09-29) must exist,
+    load through the pipeline's scorer, and be fully fed by feature_engine9."""
+
+    def test_configured_checkpoint_loads_and_can_be_fed(self):
         with open(ROOT / "pipeline_config.json", encoding="utf-8") as f:
-            ckpt = json.load(f)["lstm_checkpoint"]
-        self.assertEqual(os.path.normpath(ROOT / ckpt), os.path.normpath(V5))
+            path = ROOT / json.load(f)["lstm_checkpoint"]
+        self.assertTrue(path.exists(), path)
+        s = sc.load_scorer(path, device=torch.device("cpu"))
+        self.assertLess(max(s.vocab.values()), embedding_rows(s))
+        missing = [c for c in s.ckpt["feature_cols"]
+                   if c not in fe.TEMPORAL_COLS and c not in tlt.PE_CONTEXT_COLS]
+        self.assertEqual(missing, [])
+
+    def test_rollback_checkpoint_is_still_available(self):
+        self.assertTrue(V5.exists(), V5)
 
 
 if __name__ == "__main__":

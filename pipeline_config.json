@@ -1,6 +1,6 @@
 {
   "hgt_checkpoint": "checkpoints/best_HGT_wrapped.pt",
-  "lstm_checkpoint": "temporal-analysis/artifacts/lstm_transformer_clean/temporal_lstm_transformer.pt",
+  "lstm_checkpoint": "temporal-analysis/artifacts/lstm_transformer_v6_3_ft/temporal_lstm_transformer.pt",
   "weight_graph": 0.5,
   "alert_threshold": 0.5139,
   "graph_window_hours": 24.0,
@@ -8,5 +8,8 @@
   "alert_dir": "alerts",
   "output_csv": "output/risk_scores.csv",
   "tuned_on": "real_dataset_dev.csv, 546 sessions: session-level F1=0.883 (weight and threshold chosen there; test never used for tuning)",
-  "notes": {}
+  "notes": {
+    "lstm": "Switched from v5 (lstm_transformer_clean) to v6.3-ft on 2026-09-29: trained on the current feature_engine9 data and served priors, without the label-leaking features (see temporal-analysis/README_v6_3.md). Rollback: point lstm_checkpoint back at temporal-analysis/artifacts/lstm_transformer_clean/temporal_lstm_transformer.pt.",
+    "calibration": "weight_graph and alert_threshold were tuned with v5 and are kept unchanged, as README_v6_3.md advises for v6.3-ft (its heads were fitted on real dev, so re-tuning on dev would be optimistic). Not yet re-checked as HGT + LSTM on dev: that needs the retrained HGT and a regenerated real_dataset_dev_temporal.csv."
+  }
 }
