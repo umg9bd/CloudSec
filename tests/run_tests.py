@@ -69,7 +69,8 @@ FAST_SUITES = [
     "test_pipeline",              # streaming == batch (LSTM), fallback, alert schema
     "test_watch_folder",          # one watcher per file, no crash when a file vanishes
     "test_lstm_scorer",           # v5/v6 checkpoints load with the right vocab; pipeline can feed both
-    "test_updated_temporal_analysis",  # Nandan's LSTM explain tests; v6.3 / v6.3-ft plug into the pipeline
+    "test_lstm_v6_3",             # v6.3 scripts' paths resolve; v6.3 / v6.3-ft plug into the pipeline
+    "test_lstm_explain",          # LSTM alert explanations (Nandan)
     "test_cloudtrail_input",      # every accepted input format; raw-JSON identity + target parsing
     # ── shared: the train/eval boundary both tracks must respect ─────────
     "test_leakage_guard",         # held-out detection, label-derived prior freeze

@@ -1,26 +1,26 @@
-# updated-temporal-analysis — LSTM + Transformer on the new data
+# LSTM + Transformer v6.3 on the new data
 
 The LSTM + Transformer (temporal / sequence model) retrained on the team's current
 `feature_engine9` data, with a real-data fine-tune and explainability. Graph (HGT) code is not
-part of this folder.
+part of this work. (Developed as `updated-temporal-analysis/` on `feature/Temporal-Analyst`;
+on `realtime-pipeline` its files live where its scripts expect them, listed below.)
 
 ## Contents
 
-| Path | What |
+| Path (from the repo root) | What |
 |---|---|
-| `train_lstm_transformer_v6_3.py` | v6.3 trainer (recipes `v6.3` default, `v6.2`, `v5`) |
-| `train_lstm_transformer.py` | shared model class and helpers (v5 code base, with the fixes below) |
-| `finetune_lstm_v6_3.py` | head-only fine-tune of v6.3 on real dev |
-| `lstm_explain.py` | explanations for v5 and v6.3 alerts (`--model v5 \| v6.3`) |
-| `test_lstm_explain.py` | 4 unit tests for `lstm_explain.py` |
+| `temporal-analysis/train_lstm_transformer_v6_3.py` | v6.3 trainer (recipes `v6.3` default, `v6.2`, `v5`) |
+| `temporal-analysis/train_lstm_transformer.py` | shared model class and helpers (the one the live pipeline also uses) |
+| `temporal-analysis/finetune_lstm_v6_3.py` | head-only fine-tune of v6.3 on real dev |
+| `temporal-analysis/lstm_explain.py` | explanations for v5 and v6.3 alerts (`--model v5 \| v6.3`) |
+| `tests/test_lstm_explain.py` | 4 unit tests for `lstm_explain.py` (run by `tests/run_tests.py`) |
 | `splits/campaign_family_seed42.csv` | train/val/test split by attack campaign family (`campaign_split.py`) |
-| `artifacts/lstm_transformer_v6_3/` | **v6.3 model**, metrics, training history, explanations |
-| `artifacts/lstm_transformer_v6_3_ft/` | v6.3 + fine-tuned heads, `finetune_report.json` |
-| `artifacts/lstm_transformer_v5_live/` | the live pipeline's v5 (`lstm_transformer_clean`), explanations |
-| `artifacts/lstm_transformer_v5_newdata/` | v5 recipe retrained on the new data |
+| `temporal-analysis/artifacts/lstm_transformer_v6_3/` | **v6.3 model**, metrics, training history, explanations |
+| `temporal-analysis/artifacts/lstm_transformer_v6_3_ft/` | v6.3 + fine-tuned heads, `finetune_report.json` |
+| `temporal-analysis/artifacts/lstm_transformer_clean/` | the live pipeline's v5, plus its `explanations/` |
+| `temporal-analysis/artifacts/lstm_transformer_v5_newdata/` | v5 recipe retrained on the new data |
 
-The scripts import `feature_engine9`, `campaign_split` and the datasets from the team repo, so run
-them from a `realtime-pipeline` checkout with this folder's files in `temporal-analysis/`.
+The scripts import `feature_engine9`, `campaign_split` and the datasets from the repo root.
 
 ## Results
 
@@ -180,14 +180,11 @@ the checkpoint's own `feature_cols`. v6.3 and v6.3-ft use that exact format: bot
 pipeline's scorer, and all 42 of their feature columns are produced by `feature_engine9` plus the
 PE context the pipeline already adds. No code change is needed.
 
-1. **Get the model into a `realtime-pipeline` checkout** (from the repo root):
-   ```
-   git checkout origin/feature/Temporal-Analyst -- updated-temporal-analysis/artifacts/lstm_transformer_v6_3_ft
-   ```
-   (or copy that folder to `temporal-analysis/artifacts/lstm_transformer_v6_3_ft/`).
+1. **The model is already in `realtime-pipeline`** at
+   `temporal-analysis/artifacts/lstm_transformer_v6_3_ft/`.
 2. **Point the config at it** in `pipeline_config.json` (the path is relative to the repo root):
    ```json
-   "lstm_checkpoint": "updated-temporal-analysis/artifacts/lstm_transformer_v6_3_ft/temporal_lstm_transformer.pt"
+   "lstm_checkpoint": "temporal-analysis/artifacts/lstm_transformer_v6_3_ft/temporal_lstm_transformer.pt"
    ```
    Use `lstm_transformer_v6_3/...` instead for v6.3 without the fine-tune.
 3. **Check it on dev once** (never with `--test` for tuning):
