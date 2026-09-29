@@ -155,14 +155,23 @@ What it found on real dev:
 
 ## Tried, did not help (LSTM alone)
 - **Hiding read-only event names during training** (`--unk-read`): improved HGT + LSTM, but not
-  the LSTM alone (0.852 → 0.848 → 0.822 as the rate rises). Off by default.
+  the LSTM alone (0.852 → 0.848 → 0.822 as the rate rises; streamed-prior runs). Off by default.
 - **`<UNK>` training off:** 0.610 against 0.852 with it on (both with relabel).
 - **Keeping the leaky features:** 0.381.
 
 ## Live pipeline
-`pipeline_config.json` (team repo) still serves the live v5. On real dev, HGT + LSTM session F1 is
-0.882 with v5 and 0.824 with a retrained LSTM. Only its alert threshold was re-tuned on current
-dev (0.5139 → 0.5161).
+`pipeline_config.json` (team repo) still serves the old live v5. On real dev, HGT + LSTM session F1
+was 0.882 with it and 0.824 with the v5 recipe retrained on the new data. Only its alert threshold
+was re-tuned on current dev (0.5139 → 0.5161).
+
+**Recommendation: point `lstm_checkpoint` at `lstm_transformer_v6_3_ft`.** The old v5 was trained
+on old data, does not use the 8 new features and saw different prior values than it is served.
+v6.3-ft is trained on the current data, uses the new features, trains on exactly the served priors
+and is the general (user-disjoint) model. Before switching:
+- run `evaluate_pipeline.py` on dev once with it (v6.3 / v6.3-ft have not been through the HGT + LSTM
+  pipeline yet; the checkpoint format is the one `pipeline.py` loads);
+- its heads were fitted on real dev, so re-tuning the ensemble weight and threshold on that same dev
+  is optimistic -- keep the current weight / threshold or tune on its out-of-fold scores.
 
 ## Known issues
 - The committed `real_dataset_dev_temporal.csv` predates the 8 new features, so the batch check in
@@ -171,11 +180,17 @@ dev (0.5139 → 0.5161).
   Real test is the honest number.
 - The live v5 depends on label-leaking features (see Explainability), so its high scores may not
   hold on new traffic.
+- The current v6.3 / v6.3-ft (served priors) have **not been scored on real test**. The test table
+  above is for the previous models. `finetune_lstm_v6_3.py --test` runs it once.
+- The fine-tune's out-of-fold event AUC-PR (0.928) is far above everything else; confirm it on
+  real test before relying on it.
+- With the served priors the random forest baseline beats v6.3 *before* fine-tuning on session best
+  F1 (0.855 vs 0.829); v6.3-ft is ahead on session AUC-PR (0.902 vs 0.817).
 
 ## Run
 ```
 python temporal-analysis/train_lstm_transformer_v6_3.py --audit    # feature check: synthetic vs real dev
-python temporal-analysis/train_lstm_transformer_v6_3.py            # train v6.3
+python temporal-analysis/train_lstm_transformer_v6_3.py            # train v6.3 (--priors serve is the default)
 python temporal-analysis/train_lstm_transformer_v6_3.py --compare  # v6.3 vs live v5 vs RF on dev
 python temporal-analysis/finetune_lstm_v6_3.py [--test]            # head fine-tune (+ one test run)
 python temporal-analysis/lstm_explain.py --model v6.3 --alerts 5 --global
