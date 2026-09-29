@@ -173,6 +173,45 @@ and is the general (user-disjoint) model. Before switching:
 - its heads were fitted on real dev, so re-tuning the ensemble weight and threshold on that same dev
   is optimistic -- keep the current weight / threshold or tune on its out-of-fold scores.
 
+## Connect to the live pipeline
+The live pipeline is `pipeline.py` on the `realtime-pipeline` branch. It loads whatever LSTM
+`pipeline_config.json` points to (`lstm_checkpoint`) through `prod.scorer.load_scorer`, and feeds it
+the checkpoint's own `feature_cols`. v6.3 and v6.3-ft use that exact format: both load with the
+pipeline's scorer, and all 42 of their feature columns are produced by `feature_engine9` plus the
+PE context the pipeline already adds. No code change is needed.
+
+1. **Get the model into a `realtime-pipeline` checkout** (from the repo root):
+   ```
+   git checkout origin/feature/Temporal-Analyst -- updated-temporal-analysis/artifacts/lstm_transformer_v6_3_ft
+   ```
+   (or copy that folder to `temporal-analysis/artifacts/lstm_transformer_v6_3_ft/`).
+2. **Point the config at it** in `pipeline_config.json` (the path is relative to the repo root):
+   ```json
+   "lstm_checkpoint": "updated-temporal-analysis/artifacts/lstm_transformer_v6_3_ft/temporal_lstm_transformer.pt"
+   ```
+   Use `lstm_transformer_v6_3/...` instead for v6.3 without the fine-tune.
+3. **Check it on dev once** (never with `--test` for tuning):
+   ```
+   python datasets/privilege-escalation/evaluate_pipeline.py
+   ```
+   This replays real dev through HGT + LSTM and **rewrites** `weight_graph` / `alert_threshold` in
+   `pipeline_config.json`, so back the file up first. For v6.3-ft, whose heads were fitted on dev,
+   prefer keeping the current weight (0.5) and threshold over the re-tuned ones. It needs
+   `real_dataset_dev_temporal.csv` regenerated with the current `feature_engine9` first (see
+   Known issues).
+4. **Run it live:**
+   ```
+   python pipeline.py --watch incoming                 # score every CloudTrail file dropped in incoming/
+   python pipeline.py --watch incoming --show-events   # ... and print each event's HGT / LSTM / risk
+   python pipeline.py --files some_log.csv             # score files once
+   ```
+   `--feed DATASET` also replays a dataset into the watched folder for a demo; its default is
+   `real_dataset_test.csv`, so never tune anything on what it shows. Alerts go to `alerts/`, scores to
+   `output/risk_scores.csv`.
+5. **Run the tests:** `python tests/run_tests.py`.
+6. **Roll back:** set `lstm_checkpoint` back to
+   `temporal-analysis/artifacts/lstm_transformer_clean/temporal_lstm_transformer.pt`.
+
 ## Known issues
 - The committed `real_dataset_dev_temporal.csv` predates the 8 new features, so the batch check in
   `evaluate_pipeline.py` raises `KeyError` until that file is regenerated.
