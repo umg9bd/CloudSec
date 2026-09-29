@@ -47,6 +47,20 @@ Real test = `real_dataset_test.csv` (821 sessions, 107 attacks), scored **once**
 Takeaway: v5 still ranks sessions best. v6.3-ft is close on sessions and 3x better at pointing to
 the actual attack events, and it does it without the label-leaking features (see Explainability).
 
+**Did the fine-tune help?** Yes, on every real-test metric: session AUC-PR 0.822 → 0.870, best F1
+0.796 → 0.836, session AUC 0.957 → 0.977, event AUC-PR 0.251 → 0.493.
+
+Accuracy, precision and recall on real test, at the thresholds frozen on dev:
+
+| Model | Session accuracy | Session precision / recall | Event accuracy | Event precision / recall |
+|---|---|---|---|---|
+| Live v5 | **95.5%** | 78% / **92%** | 78.7% | 18% / 28% |
+| v6.3 | 93.9% | 73% / 84% | 73.4% | 28% / 96% |
+| v6.3 fine-tuned | **95.5%** | **80%** / 87% | **81.7%** | **37% / 96%** |
+
+Accuracy flatters on this data: 87% of sessions and 89% of events are benign, so a model that
+never alerts would already score 87% / 89%. Report F1, AUC-PR and recall first.
+
 ## What changed and why
 
 ### 1. New data (why a retrain was needed)
