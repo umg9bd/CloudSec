@@ -171,7 +171,16 @@ class Pipeline:
 
         graph_rows = buf[buf["timestamp"] >= latest - pd.Timedelta(hours=self.cfg.graph_window_hours)]
         graph_rows = pd.concat([graph_rows, new]).drop_duplicates("log_id")  # late-arriving events too
-        p_graph = self.gnn.score(graph_rows[["log_id"] + STRUCT_COLS + ["label"]])
+        try:
+            p_graph = self.gnn.score(graph_rows[["log_id"] + STRUCT_COLS + ["label"]])
+            self._graph_ok = True
+        except Exception as e:
+            # A graph model that cannot score (e.g. a checkpoint built by a different graph loader)
+            # must not stop detection: the ensemble already scores an event with the LSTM alone
+            # when p_graph is missing. Loud on every file so it cannot go unnoticed.
+            print(f"[WARN] graph model failed, scoring with the LSTM only: {type(e).__name__}: {e}", flush=True)
+            p_graph = pd.DataFrame({"log_id": graph_rows["log_id"].astype(str), "gnn_prob": np.nan})
+            self._graph_ok = False
 
         # Each new event's principal: its last hour before the earliest new event, and the single
         # event before that (the true predecessor for the inter-event gap of the hour's first event).
@@ -280,16 +289,19 @@ class Pipeline:
         try:
             graph_exps = {}
             rows = inputs["graph_rows"]
-            data, order = self.gnn.build_graph(rows[["log_id"] + STRUCT_COLS + ["label"]])
-            if data is not None:
-                graph_exps = ee.explain_graph_events(self.gnn.model, data, order, targets, structural=rows)
+            if getattr(self, "_graph_ok", True):   # skip when the graph model could not score
+                data, order = self.gnn.build_graph(rows[["log_id"] + STRUCT_COLS + ["label"]])
+                if data is not None:
+                    graph_exps = ee.explain_graph_events(self.gnn.model, data, order, targets, structural=rows)
             seq_exps = ee.explain_sequence_events(self.lstm.model, self.lstm.ckpt, self.lstm.vocab,
                                                   inputs["seqs"], targets, self.lstm.device)
             for r in top.to_dict("records"):
                 lid = str(r["log_id"])
                 reason = fe9.CRITICAL_ACTIONS.get(r["event_name"]) if r.get("fast_lane") else None
                 out[lid] = ee.combine(r, graph_exps.get(lid), seq_exps.get(lid), self.cfg.weight_graph,
-                                      self.cfg.alert_threshold, fast_lane_reason=reason)
+                                      self.cfg.alert_threshold, fast_lane_reason=reason,
+                                      graph_unavailable=None if getattr(self, "_graph_ok", True)
+                                      else "graph model failed on this batch")
         except Exception as e:  # explanations are best-effort; the alert itself must go out
             print(f"[WARN] explanation failed: {type(e).__name__}: {e}", flush=True)
         return out

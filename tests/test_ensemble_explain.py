@@ -269,6 +269,29 @@ class TestPipelineAttachesExplanations(unittest.TestCase):
         self.assertTrue(alerts)
         self.assertTrue(all(a["explanations"] == [] for a in alerts))
 
+    def test_broken_graph_model_falls_back_to_the_lstm_with_explanations(self):
+        """A graph checkpoint that cannot score (e.g. built by a different graph loader)
+        must not stop detection: alerts still go out, LSTM-only, and say why."""
+        class BrokenGraph(NoGraph):
+            def score(self, df):
+                raise ValueError("X has 2 features, but StandardScaler is expecting 4 features")
+
+            def build_graph(self, df):
+                raise AssertionError("must not be called once scoring failed")
+
+        saved = self.pipe.gnn
+        self.pipe.gnn = BrokenGraph()
+        try:
+            alerts = self.run_rows()
+        finally:
+            self.pipe.gnn = saved
+        self.assertTrue(alerts)
+        for a in alerts:
+            self.assertTrue(a["explanations"], a["principal"])
+            for e in a["explanations"]:
+                self.assertIn("HGT: graph model failed on this batch, LSTM only", e["summary"])
+                self.assertEqual(e["models"]["sequence"]["share"], 1.0)
+
     def test_can_be_switched_off(self):
         saved = self.pipe.cfg.explain_top_events
         self.pipe.cfg.explain_top_events = 0

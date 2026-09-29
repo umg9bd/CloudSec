@@ -229,9 +229,11 @@ def _graph_reasons(graph_exp: Optional[dict], k: int = 2) -> List[str]:
 
 
 def combine(event: dict, graph_exp: Optional[dict], seq_exp: Optional[dict], weight_graph: float,
-            threshold: float, fast_lane_reason: Optional[str] = None) -> dict:
+            threshold: float, fast_lane_reason: Optional[str] = None,
+            graph_unavailable: Optional[str] = None) -> dict:
     """One flagged event's ensemble explanation. `event` needs log_id, event_name, username,
-    timestamp, p_graph, p_sequence (the pipeline's scored row)."""
+    timestamp, p_graph, p_sequence (the pipeline's scored row). `graph_unavailable` says why the
+    graph model has no score when that is not the usual "relation unseen in training"."""
     shares = _model_shares(event.get("p_graph"), event["p_sequence"], weight_graph)
     for exp in (graph_exp, seq_exp):      # label every reported feature in the JSON too
         for f in (exp or {}).get("top_features", []):
@@ -241,7 +243,7 @@ def combine(event: dict, graph_exp: Optional[dict], seq_exp: Optional[dict], wei
     parts = [f"risk {shares['risk'] * 10:.2f}/10 (alert at {threshold * 10:.2f})"]
     for name, model_name in (("sequence", "LSTM"), ("graph", "HGT")):
         if name == "graph" and not shares["graph_scored"]:
-            parts.append("HGT: relation not seen in training, LSTM only")
+            parts.append(f"HGT: {graph_unavailable or 'relation not seen in training'}, LSTM only")
             continue
         head = f"{model_name} {shares[name]['share']:.0%} (p={shares[name]['probability']:.2f})"
         if shares[name]["share"] < MIN_DRIVER_SHARE:
