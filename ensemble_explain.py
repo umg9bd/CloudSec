@@ -215,8 +215,15 @@ def _lstm_reasons(seq_exp: Optional[dict], k: int = 2) -> List[str]:
     feats = [f for f in seq_exp.get("top_features", []) if f["contribution_window"] > 0][:k]
     events = [e for e in seq_exp.get("top_events", []) if e["effect"] > 0][:k]
     out = [f"{label(f['feature'])} ({f['contribution_window']:+.2f})" for f in feats]
-    out += [f"earlier {e['event_name']} {e['minutes_before']:g} min before ({e['effect']:+.2f})" for e in events]
+    out += [f"earlier {event_label(e['event_name'])} {e['minutes_before']:g} min before ({e['effect']:+.2f})"
+            for e in events]
     return out
+
+
+def event_label(event_name: str) -> str:
+    """An earlier event's name as the LSTM saw it: actions outside its training vocabulary all
+    map to <UNK>, which means nothing to an analyst."""
+    return "an action unseen in training" if event_name in ("<UNK>", "<PAD>", None) else event_name
 
 
 def _graph_reasons(graph_exp: Optional[dict], k: int = 2) -> List[str]:

@@ -42,8 +42,8 @@ are moved to `incoming/processed/`.
 ### Alert explanations
 
 Every alert says why it was flagged. The top `explain_top_events` events of each
-alert (default 3, in `pipeline_config.json`; `--no-explain` turns it off) get an
-explanation, computed on the exact graph window and LSTM history they were
+alert (default 3, in `pipeline_config.json`; `--no-explain` turns it off), and
+every fast-lane event whatever its risk, get an explanation, computed on the exact graph window and LSTM history they were
 scored with (`ensemble_explain.py`). A one-line summary prints under the alert:
 
 ``` text
@@ -97,6 +97,27 @@ Ctrl+C stops all of it. Options pass through, e.g.
 `.\run.cmd --feed-interval 2 --feed-limit 2000`, or a different dataset:
 `.\run.cmd datasets/privilege-escalation/real_dataset_dev.csv`.
 
+### Dashboard
+
+`cloudsec_dashboard.py` (Streamlit) reads what the pipeline writes and refreshes every
+5 s ("Live updates" pauses it):
+
+- **Fast-lane alerts** get their own orange panel at the top, newest first. They are
+  rule-based (trail deleted, logging stopped, flow logs deleted, ...) and raised whatever
+  the models score.
+- **Processed logs**: every scored event in arrival order, new ones appended at the
+  bottom, in a scrollable table. Filter it to All / Alerts / Fast-lane. The Flag column
+  marks `⚡ FAST-LANE` and `▲ ALERT` rows; Why says whether an explanation exists.
+- **Why was this flagged?** Click a row to get the event's explanation:
+  - each model's exact share of the risk;
+  - the plain-English summary;
+  - what moved the LSTM (feature contributions and the earlier events that mattered);
+  - what moved the HGT (feature shares and related graph events);
+  - the attack chain.
+
+  Explained events are the top `explain_top_events` of each alert plus every fast-lane
+  event. For any other flagged event, the page shows its alert's top explanation.
+
 The pieces, run individually. PyTorch runs in Docker because Windows Smart
 App Control blocks torch's unsigned DLLs on the development machine.
 
@@ -132,7 +153,7 @@ Other commands:
 
 - Score files once: `python pipeline.py --files a.json b.json`.
 - Start with no per-principal history: add `--reset-state`.
-- Tests: `python tests/run_tests.py` (101 tests).
+- Tests: `python tests/run_tests.py` (381 tests).
 - Re-tune on dev (add `--test` for the single held-out test run):
   `python datasets/privilege-escalation/evaluate_pipeline.py`.
 
@@ -236,3 +257,4 @@ pip install -r requirements.txt
 The batch tools (`feature_engine9.py`, the rule and ML baselines) run
 natively. Anything that loads a torch checkpoint needs a machine where
 PyTorch can load, or the Docker image above.
+

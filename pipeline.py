@@ -67,6 +67,24 @@ CONFIG_PATH = os.path.join(ROOT, "pipeline_config.json")
 INPUT_SUFFIXES = (".csv", ".csv.gz", ".json", ".jsonl", ".ndjson", ".json.gz", ".jsonl.gz", ".ndjson.gz")
 LSTM_HISTORY = pd.Timedelta(hours=1)
 STRUCT_COLS = ["source_node", "target_node", "edge_type"]
+# output_csv, one row per scored event (the dashboard reads it)
+OUTPUT_COLS = ["log_id", "timestamp", "username", "principal_arn", "source_ip", "event_name", "source_node",
+               "target_node", "edge_type", "p_graph", "p_sequence", "risk_score", "alert", "fast_lane",
+               "fast_lane_reason"]
+
+
+def append_csv(df: pd.DataFrame, path: str) -> None:
+    """Appends df to path. A file from an older version with other columns is moved aside
+    (<name>.old.csv) rather than appended to, which would misalign every later row."""
+    os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+    if os.path.exists(path):
+        with open(path, encoding="utf-8") as f:
+            header = f.readline().rstrip("\r\n").split(",")
+        if header != list(df.columns):
+            old = os.path.splitext(path)[0] + ".old.csv"
+            os.replace(path, old)
+            print(f"[PIPELINE] {os.path.basename(path)} had other columns; moved it to {old}", flush=True)
+    df.to_csv(path, mode="a", index=False, header=not os.path.exists(path))
 
 
 @dataclass
@@ -269,23 +287,24 @@ class Pipeline:
                 with open(os.path.join(self.alert_dir, f"alert_{alert['alert_id']}.json"), "w", encoding="utf-8") as f:
                     json.dump(alert, f, indent=2)
         if self.write_outputs:
-            os.makedirs(os.path.dirname(self.output_csv), exist_ok=True)
-            cols = ["log_id", "timestamp", "username", "event_name", "source_node", "target_node", "edge_type",
-                    "p_graph", "p_sequence", "risk_score", "alert"]
-            scored[cols].to_csv(self.output_csv, mode="a", index=False, header=not os.path.exists(self.output_csv))
+            out = scored.assign(fast_lane_reason=scored["event_name"].map(fe9.CRITICAL_ACTIONS)
+                                .where(scored["fast_lane"]))
+            append_csv(out[OUTPUT_COLS], self.output_csv)
         return alerts
 
     def explain(self, flagged: pd.DataFrame) -> dict:
         """log_id -> ensemble explanation (ensemble_explain.combine) for the top
-        cfg.explain_top_events events of each principal's alert, computed on the exact graph
-        window and LSTM sequences they were scored with. Never blocks an alert: on any error
-        it warns and returns what it has."""
+        cfg.explain_top_events events of each principal's alert, plus every fast-lane event
+        whatever its risk, computed on the exact graph window and LSTM sequences they were
+        scored with. Never blocks an alert: on any error it warns and returns what it has."""
         n = int(self.cfg.explain_top_events or 0)
         inputs = getattr(self, "_scored_inputs", None)
         if n <= 0 or flagged.empty or inputs is None:
             return {}
         import ensemble_explain as ee
-        top = (flagged.sort_values("risk", ascending=False).groupby("username", sort=False).head(n))
+        ranked = flagged.sort_values("risk", ascending=False)
+        top_n = ranked.groupby("username", sort=False).head(n)
+        top = ranked[ranked.index.isin(top_n.index) | ranked["fast_lane"]]
         targets = [str(x) for x in top["log_id"]]
         out = {}
         try:

@@ -94,6 +94,15 @@ class TestCombine(unittest.TestCase):
         self.assertEqual(e["graph"]["top_features"][0]["label"], ee.label("privilege_gain"))
         self.assertIn("LSTM 5% (p=0.05): not a driver", e["summary"])
 
+    def test_out_of_vocabulary_earlier_events_are_named_plainly(self):
+        seq = {"top_features": [], "top_events": [
+            {"event_name": "<UNK>", "minutes_before": 0.42, "effect": 0.41},
+            {"event_name": "GetUser", "minutes_before": 1.0, "effect": 0.2}]}
+        e = ee.combine({**self.EVENT, "p_sequence": 0.9}, None, seq, 0.5, 0.5)
+        self.assertNotIn("<UNK>", e["summary"])
+        self.assertIn("earlier an action unseen in training 0.42 min before (+0.41)", e["summary"])
+        self.assertIn("earlier GetUser 1 min before", e["summary"])
+
     def test_fast_lane_and_unscored_graph_are_stated(self):
         e = ee.combine(dict(self.EVENT, p_graph=float("nan")), None, None, 0.5, 0.5,
                        fast_lane_reason="CloudTrail trail deleted")
@@ -251,7 +260,8 @@ class TestPipelineAttachesExplanations(unittest.TestCase):
         self.assertTrue(alerts, "expected at least one alert on attack sessions")
         for a in alerts:
             self.assertTrue(a["explanations"], a["principal"])
-            self.assertLessEqual(len(a["explanations"]), self.pipe.cfg.explain_top_events)
+            n_fast = sum(1 for e in a["explanations"] if e["fast_lane"])
+            self.assertLessEqual(len(a["explanations"]), self.pipe.cfg.explain_top_events + n_fast)
             for e in a["explanations"]:
                 self.assertIn("risk", e["summary"])
                 self.assertEqual(e["models"]["sequence"]["share"], 1.0)   # graph stubbed out
@@ -300,6 +310,62 @@ class TestPipelineAttachesExplanations(unittest.TestCase):
         finally:
             self.pipe.cfg.explain_top_events = saved
         self.assertTrue(all(a["explanations"] == [] for a in alerts))
+
+    def test_fast_lane_events_are_explained_whatever_their_rank(self):
+        """The top-N cut is by risk, and a fast-lane action can score low: it must still
+        be explained, since the dashboard shows it as its own alert."""
+        scored = self.pipe.score(self.featurized("t3.csv"))
+        quiet = scored.sort_values("risk").iloc[0]            # lowest risk: never in a top-N
+        scored.loc[scored["log_id"] == quiet["log_id"], ["fast_lane", "event_name"]] = [True, "StopLogging"]
+        saved = self.pipe.cfg.explain_top_events
+        self.pipe.cfg.explain_top_events = 1
+        try:
+            alerts = self.pipe.emit(scored, "t3.csv")
+        finally:
+            self.pipe.cfg.explain_top_events = saved
+        explained = {e["log_id"]: e for a in alerts for e in a["explanations"]}
+        self.assertIn(quiet["log_id"], explained)
+        self.assertEqual(explained[quiet["log_id"]]["fast_lane"], self.fe9.CRITICAL_ACTIONS["StopLogging"])
+        for a in alerts:                                     # the others still get just their top 1
+            self.assertLessEqual(sum(1 for e in a["explanations"] if not e["fast_lane"]), 1)
+
+
+    def test_scores_output_carries_the_fast_lane_flag_and_rule(self):
+        """output/risk_scores.csv is what the dashboard reads."""
+        import os
+        pipe = self.pipe
+        saved = (pipe.write_outputs, pipe.output_csv, pipe.alert_dir, pipe.cfg.explain_top_events)
+        pipe.write_outputs = True
+        pipe.output_csv, pipe.alert_dir = os.path.join(self.tmp, "o", "s.csv"), os.path.join(self.tmp, "alerts")
+        pipe.cfg.explain_top_events = 0
+        try:
+            scored = self.pipe.score(self.featurized("t4.csv"))
+            scored.loc[scored.index[3], ["fast_lane", "event_name"]] = [True, "DeleteTrail"]
+            pipe.emit(scored, "t4.csv")
+            out = pd.read_csv(pipe.output_csv)
+        finally:
+            pipe.write_outputs, pipe.output_csv, pipe.alert_dir, pipe.cfg.explain_top_events = saved
+        self.assertEqual(list(out.columns), self.P.OUTPUT_COLS)
+        self.assertEqual(len(out), len(scored))
+        self.assertEqual(int(out["fast_lane"].sum()), int(scored["fast_lane"].sum()))
+        self.assertTrue(out.iloc[3]["fast_lane"])
+        self.assertEqual(out.iloc[3]["fast_lane_reason"], self.fe9.CRITICAL_ACTIONS["DeleteTrail"])
+        self.assertTrue(out.loc[~out["fast_lane"], "fast_lane_reason"].isna().all())
+
+
+class TestScoresFile(unittest.TestCase):
+    def test_an_older_scores_file_is_moved_aside_not_misaligned(self):
+        import os, tempfile
+        import pipeline as P
+        tmp = tempfile.mkdtemp()
+        path = os.path.join(tmp, "s.csv")
+        pd.DataFrame({"log_id": ["old:0"], "risk_score": [1.0]}).to_csv(path, index=False)
+        new = pd.DataFrame({c: ["x"] for c in P.OUTPUT_COLS})
+        P.append_csv(new, path)
+        P.append_csv(new, path)                              # same columns: appended
+        self.assertEqual(list(pd.read_csv(path).columns), P.OUTPUT_COLS)
+        self.assertEqual(len(pd.read_csv(path)), 2)
+        self.assertEqual(list(pd.read_csv(os.path.join(tmp, "s.old.csv"))["log_id"]), ["old:0"])
 
 
 if __name__ == "__main__":
