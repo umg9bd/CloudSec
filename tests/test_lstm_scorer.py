@@ -66,7 +66,9 @@ class TestCheckpoints(unittest.TestCase):
 
     def test_schema_versions_identify_the_model(self):
         self.assertEqual(self.scorers["v5"].schema_version, "lstm_transformer_v5.0")
-        self.assertEqual(self.scorers["v6"].schema_version, "lstm_transformer_v6.0")
+        # v6 is retrained in place (v6.0 -> v6.2 on the Temporal-Analyst branch); pin the family.
+        self.assertTrue(self.scorers["v6"].schema_version.startswith("lstm_transformer_v6"),
+                        self.scorers["v6"].schema_version)
 
     def test_vocab_fits_the_embedding(self):
         for name, s in self.scorers.items():
