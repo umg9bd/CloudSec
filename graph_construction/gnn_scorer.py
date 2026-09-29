@@ -46,12 +46,12 @@ class GNNScorer:
         self.model.load_state_dict(ckpt["state_dict"])
         self.model.to(device).eval()
 
-    @torch.no_grad()
-    def score(self, structural_df: pd.DataFrame) -> pd.DataFrame:
-        """gnn_prob per structural row (log_id), NaN for rows in an untrained triple."""
-        out = pd.DataFrame({"log_id": structural_df["log_id"].astype(str), "gnn_prob": np.nan})
+    def build_graph(self, structural_df: pd.DataFrame):
+        """(data, log_ids) exactly as score() scores them: the window's graph with the
+        checkpoint's fitted scalers, untrained triples removed, and log_ids in the model's
+        output order. (None, []) when nothing in the window can be scored."""
         if structural_df.empty:
-            return out
+            return None, []
         df = structural_df.copy()
         if "label" not in df.columns:
             df["label"] = 0  # unlabeled live events: the label only feeds `y`, never a feature
@@ -63,9 +63,17 @@ class GNNScorer:
                 del data[t]
         triples = scored_edge_types(data)
         if not triples:
+            return None, []
+        return data, [lid for t in triples for lid in data[t].log_id]
+
+    @torch.no_grad()
+    def score(self, structural_df: pd.DataFrame) -> pd.DataFrame:
+        """gnn_prob per structural row (log_id), NaN for rows in an untrained triple."""
+        out = pd.DataFrame({"log_id": structural_df["log_id"].astype(str), "gnn_prob": np.nan})
+        data, log_ids = self.build_graph(structural_df)
+        if data is None:
             return out
         probs = torch.sigmoid(self.model(data)).cpu().numpy()
-        log_ids = [lid for t in triples for lid in data[t].log_id]
         assert len(log_ids) == len(probs), f"{len(log_ids)} log_ids vs {len(probs)} probabilities"
         return out.drop(columns="gnn_prob").merge(
             pd.DataFrame({"log_id": log_ids, "gnn_prob": probs}), on="log_id", how="left")

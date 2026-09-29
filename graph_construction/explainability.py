@@ -191,6 +191,10 @@ class EdgeExplainer:
         self.model.eval()
         edge_attr = data[target.triple].edge_attr
         edge_attr.requires_grad_(True)
+        # Gradients accumulate across backward() calls, and explain_top_k explains
+        # several edges of the same triple on one `data`: without this, every
+        # explanation after the first included the earlier edges' gradients.
+        edge_attr.grad = None
 
         logits = self.model(data)
         # Map (triple, local_index) -> position in the model's flat output.

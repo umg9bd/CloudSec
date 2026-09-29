@@ -143,6 +143,42 @@ class TestScoringOrder(unittest.TestCase):
         self.assertAlmostEqual(sum(got.values()), 1.0, places=5)
 
 
+class MixingEdgeModel(nn.Module):
+    """logit_i = x_i . w + (sum of every edge's row) . v -- each edge's score also
+    depends on its neighbours, as it does through message passing."""
+
+    def __init__(self, edge_types):
+        super().__init__()
+        self.edge_types = sorted(edge_types)
+        g = torch.Generator().manual_seed(3)
+        self.w = nn.Parameter(torch.rand(N_COLS, generator=g))
+        self.v = nn.Parameter(torch.rand(N_COLS, generator=g))
+
+    def forward(self, data):
+        outs = []
+        for t in scored_edge_types(data):
+            if t in self.edge_types:
+                x = data[t].edge_attr
+                outs.append(x @ self.w + (x.sum(0) @ self.v))
+        return torch.cat(outs)
+
+
+class TestRepeatedExplanations(unittest.TestCase):
+    def test_explaining_one_edge_does_not_leak_into_the_next(self):
+        """Regression: edge_attr.grad accumulated across calls, so the second
+        explanation on the same data included the first edge's gradient."""
+        model = LinearEdgeModel([READ, WRITE])
+        mixing = MixingEdgeModel([READ, WRITE])
+        for m in (model, mixing):
+            fresh = EdgeExplainer(m).explain(toy_graph(), TargetEdge(READ, 1))
+            data = toy_graph()
+            explainer = EdgeExplainer(m)
+            explainer.explain(data, TargetEdge(READ, 0))
+            again = explainer.explain(data, TargetEdge(READ, 1))
+            for name in fresh:
+                self.assertAlmostEqual(fresh[name], again[name], places=5, msg=(type(m).__name__, name))
+
+
 class TestFeatureAblation(unittest.TestCase):
     def test_edge_type_ablation_zeroes_the_whole_one_hot_block(self):
         w = torch.zeros(N_COLS)

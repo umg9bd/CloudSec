@@ -78,6 +78,7 @@ class PipelineConfig:
     alert_dir: str = "alerts"
     output_csv: str = "output/risk_scores.csv"
     tuned_on: str = "untuned defaults"
+    explain_top_events: int = 3        # per alert: explain this many top-risk events (0 = off)
     notes: dict = field(default_factory=dict)
 
     @classmethod
@@ -182,6 +183,8 @@ class Pipeline:
                                              + fe9.TEMPORAL_COLS], self.lstm.vocab, self.lstm_features)
         seqs = tlt.build_event_sequences(frame, self.lstm_features)
         p_seq = tlt.score_seqs(self.lstm.model, seqs, self.lstm.device)[["log_id", "P_event"]]
+        # The exact inputs these scores came from, so alert explanations describe them (emit()).
+        self._scored_inputs = {"graph_rows": graph_rows, "seqs": seqs}
 
         out = new.merge(p_graph, on="log_id", how="left").merge(p_seq, on="log_id", how="left")
         out = out.rename(columns={"gnn_prob": "p_graph", "P_event": "p_sequence"})
@@ -224,6 +227,7 @@ class Pipeline:
                 print(f"[FAST-LANE ALERT] {ev['timestamp']} {ev['username']} {ev['event_name']}: "
                       f"{fe9.CRITICAL_ACTIONS[ev['event_name']]}", flush=True)
         flagged = scored[scored["alert"] | scored["fast_lane"]]
+        explanations = self.explain(flagged)
         for principal, g in flagged.groupby("username", sort=False):
             g = g.sort_values("risk", ascending=False)
             alert = {
@@ -242,10 +246,13 @@ class Pipeline:
                      "p_sequence": round(float(r.p_sequence), 4), "risk_score": float(r.risk_score)}
                     for r in g.head(25).itertuples()
                 ],
+                "explanations": [explanations[lid] for lid in g["log_id"] if lid in explanations],
             }
             alerts.append(alert)
             print(f"[ALERT] {principal}: {len(g)} event(s), max risk {alert['max_risk_score']:.2f}/10 "
                   f"(top: {g.iloc[0]['event_name']})", flush=True)
+            if alert["explanations"]:
+                print(f"        why: {alert['explanations'][0]['summary']}", flush=True)
             if self.write_outputs:
                 os.makedirs(self.alert_dir, exist_ok=True)
                 with open(os.path.join(self.alert_dir, f"alert_{alert['alert_id']}.json"), "w", encoding="utf-8") as f:
@@ -256,6 +263,36 @@ class Pipeline:
                     "p_graph", "p_sequence", "risk_score", "alert"]
             scored[cols].to_csv(self.output_csv, mode="a", index=False, header=not os.path.exists(self.output_csv))
         return alerts
+
+    def explain(self, flagged: pd.DataFrame) -> dict:
+        """log_id -> ensemble explanation (ensemble_explain.combine) for the top
+        cfg.explain_top_events events of each principal's alert, computed on the exact graph
+        window and LSTM sequences they were scored with. Never blocks an alert: on any error
+        it warns and returns what it has."""
+        n = int(self.cfg.explain_top_events or 0)
+        inputs = getattr(self, "_scored_inputs", None)
+        if n <= 0 or flagged.empty or inputs is None:
+            return {}
+        import ensemble_explain as ee
+        top = (flagged.sort_values("risk", ascending=False).groupby("username", sort=False).head(n))
+        targets = [str(x) for x in top["log_id"]]
+        out = {}
+        try:
+            graph_exps = {}
+            rows = inputs["graph_rows"]
+            data, order = self.gnn.build_graph(rows[["log_id"] + STRUCT_COLS + ["label"]])
+            if data is not None:
+                graph_exps = ee.explain_graph_events(self.gnn.model, data, order, targets, structural=rows)
+            seq_exps = ee.explain_sequence_events(self.lstm.model, self.lstm.ckpt, self.lstm.vocab,
+                                                  inputs["seqs"], targets, self.lstm.device)
+            for r in top.to_dict("records"):
+                lid = str(r["log_id"])
+                reason = fe9.CRITICAL_ACTIONS.get(r["event_name"]) if r.get("fast_lane") else None
+                out[lid] = ee.combine(r, graph_exps.get(lid), seq_exps.get(lid), self.cfg.weight_graph,
+                                      self.cfg.alert_threshold, fast_lane_reason=reason)
+        except Exception as e:  # explanations are best-effort; the alert itself must go out
+            print(f"[WARN] explanation failed: {type(e).__name__}: {e}", flush=True)
+        return out
 
     def save_state(self) -> None:
         self.engine.tracker.save()
@@ -386,11 +423,15 @@ def main():
     ap.add_argument("--feed-batch-size", type=int, default=200)
     ap.add_argument("--feed-interval", type=float, default=5.0)
     ap.add_argument("--feed-limit", type=int, default=None, help="stop feeding after this many events")
+    ap.add_argument("--no-explain", action="store_true",
+                    help="Skip the per-alert HGT + LSTM explanations (explain_top_events in the config)")
     ap.add_argument("--reset-state", action="store_true",
                     help="Forget per-principal history and the event buffer before starting")
     args = ap.parse_args()
 
     cfg = PipelineConfig.load(args.config)
+    if args.no_explain:
+        cfg.explain_top_events = 0
     if args.reset_state:
         shutil.rmtree(os.path.join(ROOT, cfg.state_dir), ignore_errors=True)
         if args.watch and args.feed:

@@ -68,6 +68,7 @@ FAST_SUITES = [
     # ── real-time pipeline ───────────────────────────────────────────────
     "test_pipeline",              # streaming == batch (LSTM), fallback, alert schema
     "test_watch_folder",          # one watcher per file, no crash when a file vanishes
+    "test_ensemble_explain",      # per-alert HGT + LSTM explanation: exact model shares, reasons
     "test_lstm_scorer",           # v5/v6 checkpoints load with the right vocab; pipeline can feed both
     "test_lstm_v6_3",             # v6.3 scripts' paths resolve; v6.3 / v6.3-ft plug into the pipeline
     "test_lstm_explain",          # LSTM alert explanations (Nandan)
