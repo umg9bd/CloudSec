@@ -1,0 +1,134 @@
+[
+  {
+    "log_id": "real_dataset_dev.csv:3190",
+    "username": "stratus-redteam1",
+    "timestamp": "2026-07-08 18:40:10+00:00",
+    "event_name": "CreateRole",
+    "score": 0.9992,
+    "window_events": 32,
+    "top_events": [
+      {
+        "position": 28,
+        "minutes_before": 0.08,
+        "effect": 0.1136,
+        "score_without": 0.9991,
+        "event_name": "GetUser"
+      },
+      {
+        "position": 30,
+        "minutes_before": 0.02,
+        "effect": 0.112,
+        "score_without": 0.9991,
+        "event_name": "GetUser"
+      },
+      {
+        "position": 29,
+        "minutes_before": 0.05,
+        "effect": 0.0751,
+        "score_without": 0.9991,
+        "event_name": "GetCallerIdentity"
+      },
+      {
+        "position": 24,
+        "minutes_before": 1.12,
+        "effect": 0.0363,
+        "score_without": 0.9992,
+        "event_name": "ListRolePolicies"
+      }
+    ],
+    "top_features": [
+      {
+        "feature": "log_seconds_since_prev",
+        "value_now": 0.6931,
+        "contribution_now": -0.2376,
+        "contribution_window": 1.6151
+      },
+      {
+        "feature": "event_name=CreateRole",
+        "value_now": null,
+        "contribution_now": 0.8437,
+        "contribution_window": 1.5295
+      },
+      {
+        "feature": "privileged_action_reach",
+        "value_now": 0.6,
+        "contribution_now": 1.4595,
+        "contribution_window": 1.4573
+      },
+      {
+        "feature": "action_risk_prior",
+        "value_now": 0.6811,
+        "contribution_now": 1.2582,
+        "contribution_window": 1.2081
+      }
+    ],
+    "baseline_score": 0.6661,
+    "ig_completeness_error": 0.02
+  },
+  {
+    "log_id": "real_dataset_dev.csv:7742",
+    "username": "stratus-redteam1",
+    "timestamp": "2026-07-09 17:08:48+00:00",
+    "event_name": "AttachRolePolicy",
+    "score": 0.999,
+    "window_events": 32,
+    "top_events": [
+      {
+        "position": 30,
+        "minutes_before": 0.02,
+        "effect": -0.1187,
+        "score_without": 0.9992,
+        "event_name": "CreateRole"
+      },
+      {
+        "position": 27,
+        "minutes_before": 0.38,
+        "effect": 0.0946,
+        "score_without": 0.999,
+        "event_name": "ListRolePolicies"
+      },
+      {
+        "position": 13,
+        "minutes_before": 1.85,
+        "effect": 0.0313,
+        "score_without": 0.999,
+        "event_name": "GetRolePolicy"
+      },
+      {
+        "position": 26,
+        "minutes_before": 0.38,
+        "effect": 0.0313,
+        "score_without": 0.999,
+        "event_name": "<UNK>"
+      }
+    ],
+    "top_features": [
+      {
+        "feature": "privileged_action_reach",
+        "value_now": 1.0,
+        "contribution_now": 1.9546,
+        "contribution_window": 2.1333
+      },
+      {
+        "feature": "log_seconds_since_prev",
+        "value_now": 0.6931,
+        "contribution_now": -0.0908,
+        "contribution_window": 1.3821
+      },
+      {
+        "feature": "target_permission_coverage",
+        "value_now": 1.0,
+        "contribution_now": 1.2571,
+        "contribution_window": 1.2567
+      },
+      {
+        "feature": "session_duration_normalized",
+        "value_now": 0.7506,
+        "contribution_now": -0.9609,
+        "contribution_window": -1.2444
+      }
+    ],
+    "baseline_score": 0.6661,
+    "ig_completeness_error": 0.0363
+  }
+]

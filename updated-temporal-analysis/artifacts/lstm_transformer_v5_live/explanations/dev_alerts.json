@@ -1,0 +1,134 @@
+[
+  {
+    "log_id": "real_dataset_dev.csv:1746",
+    "username": "stratus-redteam",
+    "timestamp": "2026-07-06 09:52:27+00:00",
+    "event_name": "PutBucketPolicy",
+    "score": 0.9989,
+    "window_events": 32,
+    "top_events": [
+      {
+        "position": 30,
+        "minutes_before": 0.0,
+        "effect": 0.056,
+        "score_without": 0.9988,
+        "event_name": "GetBucketAcl"
+      },
+      {
+        "position": 26,
+        "minutes_before": 0.03,
+        "effect": 0.0449,
+        "score_without": 0.9989,
+        "event_name": "CreateBucket"
+      },
+      {
+        "position": 27,
+        "minutes_before": 0.02,
+        "effect": 0.0441,
+        "score_without": 0.9989,
+        "event_name": "PutBucketTagging"
+      },
+      {
+        "position": 22,
+        "minutes_before": 0.63,
+        "effect": 0.0333,
+        "score_without": 0.9989,
+        "event_name": "DeleteRole"
+      }
+    ],
+    "top_features": [
+      {
+        "feature": "params_length_normalized",
+        "value_now": 0.9053,
+        "contribution_now": 2.9528,
+        "contribution_window": 3.1438
+      },
+      {
+        "feature": "event_source_idx",
+        "value_now": 4.0,
+        "contribution_now": -0.555,
+        "contribution_window": 2.0437
+      },
+      {
+        "feature": "is_recon_action",
+        "value_now": 0.0,
+        "contribution_now": -0.0,
+        "contribution_window": 1.2341
+      },
+      {
+        "feature": "is_public_ip",
+        "value_now": 1.0,
+        "contribution_now": -0.3021,
+        "contribution_window": -0.8941
+      }
+    ],
+    "baseline_score": 0.1744,
+    "ig_completeness_error": 0.0062
+  },
+  {
+    "log_id": "real_dataset_dev.csv:19996",
+    "username": "arn:aws:iam::536697249497:root",
+    "timestamp": "2026-08-27 16:03:06+00:00",
+    "event_name": "CreateAccessKey",
+    "score": 0.9988,
+    "window_events": 32,
+    "top_events": [
+      {
+        "position": 24,
+        "minutes_before": 1.12,
+        "effect": 0.0369,
+        "score_without": 0.9988,
+        "event_name": "ListPolicies"
+      },
+      {
+        "position": 30,
+        "minutes_before": 1.07,
+        "effect": 0.0369,
+        "score_without": 0.9988,
+        "event_name": "ListServiceSpecificCredentials"
+      },
+      {
+        "position": 22,
+        "minutes_before": 1.13,
+        "effect": 0.0359,
+        "score_without": 0.9988,
+        "event_name": "ListPolicies"
+      },
+      {
+        "position": 29,
+        "minutes_before": 1.07,
+        "effect": 0.0353,
+        "score_without": 0.9988,
+        "event_name": "ListSSHPublicKeys"
+      }
+    ],
+    "top_features": [
+      {
+        "feature": "is_recon_action",
+        "value_now": 0.0,
+        "contribution_now": -0.0,
+        "contribution_window": 1.8157
+      },
+      {
+        "feature": "is_create_key",
+        "value_now": 1.0,
+        "contribution_now": 1.123,
+        "contribution_window": 1.123
+      },
+      {
+        "feature": "log_seconds_since_prev",
+        "value_now": 4.1744,
+        "contribution_now": 1.048,
+        "contribution_window": 1.0081
+      },
+      {
+        "feature": "is_public_ip",
+        "value_now": 1.0,
+        "contribution_now": -0.3535,
+        "contribution_window": -0.9655
+      }
+    ],
+    "baseline_score": 0.1744,
+    "ig_completeness_error": 0.0047
+  }
+]
