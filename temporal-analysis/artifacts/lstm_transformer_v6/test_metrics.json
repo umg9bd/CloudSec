@@ -1,0 +1,111 @@
+{
+  "schema_version": "lstm_transformer_v6.2",
+  "dropped_features": [
+    "no_mfa",
+    "mfa_absent",
+    "params_length_normalized",
+    "is_malicious_user_agent",
+    "events_per_minute_normalized",
+    "principal_type_prior_risk",
+    "principal_type_idx"
+  ],
+  "selected_epoch": 7,
+  "selection": "epochs >= MIN_EPOCHS: real-dev window F1 (best threshold) > real-dev event AUC-PR > synthetic val F1",
+  "event_threshold": 0.9840950250625611,
+  "window_threshold": 0.6500770509243011,
+  "dev_event": {
+    "accuracy": 0.9718785151856018,
+    "auc_pr": 0.9115384640667131,
+    "auc_roc": 0.988296051827405,
+    "f1": 0.8299319727891157,
+    "precision": 0.9242424242424242,
+    "recall": 0.7530864197530864,
+    "threshold": 0.9840950250625611,
+    "n": 889,
+    "n_pos": 81
+  },
+  "dev_window": {
+    "accuracy": 1.0,
+    "auc_pr": 1.0,
+    "auc_roc": 1.0,
+    "f1": 1.0,
+    "precision": 1.0,
+    "recall": 1.0,
+    "threshold": 0.6500770509243011,
+    "n": 98,
+    "n_pos": 8
+  },
+  "syn_train_event": {
+    "accuracy": 0.9952026864955625,
+    "auc_pr": 0.9951378012117457,
+    "auc_roc": 0.999558850281972,
+    "f1": 0.9706744868035191,
+    "precision": 0.9821958456973294,
+    "recall": 0.9594202898550724,
+    "threshold": 0.9840950250625611,
+    "n": 12507,
+    "n_pos": 1035
+  },
+  "syn_val_event": {
+    "accuracy": 0.9926362297496318,
+    "auc_pr": 0.9966668143896981,
+    "auc_roc": 0.9996777658431794,
+    "f1": 0.9567723342939481,
+    "precision": 0.9651162790697675,
+    "recall": 0.9485714285714286,
+    "threshold": 0.9840950250625611,
+    "n": 2037,
+    "n_pos": 175
+  },
+  "syn_test_event": {
+    "accuracy": 0.9899758036640166,
+    "auc_pr": 0.9847418661931031,
+    "auc_roc": 0.9988869438513767,
+    "f1": 0.9342403628117913,
+    "precision": 0.9406392694063926,
+    "recall": 0.9279279279279279,
+    "threshold": 0.9840950250625611,
+    "n": 2893,
+    "n_pos": 222
+  },
+  "syn_test_window": {
+    "accuracy": 0.9673979280926265,
+    "auc_pr": 0.9943601060061849,
+    "auc_roc": 0.9994688567651553,
+    "f1": 0.854421768707483,
+    "precision": 0.7458432304038005,
+    "recall": 1.0,
+    "threshold": 0.6500770509243011,
+    "n": 3282,
+    "n_pos": 314
+  },
+  "unk_rate": {
+    "real_dev": {
+      "all": 0.1856017997750281,
+      "attack": 0.024691358024691357
+    },
+    "real_test": {
+      "all": 0.3441074092491298,
+      "attack": 0.07272727272727272
+    }
+  },
+  "test_evaluations": 0,
+  "n_rows": 17437,
+  "n_users": 962,
+  "protocol": {
+    "model": "LSTMTransformerV6",
+    "split": "synthetic user-disjoint 70/15/15; real Invictus dev (selection) / test (final)",
+    "real_dev": [
+      "inv:stratus-red-team-ec2-get-password-data-role",
+      "inv:benjamin"
+    ],
+    "real_time_split": {
+      "user": "inv:bert-jan",
+      "time": "2023-07-10T12:01:52+00:00",
+      "rule": "events before time -> dev, at/after -> test; windows crossing it dropped"
+    },
+    "label_rule": "Invictus rule: recon/discovery = 0; PE writes and credential-theft calls = 1",
+    "campaign_relabel": false,
+    "test_reuse": "real test first scored for v6.1 (2026-09-28); v6.2 data design used v6.1 dev and test errors"
+  }
+}
