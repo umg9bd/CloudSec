@@ -1,30 +1,3 @@
-"""
-Classical-ML baselines -- the standard comparison a reviewer expects (the same style used by
-e.g. arxiv:2512.10280's RF/XGBoost/LSTM table), and a more honest one than approximating a
-commercial product (see evaluate_baselines.py's RULES -- "GuardDuty-style" was never validated
-against real GuardDuty output; this project's data collection never enabled it, see
-stratus_collection/README.md).
-
-  - Logistic regression over a bag of actions: session level, which API calls a session made.
-  - Random Forest and XGBoost over feature_engine9's temporal columns: event level, a session's
-    score is the max over its events (the convention every model in this project uses).
-
-Train-on-synthetic / evaluate-on-real, under the same protocol as the proposed system:
-  - Training data is the synthetic-only table the LSTM trains on (TRAIN_CSV: fe: rows are
-    cloudtrail_temporal.csv, syn: rows are synthetic_pe_chains.csv), so no baseline sees less
-    data than the model it is compared against.
-  - Each baseline gets the tuning privilege the proposed system got: its configuration --
-    hyperparameters and, for the event-level models, how the categorical IDs are encoded and
-    whether the generator-artifact features are used (ID_COLS, ARTIFACT_FEATURES) -- is chosen
-    on real_dataset_dev.csv ONLY, by session-level F1 at the dev-best threshold (ties: dev AP).
-  - The dev-selected configuration and threshold are applied ONCE, frozen, to
-    real_dataset_test.csv: bootstrap CI, paired bootstrap against the rule baseline on the same
-    sessions, and the F1 spread over SEEDS for the stochastic models.
-
-Usage (from the repo root, using the project venv):
-    .venv/Scripts/python.exe datasets/privilege-escalation/evaluate_ml_baselines.py
-    .venv/Scripts/python.exe datasets/privilege-escalation/evaluate_ml_baselines.py --dev-only
-"""
 import argparse
 import json
 import os
@@ -194,9 +167,6 @@ def rule_predictions(split: dict) -> np.ndarray:
 
 
 def synthetic_session_bags(train: pd.DataFrame):
-    """The synthetic generators write no session id, so sessions are rebuilt the deployable way:
-    one username's events, split wherever it goes quiet for SESSION_GAP. A session is an attack
-    if any of its events is."""
     df = train[["username", "timestamp", "event_name", "label"]].copy()
     df["ts"] = pd.to_datetime(df["timestamp"], utc=True)
     df = df.sort_values(["username", "ts"], kind="stable")
