@@ -53,7 +53,7 @@ FEATURE_LABELS = {
     "hop_count": "identity hops from the original principal",
     "privilege_gain": "privilege gained over the role that granted it",
     "privilege_gain_defined": "privilege gain is measurable",
-    "action_global_frequency_log": "how common this action is overall",
+    "action_global_frequency_rank": "how common this action is overall (rank within graph)",
     "is_privilege_escalation_technique": "known privilege-escalation action",
     "is_read_only": "read-only action",
     "abnormal_path_frequency_rank": "unusual principal-to-target path",

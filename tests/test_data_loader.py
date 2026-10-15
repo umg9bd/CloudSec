@@ -32,6 +32,7 @@ from torch_geometric.data import HeteroData
 
 from data_loader import (
     EDGE_NUM_COLS,
+    EDGE_ATTR_NUMERIC_COLS,
     NODE_FEATURE_SCHEMA,
     UNK_CATEGORY,
     UNREACHABLE_DISTANCE_SENTINEL,
@@ -66,10 +67,10 @@ def _edge_df(edge_types, n=None):
         "hop_count": [1] * n,
         "privilege_gain": [0.5] * n,
         "privilege_gain_defined": [True] * n,
-        "action_global_frequency": [10] * n,
         "is_privilege_escalation_technique": [False] * n,
         "is_read_only": [1] * n,
         "abnormal_path_frequency_rank": [0.5] * n,
+        "action_global_frequency_rank": [0.5] * n,
     })
 
 
@@ -311,7 +312,7 @@ class TestEdgeTypeUnknownFallback(unittest.TestCase):
         ldr = _loader(edge_scaler=_fitted_edge_scaler())
         x = ldr._edge_features(_edge_df(["AssumeRole", "NeverSeenBefore"]), enc).numpy()
 
-        onehot = x[:, len(EDGE_NUM_COLS) + 1:]
+        onehot = x[:, len(EDGE_ATTR_NUMERIC_COLS):]
         unk_col = list(enc.classes_).index(UNK_CATEGORY)
         zero_col = 0
         self.assertEqual(onehot[1].argmax(), unk_col, "unseen action must map to <UNK>")
@@ -321,7 +322,7 @@ class TestEdgeTypeUnknownFallback(unittest.TestCase):
         enc = self._encoder(["AssumeRole", "CreateUser"])
         ldr = _loader(edge_scaler=_fitted_edge_scaler())
         x = ldr._edge_features(_edge_df(["AssumeRole", "CreateUser"]), enc).numpy()
-        onehot = x[:, len(EDGE_NUM_COLS) + 1:]
+        onehot = x[:, len(EDGE_ATTR_NUMERIC_COLS):]
         self.assertEqual(onehot[0].argmax(), list(enc.classes_).index("AssumeRole"))
         self.assertEqual(onehot[1].argmax(), list(enc.classes_).index("CreateUser"))
 
@@ -332,7 +333,7 @@ class TestEdgeTypeUnknownFallback(unittest.TestCase):
         enc = self._encoder(["AssumeRole"])
         ldr = _loader(edge_scaler=_fitted_edge_scaler())
         x = ldr._edge_features(_edge_df(["Decrypt", "GetParameters", "DeleteParameter"]), enc).numpy()
-        onehot = x[:, len(EDGE_NUM_COLS) + 1:]
+        onehot = x[:, len(EDGE_ATTR_NUMERIC_COLS):]
         unk_col = list(enc.classes_).index(UNK_CATEGORY)
         self.assertTrue(np.all(onehot.argmax(axis=1) == unk_col))
 
@@ -352,15 +353,15 @@ class TestEdgeTypeOneHot(unittest.TestCase):
         enc = self._encoder(67)
         ldr = _loader(edge_scaler=_fitted_edge_scaler())
         x = ldr._edge_features(_edge_df(["Action00", "Action05"]), enc)
-        expected = len(EDGE_NUM_COLS) + 1 + len(enc.classes_)
+        expected = len(EDGE_ATTR_NUMERIC_COLS) + len(enc.classes_)
         self.assertEqual(x.shape[1], expected)
-        self.assertEqual(x.shape[1], 75, "6 scaled + 1 rank + 68 one-hot")
+        self.assertEqual(x.shape[1], 75, "5 scaled + 2 rank + 68 one-hot")
 
     def test_each_row_activates_exactly_one_category(self):
         enc = self._encoder(20)
         ldr = _loader(edge_scaler=_fitted_edge_scaler())
         x = ldr._edge_features(_edge_df(["Action00", "Action19", "Unseen"]), enc).numpy()
-        onehot = x[:, len(EDGE_NUM_COLS) + 1:]
+        onehot = x[:, len(EDGE_ATTR_NUMERIC_COLS):]
         np.testing.assert_allclose(onehot.sum(axis=1), np.ones(3))
         self.assertTrue(np.all(np.isin(onehot, [0.0, 1.0])))
 

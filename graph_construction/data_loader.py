@@ -166,10 +166,17 @@ NODE_FEATURE_SCHEMA: Dict[str, Tuple[List[str], List[str]]] = {
 
 EDGE_NUM_COLS = [
     "hop_count", "privilege_gain", "privilege_gain_defined",
-    "action_global_frequency_log",
     "is_privilege_escalation_technique", "is_read_only",
-]  # abnormal_path_frequency is handled separately (rank-normalized, not
-   # scaled -- see _rank_normalize and abnormal_path_frequency_rank below)
+]  # action_global_frequency AND abnormal_path_frequency are both handled
+   # separately -- rank-normalized per graph, not scaled -- because their raw
+   # magnitude depends on how many edges the graph has. action_global_frequency
+   # is counted across whatever graph is supplied: the FULL graph at training,
+   # but only the live rolling 24h window at inference (pipeline.graph_window_hours).
+   # A training-fitted scaler applied to a count from a much smaller window sees
+   # a different distribution -- a concrete train/inference skew. Its within-graph
+   # PERCENTILE, by contrast, is comparable across graph sizes, so it is
+   # rank-normalized exactly like abnormal_path_frequency. See _rank_normalize,
+   # abnormal_path_frequency_rank and action_global_frequency_rank below.
 EDGE_CAT_COLS = ["edge_type"]  # label-encoded GLOBALLY across all 260 actions,
                                 # shared across every relation type, so the
                                 # single shared EdgeClassifierHead sees a
@@ -177,13 +184,14 @@ EDGE_CAT_COLS = ["edge_type"]  # label-encoded GLOBALLY across all 260 actions,
                                 # which relation an edge belongs to.
 
 # THE edge_attr column layout _edge_features() builds, in order:
-#   EDGE_NUM_COLS (scaled), then abnormal_path_frequency_rank, then a one-hot
+#   EDGE_NUM_COLS (scaled), then the rank-normalized columns
+#   (abnormal_path_frequency_rank, action_global_frequency_rank), then a one-hot
 #   block over the fitted edge_type classes (width varies per checkpoint).
 # Anything that reads edge_attr columns by position (explainability's feature
 # names, feature ablation, node_importance) must derive from this, never from
 # its own copy -- two such copies had drifted to a different order, so the
 # explainer reported features under the wrong names.
-EDGE_ATTR_NUMERIC_COLS = EDGE_NUM_COLS + ["abnormal_path_frequency_rank"]
+EDGE_ATTR_NUMERIC_COLS = EDGE_NUM_COLS + ["abnormal_path_frequency_rank", "action_global_frequency_rank"]
 
 
 class PrivilegePropagationGraphLoader:
@@ -290,23 +298,26 @@ class PrivilegePropagationGraphLoader:
         # every relation's edge_attr lives on the same numeric scale before
         # being consumed by the single shared EdgeClassifierHead. Reused
         # (never re-fit) from _fit_artifacts, same rationale as above.
-        for df in edge_dfs.values():
-            df["action_global_frequency_log"] = np.log1p(
-            df["action_global_frequency"].astype(float)
-            )
-
-        # abnormal_path_frequency rank-normalized across the WHOLE graph's
-        # edges (not per-relation-group -- a rare relation would have too
-        # few edges for a meaningful percentile). Computed fresh per graph,
-        # positionally sliced back into each relation's df before the
-        # groupby below so _edge_features sees it as a plain column.
+        # abnormal_path_frequency AND action_global_frequency are both
+        # rank-normalized across the WHOLE graph's edges (not per-relation-group
+        # -- a rare relation would have too few edges for a meaningful
+        # percentile). Rank-normalizing action_global_frequency makes it
+        # invariant to graph size: a raw count over the full training graph and
+        # over the live 24h rolling window are different magnitudes that the
+        # training-fitted edge_scaler would distort, but their within-graph
+        # percentile is comparable. Computed fresh per graph, positionally
+        # sliced back into each relation's df before the groupby below so
+        # _edge_features sees them as plain columns.
         if edge_dfs:
             lens = [len(df) for df in edge_dfs.values()]
             all_apf = pd.concat([df["abnormal_path_frequency"] for df in edge_dfs.values()], ignore_index=True)
+            all_agf = pd.concat([df["action_global_frequency"].astype(float) for df in edge_dfs.values()], ignore_index=True)
             all_apf_rank = self._rank_normalize(all_apf)
+            all_agf_rank = self._rank_normalize(all_agf)
             offset = 0
             for df, n in zip(edge_dfs.values(), lens):
                 df["abnormal_path_frequency_rank"] = all_apf_rank[offset:offset + n]
+                df["action_global_frequency_rank"] = all_agf_rank[offset:offset + n]
                 offset += n
 
         fitted_edge_scaler = (self._fit_artifacts or {}).get("edge_scaler")
@@ -602,14 +613,16 @@ class PrivilegePropagationGraphLoader:
 
     def _edge_features(self, df: pd.DataFrame, edge_type_enc: LabelEncoder) -> torch.Tensor:
         df = df.copy()
-        df["action_global_frequency_log"] = np.log1p(df["action_global_frequency"].astype(float))
         df["privilege_gain"] = df["privilege_gain"].fillna(0.0)
         for col in ["privilege_gain_defined", "is_privilege_escalation_technique", "is_read_only"]:
             df[col] = df[col].astype(int)
 
         num = df[EDGE_NUM_COLS].astype(float).values
         num = self.edge_scaler.transform(num)
-        rank_part = df[["abnormal_path_frequency_rank"]].to_numpy(dtype=float)
+        # Both rank columns are appended UNSCALED, after the scaled block, in the
+        # exact order EDGE_ATTR_NUMERIC_COLS declares. Computed in load() across
+        # the whole graph (see the rank block there) so they are already present.
+        rank_part = df[["abnormal_path_frequency_rank", "action_global_frequency_rank"]].to_numpy(dtype=float)
         num = np.concatenate([num, rank_part], axis=1)
         # A real/held-out graph can contain edge_type values never seen while
         # fitting edge_type_enc on the training graph -- map those to the

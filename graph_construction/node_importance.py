@@ -60,10 +60,11 @@ EdgeTriple = Tuple[str, str, str]
 
 # Position of each edge feature in edge_attr, taken from data_loader's own
 # layout. This used to be a hand-copied list with abnormal_path_frequency in
-# fourth place; the loader puts it LAST (as abnormal_path_frequency_rank, after
-# the scaled columns), so two of the four ranking signals were read from the
-# wrong columns (action_global_frequency_log and is_read_only). Percentile
-# ranks are unaffected by the loader's scaling, so scaled columns are fine here.
+# fourth place; the loader puts it near the end (as abnormal_path_frequency_rank,
+# after the scaled columns, now followed by action_global_frequency_rank), so two
+# of the four ranking signals were read from the wrong columns
+# (action_global_frequency and is_read_only). Percentile ranks are unaffected by
+# the loader's scaling, so scaled columns are fine here.
 from data_loader import EDGE_ATTR_NUMERIC_COLS  # noqa: E402
 
 _EDGE_SIGNALS = ["hop_count", "privilege_gain", "abnormal_path_frequency", "is_privilege_escalation_technique"]

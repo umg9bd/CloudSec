@@ -77,12 +77,13 @@ class TestColumnContract(unittest.TestCase):
         scaler, and check every named position carries its own value."""
         loader = PrivilegePropagationGraphLoader.__new__(PrivilegePropagationGraphLoader)
         expected = {"hop_count": 11.0, "privilege_gain": 22.0, "privilege_gain_defined": 1.0,
-                    "action_global_frequency_log": 3.0, "is_privilege_escalation_technique": 0.0,
-                    "is_read_only": 1.0, "abnormal_path_frequency_rank": 0.77}
+                    "is_privilege_escalation_technique": 0.0, "is_read_only": 1.0,
+                    "abnormal_path_frequency_rank": 0.77, "action_global_frequency_rank": 0.42}
         df = pd.DataFrame([{
             "hop_count": 11, "privilege_gain": 22.0, "privilege_gain_defined": True,
-            "action_global_frequency": float(np.expm1(3.0)), "is_privilege_escalation_technique": False,
-            "is_read_only": True, "abnormal_path_frequency_rank": 0.77, "edge_type": "GetObject",
+            "is_privilege_escalation_technique": False, "is_read_only": True,
+            "abnormal_path_frequency_rank": 0.77, "action_global_frequency_rank": 0.42,
+            "edge_type": "GetObject",
         }])
         loader.edge_scaler = StandardScaler(with_mean=False, with_std=False).fit(np.zeros((2, len(EDGE_NUM_COLS))))
         enc = LabelEncoder().fit(["GetObject", "PutObject", UNK_CATEGORY])

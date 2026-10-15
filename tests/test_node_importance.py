@@ -57,7 +57,7 @@ class TestSignalColumns(unittest.TestCase):
             self.assertTrue(torch.all(s[1:] > s[:-1]), column)
 
     def test_non_signal_columns_do_not(self):
-        for column in ("action_global_frequency_log", "is_read_only", "privilege_gain_defined"):
+        for column in ("action_global_frequency_rank", "is_read_only", "privilege_gain_defined"):
             s = user_scores(graph_varying(column))
             self.assertTrue(torch.allclose(s, s[0].expand_as(s)), column)
 
