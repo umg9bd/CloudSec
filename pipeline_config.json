@@ -1,15 +1,16 @@
 {
   "hgt_checkpoint": "checkpoints/best_HGT_wrapped.pt",
   "lstm_checkpoint": "temporal-analysis/artifacts/lstm_transformer_v6_3_ft/temporal_lstm_transformer.pt",
-  "weight_graph": 0.5,
-  "alert_threshold": 0.42,
+  "weight_graph": 0.8,
+  "alert_threshold": 0.0888,
   "graph_window_hours": 24.0,
   "state_dir": "runtime",
   "alert_dir": "alerts",
   "output_csv": "output/risk_scores.csv",
-  "tuned_on": "real_dataset_dev.csv, 546 sessions, LSTM v6.3-ft out-of-fold scores: threshold 0.42 = median best-F1 threshold over 1000 bootstrap resamples of dev sessions (90% range 0.38-0.44); dev P=0.903 R=0.915 F1=0.909. Weight 0.5 kept from v5. Test used once afterwards, as a check only: F1 about 0.86 (2026-10-14)",
+  "tuned_on": "real_dataset_dev.csv, 546 sessions: w and threshold chosen by session-level F1 on dev against the RETRAINED HGT (rank-normalized action_global_frequency). Dev sweep peaks at w=0.8 (F1 0.895, P 0.889 R 0.901). Threshold 0.0888 is that w's dev best-F1 point. Test used once afterwards as a check only: session F1 0.858 [95% CI 0.806-0.905], session AUC 0.987 (2026-10-15)",
   "notes": {
     "lstm": "Switched from v5 (lstm_transformer_clean) to v6.3-ft on 2026-09-29: trained on the current feature_engine9 data and served priors, without the label-leaking features (see temporal-analysis/README_v6_3.md). Rollback: point lstm_checkpoint back at temporal-analysis/artifacts/lstm_transformer_clean/temporal_lstm_transformer.pt.",
-    "calibration": "2026-10-14: the v5-era threshold (0.5139) was too high for v6.3-ft: real test recall 0.70, F1 0.80. Re-chosen from v6.3-ft's OUT-OF-FOLD dev scores (heads refit 5 times, each scoring sessions it never saw), which avoids the optimism of re-tuning on the dev data the heads were fitted on. weight_graph is still the v5 value (0.5); dev's weight sweep peaks there too."
+    "calibration_v63ft": "2026-10-14: the v5-era threshold (0.5139) was too high for v6.3-ft: real test recall 0.70, F1 0.80. Re-chosen from v6.3-ft's OUT-OF-FOLD dev scores (heads refit 5 times, each scoring sessions it never saw), which avoids the optimism of re-tuning on the dev data the heads were fitted on. (Superseded by the 2026-10-15 re-tune below.)",
+    "calibration_hgt_retune": "2026-10-15: the HGT was retrained after rank-normalizing action_global_frequency (window-invariant edge feature; real-test edge-level ROC-AUC 0.25 -> ~0.78 mean over 5 seeds). The stronger graph branch moved the dev-optimal ensemble weight from 0.5 to 0.8, so w and threshold were re-chosen on dev (w=0.8, threshold=0.0888). Session-level test F1 is essentially unchanged (~0.86) -- session max-aggregation already masked the edge-level weakness -- but the config now matches the current HGT. UNK-holdout training (--unk-holdout-frac) was tried for the 36.5% unseen-action problem and did NOT help (mean 0.78->0.72), so it was reverted."
   }
 }
