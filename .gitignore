@@ -75,6 +75,16 @@ risk_scores*.csv
 # the derived redacted CSVs. Anchored at any depth.
 **/stratus_own_runs/CloudTrail/*.json
 
+# patent material: never published before filing (a public disclosure is prior art)
+/docs/CloudSec_invention_disclosure*.pptx
+# Office lock files
+~$*
+
+# email alerts (notify.py): the Gmail app password and the admin's address stay local
+/email.env
+/notify_settings.json
+/notify_settings.json.tmp
+
 # real-time pipeline (pipeline.py) runtime output
 /runtime/
 /alerts/

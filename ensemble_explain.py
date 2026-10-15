@@ -1,34 +1,3 @@
-"""
-ensemble_explain.py -- why did the ensemble flag this event?
-
-The live risk is  risk = w * p_graph + (1 - w) * p_sequence   (p_sequence alone when the
-graph model has no weights for the event's relation). This module explains one flagged event
-at three levels, always on the exact inputs the pipeline scored it with (the same graph
-window, the same per-principal LSTM history), so an explanation matches the score shown:
-
-  1. Which model drove it. The ensemble is linear, so each model's share of the risk is exact:
-     w * p_graph / risk  and  (1 - w) * p_sequence / risk.
-
-  2. Graph model (HGT, or whichever graph checkpoint is configured) -- gradient x input on the
-     window graph, for the flagged event's logit:
-       * top_features: which of the flagged edge's own features pushed it up, grouped by
-         explainability.EDGE_FEATURE_NAMES (the one-hot action block counts as "edge_type");
-       * related_events: which OTHER events in the window moved it most. Their edge features
-         reach the flagged edge through message passing, so a high share means "this earlier
-         activity around the same identities is part of why the graph model flagged it".
-     Gradient x input is a first-order attribution, reported as shares of the total, not as
-     an exact decomposition.
-
-  3. Sequence model (LSTM, whichever checkpoint is configured) -- lstm_explain.explain_seq:
-       * top_events: leave-one-event-out over the principal's 10-minute window (logit effect of
-         removing each earlier event);
-       * top_features: Integrated Gradients per feature (logit units; they sum to the score's
-         change from the all-absent baseline).
-
-Nothing here changes a score. It runs only for alerting events (pipeline.py explains the top
-few events of each alert), and every function takes model objects rather than checkpoint
-paths, so it explains whatever pipeline_config.json serves.
-"""
 from __future__ import annotations
 
 import math

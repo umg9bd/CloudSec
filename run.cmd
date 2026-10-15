@@ -12,4 +12,7 @@ docker info >nul 2>&1 || (echo Docker is not running - start Docker Desktop and 
 docker build -q -t cloudsec . >nul || exit /b 1
 REM Opens the dashboard in the browser once it answers (hidden window; gives up after 3 min).
 start "" /min powershell -NoProfile -WindowStyle Hidden -Command "for ($i = 0; $i -lt 180; $i++) { try { Invoke-WebRequest -UseBasicParsing -TimeoutSec 2 http://localhost:8501/_stcore/health | Out-Null; Start-Process http://localhost:8501; break } catch { Start-Sleep 1 } }"
-docker run --rm -it -p 8501:8501 -v "%cd%:/app" cloudsec python pipeline.py --watch incoming --show-events --reset-state --dashboard --feed %*
+REM Email alerts: the Gmail sender and app password in email.env (see email.env.example), if present.
+set "EMAIL_ENV="
+if exist email.env set "EMAIL_ENV=--env-file email.env"
+docker run --rm -it -p 8501:8501 -v "%cd%:/app" %EMAIL_ENV% cloudsec python pipeline.py --watch incoming --show-events --reset-state --dashboard --feed %*

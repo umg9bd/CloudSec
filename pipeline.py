@@ -1,43 +1,3 @@
-"""
-pipeline.py -- the real-time detector. CloudTrail log files dropped into a
-folder are scored event by event by two parallel branches, fused by the
-ensemble, and turned into alerts.
-
-    incoming/<file>   CloudTrail JSON ({"Records": [...]}), JSONL/NDJSON (optionally .gz),
-        |             or a feature_engine9-format CSV
-        v
-    feature_engine9.FeatureEngineer     stateful per principal; vocabulary and risk priors
-        |                               frozen from training (never updated by live data)
-        +-- structural row --> graph over a rolling time window --> HGT  --> p_graph
-        +-- temporal row   --> the principal's last hour of events --> LSTM --> p_sequence
-                                                   |
-        ensemble:  risk = w * p_graph + (1 - w) * p_sequence     (p_graph missing -> p_sequence)
-        alert:     risk >= threshold  -->  alerts/alert_<id>.json, one per principal per file
-        every event:                   -->  output/risk_scores.csv
-
-Streaming gives the same scores as batch scoring of the same events:
-  - LSTM: an event's input is its principal's last 10 minutes, the gap to the event before each of
-    those (capped at 1 h), and the time since the principal's last privilege-escalation write
-    (capped at 1 h). So each principal's last LSTM_HISTORY (1 h) of events, plus the one event
-    before that, reproduces batch scores exactly; ties in timestamp keep arrival order, as in a
-    batch pass over the files in order.
-  - Graph: rebuilt with the batch code (graph_construction/offline_graph.py, verified
-    tensor-identical to the Neo4j loader) over the events inside `graph_window_hours`, with the
-    training-fitted scalers. It equals batch scoring of those same events; a window covering a
-    whole dataset reproduces batch evaluation exactly.
-
-Settings (checkpoints, ensemble weight, alert threshold, graph window) live in
-pipeline_config.json; the weight and threshold there are chosen on real_dataset_dev.csv by
-datasets/privilege-escalation/evaluate_pipeline.py.
-
-Usage (inside the Docker image -- see Dockerfile; torch is blocked natively on this machine):
-    python pipeline.py --watch incoming                # run forever on a folder
-    python pipeline.py --watch incoming --show-events  # ... printing every event's scores
-    python pipeline.py --watch incoming --show-events --feed   # ... and stream a dataset into it
-    python pipeline.py --watch incoming --dashboard    # ... with the Streamlit dashboard on :8501
-    run.cmd  /  ./run.sh                               # all of the above in Docker, one command
-    python pipeline.py --files a.json b.json           # score files once
-"""
 from __future__ import annotations
 
 import argparse
@@ -59,6 +19,7 @@ for _p in (ROOT, os.path.join(ROOT, "graph_construction"), os.path.join(ROOT, "t
         sys.path.insert(0, _p)
 
 import feature_engine9 as fe9                 # noqa: E402
+import notify                                 # noqa: E402
 import prod.scorer as lstm_scorer             # noqa: E402
 import lstm_inference as tlt                  # noqa: E402  (scoring only -- nothing trains here)
 from gnn_scorer import GNNScorer              # noqa: E402
@@ -146,6 +107,9 @@ class Pipeline:
             principal_prior_path=path(fe9.PRINCIPAL_PRIOR_FILE),
             freeze_vocab=True, freeze_priors=True,
         )
+        # Emails each alert at or above the threshold to the admin (notify.py). Live runs only:
+        # evaluation replays (write_outputs=False) must never email anyone.
+        self.notifier = notify.Notifier() if write_outputs else None
         self.buffer_path = os.path.join(self.state_dir, "event_buffer.pkl")
         self.buffer = pd.read_pickle(self.buffer_path) if os.path.exists(self.buffer_path) else pd.DataFrame()
         self._arrival = int(self.buffer["arrival"].max()) + 1 if len(self.buffer) else 0
@@ -185,7 +149,6 @@ class Pipeline:
 
     # ── the two branches + ensemble ──────────────────────────────────────
     def score(self, new: pd.DataFrame) -> pd.DataFrame:
-        """Scores the new events against the buffered history, then adds them to the buffer."""
         buf = pd.concat([self.buffer, new], ignore_index=True) if len(self.buffer) else new.copy()
         latest = buf["timestamp"].max()
 
@@ -282,6 +245,10 @@ class Pipeline:
                   f"(top: {g.iloc[0]['event_name']})", flush=True)
             if alert["explanations"]:
                 print(f"        why: {alert['explanations'][0]['summary']}", flush=True)
+            # Only a score at or above the threshold reaches the admin: a group raised by a
+            # fast-lane rule alone stays on the dashboard.
+            if self.notifier is not None and g["risk"].max() >= self.cfg.alert_threshold:
+                self.notifier.submit(alert)
             if self.write_outputs:
                 os.makedirs(self.alert_dir, exist_ok=True)
                 with open(os.path.join(self.alert_dir, f"alert_{alert['alert_id']}.json"), "w", encoding="utf-8") as f:
@@ -519,6 +486,7 @@ def main():
           f"{cfg.alert_threshold * 10:.2f}/10 ({cfg.tuned_on})", flush=True)
     try:
         pipeline = Pipeline(cfg, show_events=args.show_events)
+        print(pipeline.notifier.describe(), flush=True)
         if args.watch:
             if args.feed:
                 import threading
@@ -530,6 +498,7 @@ def main():
         else:
             for f in args.files:
                 pipeline.process_file(f)
+            pipeline.notifier.flush()   # the emails of the last file go out before exiting
             if dashboard is not None:
                 print("Scoring done; the dashboard stays up until Ctrl+C.", flush=True)
                 dashboard.wait()

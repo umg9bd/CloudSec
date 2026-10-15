@@ -36,8 +36,10 @@ are moved to `incoming/processed/`.
   both models use their training-time scalers.
 - **Settings.** The ensemble weight, alert threshold, checkpoints and graph
   window live in `pipeline_config.json`. Its weight and threshold were chosen
-  on `real_dataset_dev.csv` only, by
-  `datasets/privilege-escalation/evaluate_pipeline.py`.
+  on `real_dataset_dev.csv` only. The alert threshold (4.20/10) is the median
+  best-F1 threshold over 1,000 bootstrap resamples of dev sessions, from the
+  LSTM's out-of-fold scores (its heads were fitted on dev); `tuned_on` in the
+  config records how.
 
 ### Alert explanations
 
@@ -48,7 +50,7 @@ scored with (`ensemble_explain.py`). A one-line summary prints under the alert:
 
 ``` text
 [ALERT] stratus-redteam: 133 event(s), max risk 8.43/10 (top: PutRolePolicy)
-        why: risk 8.43/10 (alert at 5.14) | LSTM 49% (p=0.82): the action PutRolePolicy (+2.40);
+        why: risk 8.43/10 (alert at 4.20) | LSTM 49% (p=0.82): the action PutRolePolicy (+2.40);
              risk learned for this action (+1.05); earlier GetUser 0.08 min before (+0.19)
              | HGT 51% (p=0.86): how common this action is overall (49%); known privilege-escalation action (39%)
 ```
@@ -117,6 +119,24 @@ Ctrl+C stops all of it. Options pass through, e.g.
 
   Explained events are the top `explain_top_events` of each alert plus every fast-lane
   event. For any other flagged event, the page shows its alert's top explanation.
+- **Email alerts** (sidebar): the admin enters the address alerts are emailed to.
+
+### Email alerts
+
+Every alert whose risk is at or above the threshold is emailed to the admin, with the
+principal, the risk, the plain-English reason and the riskiest events (`notify.py`).
+
+1. Copy `email.env.example` to `email.env` and fill in the Gmail account that sends the
+   alerts and its app password (Google Account -> Security -> 2-Step Verification -> App
+   passwords; not the normal password). `email.env` is git-ignored.
+2. Start `run.cmd` / `./run.sh`, then enter the admin's address in the dashboard's sidebar
+   and press **Send test email**.
+
+Detection never depends on it: without `email.env` or an address, alerts are only shown on
+the dashboard; a failed send is logged and dropped; emails go out on a background thread.
+At most 60 emails an hour are sent (`CLOUDSEC_EMAIL_MAX_PER_HOUR`), since Gmail locks
+accounts that send in bulk -- the demo feed alone raises over 100 alerts. Alerts raised only
+by a fast-lane rule, below the threshold, stay on the dashboard.
 
 The pieces, run individually. PyTorch runs in Docker because Windows Smart
 App Control blocks torch's unsigned DLLs on the development machine.
@@ -153,40 +173,68 @@ Other commands:
 
 - Score files once: `python pipeline.py --files a.json b.json`.
 - Start with no per-principal history: add `--reset-state`.
-- Tests: `python tests/run_tests.py` (381 tests).
+- Tests: `python tests/run_tests.py` (390 tests).
 - Re-tune on dev (add `--test` for the single held-out test run):
   `python datasets/privilege-escalation/evaluate_pipeline.py`.
 
 ## Results
 
-Session-level results on 238 held-out real test sessions
-(`real_dataset_test.csv`). A session is flagged if any of its events alerts.
-Every configuration and threshold was frozen on `real_dataset_dev.csv` before
-test was used, and each system was run on test once.
+The pipeline exactly as served (LSTM v6.3-ft, alert threshold 0.42), scored on
+14 Oct 2026 on 821 held-out real test sessions, 107 of them attacks
+(`real_dataset_test.csv`; 4 collectors, including 30 real Stratus
+privilege-escalation detonations). A session is flagged if any of its events
+alerts. Every threshold and configuration was frozen on `real_dataset_dev.csv`
+first.
 
-| | Precision | Recall | F1 [95% CI] |
-|---|---|---|---|
-| **Real-time pipeline** (HGT + LSTM, `pipeline.py`) | 0.825 | 0.925 | **0.872** [0.823, 0.915] |
-| Random Forest (temporal features) | 0.841 | 0.888 | 0.864 [0.812, 0.909] |
-| XGBoost (temporal features) | 0.838 | 0.916 | 0.875 [0.825, 0.918] |
-| Logistic regression (bag of actions) | 0.600 | 0.869 | 0.710 [0.644, 0.769] |
-| Curated IAM rule baseline (11 rules) | 0.904 | 0.701 | 0.789 [0.720, 0.849] |
-| GraphSAGE alone (batch, session-level) | -- | -- | session **AUC 0.986** (F1 threshold-sensitive) |
+**Is a session an attack?** Session level, best F1 first:
 
-> **All rows are on one footing** — the same 821-session real test set (4 collectors, including 30 real Stratus privilege-escalation detonations), one consistent feature engine, each model's threshold/config frozen on dev and test scored once. GraphSAGE (batch) has session **AUC 0.986** (confound-controlled: beats all 200 size-preserving permutations, p=0.005) -- the robust primary metric, STABLE across every dataset iteration (0.982-0.987). Its operating-point F1 is threshold-sensitive (0.79-0.89 depending on where the dev-selected threshold lands on a flat plateau); we report AUC as primary for that reason. On held-out UNSEEN attack families the model reaches F1 0.929 / AUC 0.997. The pipeline, XGBoost and Random Forest are statistically tied (pipeline vs XGBoost -0.003 p=0.92; vs RF +0.009 p=0.68); all beat the rule baseline except logistic regression.
+| | Precision | Recall | F1 [95% CI] | Pipeline minus this, paired bootstrap |
+|---|---|---|---|---|
+| XGBoost (temporal features) | 0.865 | 0.897 | 0.881 [0.832, 0.923] | -0.013 (p = 0.56) |
+| **Real-time pipeline** (HGT + LSTM, `pipeline.py`) | 0.848 | 0.888 | **0.868** [0.816, 0.912] | |
+| Random Forest (temporal features) | 0.841 | 0.888 | 0.864 [0.812, 0.909] | +0.004 (p = 0.89) |
+| LSTM alone | 0.814 | 0.897 | 0.853 [0.800, 0.900] | +0.014 (p = 0.47) |
+| HGT alone | 0.769 | 0.841 | 0.804 [0.741, 0.857] | +0.064 (p = 0.009) |
+| Curated IAM rule baseline (11 rules) | 0.904 | 0.701 | 0.789 [0.720, 0.849] | +0.078 (p = 0.027) |
+| Logistic regression (bag of actions) | 0.600 | 0.869 | 0.710 [0.644, 0.769] | +0.158 (p < 0.001) |
 
-The pipeline beats the rule baseline significantly (paired bootstrap +0.083
-F1, 95% CI [+0.023, +0.148], p = 0.008). It is statistically tied with the
-classical ML baselines: vs Random Forest +0.009 (p = 0.68), vs XGBoost -0.003
-(p = 0.92), vs logistic regression +0.162 (p < 0.001).
+The pipeline is statistically tied with XGBoost, Random Forest and its own LSTM,
+and significantly better than the rule baseline, the HGT alone and logistic
+regression. Its session ranking is the strongest of its branches (AUC 0.989,
+AP 0.927).
 
-On dev, the ensemble beats each of its branches:
+**Which event is the attack?** Event level, average precision over all 31,837
+test events (3,452 attacks, base rate 0.108), nothing tuned on test:
 
-| Real dev | F1 |
+| | Event AP |
 |---|---|
-| HGT alone | 0.868 |
-| LSTM alone | 0.894 |
-| Ensemble | 0.908 |
+| LSTM alone | 0.792 |
+| **Real-time pipeline** (HGT + LSTM) | **0.654** |
+| XGBoost | 0.250 |
+| Random Forest | 0.233 |
+| HGT alone | 0.127 |
+
+This is where the pipeline is clearly ahead: it points to the attack event
+about 2.6x better than XGBoost, which is what an alert's explanation depends
+on. The HGT pulls event AP down from the LSTM's 0.792, so the graph branch is
+the next thing to improve.
+
+How these numbers came about, and what they do not show:
+- **The threshold was stale for two weeks.** The LSTM was swapped to v6.3-ft on
+  29 Sep without re-tuning the v5-era threshold (0.5139). As served until
+  14 Oct, the pipeline scored F1 0.802 (P 0.938, R 0.701), significantly behind
+  XGBoost (-0.079, p = 0.018). 0.42 was then chosen on dev from the LSTM's
+  out-of-fold scores (see `tuned_on` in `pipeline_config.json`).
+- **This test set is no longer untouched.** It was scored on 28 Sep and twice on
+  14 Oct (old and new threshold). Final numbers need a fresh Stratus collection.
+- **Earlier README figures** (pipeline 0.872, 28 Sep, commit `5c6d085`) were for
+  the previous LSTM (v5), which relied on label-leaking features
+  (`temporal-analysis/README_v6_3.md`).
+- **Dev**, each model at its own best dev threshold, LSTM out-of-fold: pipeline
+  0.909, XGBoost 0.907, Random Forest 0.904, LSTM 0.842, HGT 0.803.
+- The threshold-selection, out-of-fold and event-level scripts behind these
+  numbers are not in the repository yet; the replay is
+  `evaluate_pipeline.py`'s and the baselines are `evaluate_ml_baselines.py`'s.
 
 `pipeline.py` is the only ensemble. The earlier `ensemble.py` /
 `ensemble1.py` were removed: their graph side was a hand-written topology
@@ -194,12 +242,17 @@ rule, not a trained GNN, and with a leak-clean LSTM they scored 0.769 / 0.722
 on test (§6.21; the code is in git history at commit `2fe5977`).
 
 Worth knowing:
-- **What the pipeline's numbers do and don't show.** The ML baselines run on
-  the same feature_engine9 features and synthetic training data, and they tie
-  the pipeline. So the paper cannot yet claim that HGT + LSTM beats standard
-  ML. The LSTM still carries known problems (`docs/PROJECT_STATUS_REPORT.md`
-  §6.21-6.23), fixing them is the next lever, and each fix must be tuned on
-  dev before test is used again.
+- **What the pipeline's numbers do and don't show.** At session level the
+  classical ML baselines tie the pipeline, so the paper cannot claim that
+  HGT + LSTM detects attack sessions better than standard ML. It can claim
+  that the pipeline identifies the attack event far better (test event AP
+  0.654 vs XGBoost 0.250). Every further fix must be tuned on dev and checked
+  on fresh test data.
+- **GraphSAGE alone (batch)** has session AUC 0.986 on test (beats all 200
+  size-preserving permutations, p = 0.005), stable across every dataset
+  iteration (0.982-0.987), and F1 0.929 / AUC 0.997 on held-out unseen attack
+  families. Its operating-point F1 is threshold-sensitive (0.79-0.89), so AUC
+  is its primary metric. The pipeline uses HGT, not GraphSAGE.
 - Older versions of this README reported 0.907 / 0.903 for those removed
   ensembles. Those numbers came from an LSTM checkpoint that had trained on
   real Invictus data, so they are not valid.
@@ -207,9 +260,12 @@ Worth knowing:
   finding-type docs -- it was never validated against real GuardDuty output
   (this project's data collection never enabled it), so it's *not* a stand-in
   for the actual commercial product.
-- The classical ML baselines (`evaluate_ml_baselines.py`) train on exactly
-  the synthetic table the LSTM trains on, and each gets its configuration
-  chosen on dev, as the proposed system did. An earlier version trained on
+- The classical ML baselines (`evaluate_ml_baselines.py`) train on
+  `train_temporal_aug.csv`, the synthetic table the previous LSTM (v5) trained
+  on, and each gets its configuration chosen on dev, as the proposed system
+  did. The served LSTM (v6.3) trains on `cloudtrail_temporal.csv`; retrained
+  on that table, XGBoost and Random Forest score lower on dev, so the table
+  above reports the stronger baselines. An earlier version trained on
   less data and on three features the synthetic generator hardcodes for
   attacks (MFA fields, request-parameter length). It scored RF 0.669 /
   XGBoost 0.595, and its conclusion that "ML on these features doesn't

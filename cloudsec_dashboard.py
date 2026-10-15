@@ -30,6 +30,8 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 
+import notify
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 SCORES = os.path.join(HERE, "output", "risk_scores.csv")
 ALERTS = os.path.join(HERE, "alerts")
@@ -322,7 +324,36 @@ def render_attack_chain(r):
                 f'<div style="padding:16px">{chain}</div></div>', unsafe_allow_html=True)
 
 
+def email_settings():
+    """Sidebar: where alerts are emailed (notify.py). Outside the auto-refreshing fragment, so
+    typing an address is never interrupted by a refresh."""
+    with st.sidebar:
+        st.subheader("Email alerts")
+        s = notify.status()
+        st.caption(f"Every alert scoring {alert_threshold():.2f}/10 or more is emailed to this address.")
+        with st.form("admin_email"):
+            address = st.text_input("Admin email", value=s["admin_email"] or "", placeholder="admin@example.com")
+            saved = st.form_submit_button("Save")
+        if saved:
+            try:
+                notify.save_admin_email(address)
+                st.success(f"Alerts will be emailed to {address.strip()}." if address.strip()
+                           else "Address cleared: alerts are no longer emailed.")
+            except ValueError:
+                st.error("That doesn't look like an email address.")
+            s = notify.status()
+        if s["sender"]:
+            st.caption(f"Sent from {s['sender']}.")
+        else:
+            st.warning("Sending is off: put the Gmail sender and its app password in email.env "
+                       "(see email.env.example), then restart run.cmd / run.sh.")
+        if st.button("Send test email", disabled=not s["ready"]):
+            ok, what = notify.send_test()
+            (st.success if ok else st.error)(what)
+
+
 # ── page ─────────────────────────────────────────────────────────────────
+email_settings()
 live = st.toggle("Live updates", value=True,
                  help=f"Refresh every {REFRESH_SECONDS} s as the pipeline scores new logs. Pause to read calmly.")
 

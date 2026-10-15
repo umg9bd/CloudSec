@@ -15,5 +15,8 @@ docker build -q -t cloudsec . >/dev/null
     fi
     sleep 1
   done ) &
-MSYS_NO_PATHCONV=1 docker run --rm -it -p 8501:8501 -v "$PWD:/app" cloudsec \
+# email alerts: the Gmail sender and app password in email.env (see email.env.example), if present
+EMAIL_ENV=()
+[ -f email.env ] && EMAIL_ENV=(--env-file email.env)
+MSYS_NO_PATHCONV=1 docker run --rm -it -p 8501:8501 -v "$PWD:/app" "${EMAIL_ENV[@]}" cloudsec \
   python pipeline.py --watch incoming --show-events --reset-state --dashboard --feed "$@"
