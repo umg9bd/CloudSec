@@ -1,0 +1,229 @@
+{
+  "output": "data/lstm/cloudtrail_temporal_v6_2.csv",
+  "source": "data/lstm/cloudtrail_temporal_final.csv",
+  "label_rule": "Invictus rule: recon/discovery = 0; PE writes and credential-theft calls = 1",
+  "dropped_features": [
+    "no_mfa",
+    "mfa_absent",
+    "params_length_normalized"
+  ],
+  "name_col_fix": {
+    "is_write_action": {
+      "names": [
+        "AssumeRole"
+      ],
+      "rows": 20
+    }
+  },
+  "n_rows": 17437,
+  "n_rows_base": 9711,
+  "n_rows_new": 7726,
+  "n_users": 962,
+  "n_pos": 1432,
+  "new_by_template": {
+    "ssm_securestring_theft": {
+      "technique": "aws.credential-access.ssm-retrieve-securestring-parameters",
+      "users": 50,
+      "events": 269,
+      "pos": 167
+    },
+    "secrets_bulk_theft": {
+      "technique": "aws.credential-access.secretsmanager-retrieve-secrets",
+      "users": 30,
+      "events": 241,
+      "pos": 211
+    },
+    "ec2_password_theft": {
+      "technique": "aws.credential-access.ec2-get-password-data",
+      "users": 30,
+      "events": 215,
+      "pos": 198
+    },
+    "app_config_load": {
+      "technique": "benign",
+      "users": 40,
+      "events": 94,
+      "pos": 0
+    },
+    "admin_ssm_browse": {
+      "technique": "benign",
+      "users": 40,
+      "events": 110,
+      "pos": 0
+    },
+    "app_secret_fetch": {
+      "technique": "benign",
+      "users": 40,
+      "events": 85,
+      "pos": 0
+    },
+    "admin_secret_browse": {
+      "technique": "benign",
+      "users": 40,
+      "events": 117,
+      "pos": 0
+    },
+    "admin_password_recovery": {
+      "technique": "benign",
+      "users": 40,
+      "events": 80,
+      "pos": 0
+    },
+    "busy_secret_theft": {
+      "technique": "attack",
+      "users": 12,
+      "events": 1513,
+      "pos": 208
+    },
+    "busy_escalation_theft": {
+      "technique": "attack",
+      "users": 12,
+      "events": 1439,
+      "pos": 168
+    },
+    "busy_benign_admin": {
+      "technique": "benign",
+      "users": 12,
+      "events": 1284,
+      "pos": 0
+    },
+    "busy_benign_ops": {
+      "technique": "benign",
+      "users": 12,
+      "events": 1228,
+      "pos": 0
+    },
+    "inventory_scan": {
+      "technique": "benign",
+      "users": 40,
+      "events": 1051,
+      "pos": 0
+    }
+  },
+  "common_reads_used": [
+    "DescribeInstances",
+    "DescribeVpcs",
+    "DescribeSubnets",
+    "DescribeSecurityGroups",
+    "DescribeRouteTables",
+    "DescribeNatGateways",
+    "DescribeInternetGateways",
+    "DescribeNetworkAcls",
+    "DescribeNetworkInterfaces",
+    "DescribeAddresses",
+    "DescribeAvailabilityZones",
+    "DescribeRegions",
+    "DescribeImages",
+    "DescribeSnapshots",
+    "DescribeVolumes",
+    "DescribeKeyPairs",
+    "DescribeAccountAttributes",
+    "DescribeVpcAttribute",
+    "DescribeInstanceStatus",
+    "DescribeTags",
+    "DescribeDBInstances",
+    "DescribeDBClusters",
+    "DescribeDBSnapshots",
+    "DescribeDBEngineVersions",
+    "DescribeDBSubnetGroups",
+    "ListBuckets",
+    "GetBucketAcl",
+    "GetBucketPolicy",
+    "GetBucketLocation",
+    "GetBucketVersioning",
+    "GetBucketLogging",
+    "GetBucketEncryption",
+    "GetUser",
+    "GetRole",
+    "ListRoles",
+    "ListUsers",
+    "ListPolicies",
+    "ListAttachedRolePolicies",
+    "ListRolePolicies",
+    "GetPolicy",
+    "GetPolicyVersion",
+    "ListGroups",
+    "GetAccountSummary",
+    "ListKeys",
+    "DescribeKey",
+    "Decrypt",
+    "GenerateDataKey",
+    "Encrypt",
+    "DescribeParameters",
+    "GetParameter",
+    "DescribeInstanceInformation",
+    "ListSecrets",
+    "DescribeSecret",
+    "GetResourcePolicy",
+    "DescribeTrails",
+    "GetTrailStatus",
+    "LookupEvents",
+    "DescribeAlarms",
+    "DescribeLogGroups",
+    "GetCallerIdentity",
+    "ListFunctions",
+    "ListTagsForResource"
+  ],
+  "common_reads_skipped": [
+    "ListObjects",
+    "ListAliases",
+    "ListCommands",
+    "GetMetricData",
+    "GetFunction"
+  ],
+  "within_name_label_check_new_rows": {
+    "GetParameters": {
+      "worst_feature": "session_duration_normalized",
+      "auc": 0.522,
+      "n_pos": 192,
+      "n_neg": 113
+    },
+    "GetPasswordData": {
+      "worst_feature": "session_duration_normalized",
+      "auc": 0.457,
+      "n_pos": 198,
+      "n_neg": 40
+    },
+    "GetSecretValue": {
+      "worst_feature": "principal_type_idx",
+      "auc": 0.461,
+      "n_pos": 485,
+      "n_neg": 128
+    }
+  },
+  "single_feature_auc_all_rows": {
+    "principal_type_prior_risk": 0.586,
+    "principal_type_idx": 0.428,
+    "has_access_key": 0.561,
+    "action_velocity": 0.581,
+    "is_new_action": 0.5,
+    "session_duration_normalized": 0.426,
+    "events_per_minute_normalized": 0.613,
+    "time_sin": 0.477,
+    "time_cos": 0.483,
+    "is_weekend": 0.515,
+    "is_off_hours": 0.481,
+    "action_risk_prior": 0.74,
+    "event_source_idx": 0.519,
+    "is_write_action": 0.627,
+    "read_only_absent": 0.5,
+    "has_error": 0.556,
+    "is_access_denied": 0.531,
+    "is_iam_event": 0.581,
+    "is_recon_action": 0.415,
+    "is_defense_evasion": 0.507,
+    "is_get_caller_identity": 0.495,
+    "is_malicious_user_agent": 0.546,
+    "is_public_ip": 0.5,
+    "targets_sensitive_resource": 0.656,
+    "is_non_default_region": 0.5,
+    "is_create_key": 0.513,
+    "is_secrets_or_kms": 0.599,
+    "is_permission_modification": 0.547,
+    "policy_statement_count_normalized": 0.5,
+    "has_wildcard_action": 0.5,
+    "has_wildcard_resource": 0.5,
+    "privileged_action_reach": 0.5
+  },
+  "disclosure": "Chain templates follow public Stratus Red Team credential-access techniques; the Invictus dev/test incident also contains Stratus Red Team activity. v6.2 busy-session templates were added after reviewing v6.1 errors on Invictus dev and test."
+}

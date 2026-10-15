@@ -1,0 +1,93 @@
+{
+  "test_event": {
+    "accuracy": 0.9958700440528634,
+    "auc_pr": 0.9922572403192624,
+    "auc_roc": 0.9995604411061412,
+    "f1": 0.9535603715170279,
+    "precision": 0.9685534591194969,
+    "recall": 0.9390243902439024,
+    "threshold": 0.725,
+    "n": 3632,
+    "n_pos": 164
+  },
+  "test_event_fe": {
+    "accuracy": 0.9958700440528634,
+    "auc_pr": 0.9922572403192624,
+    "auc_roc": 0.9995604411061412,
+    "f1": 0.9535603715170279,
+    "precision": 0.9685534591194969,
+    "recall": 0.9390243902439024,
+    "threshold": 0.725,
+    "n": 3632,
+    "n_pos": 164
+  },
+  "test_event_inv": null,
+  "test_bertjan_campaign": null,
+  "test_bertjan_original": null,
+  "test_bertjan_original_0p5": null,
+  "train_event": {
+    "accuracy": 0.9986805211941283,
+    "auc_pr": 0.999904160305228,
+    "auc_roc": 0.9999916633572721,
+    "f1": 0.991578947368421,
+    "precision": 0.9853556485355649,
+    "recall": 0.9978813559322034,
+    "threshold": 0.725,
+    "n": 6063,
+    "n_pos": 472
+  },
+  "val_event": {
+    "accuracy": 0.9960629921259843,
+    "auc_pr": 0.9976059280147345,
+    "auc_roc": 0.999654627985001,
+    "f1": 0.9825783972125436,
+    "precision": 0.986013986013986,
+    "recall": 0.9791666666666666,
+    "threshold": 0.725,
+    "n": 1270,
+    "n_pos": 144
+  },
+  "test": {
+    "accuracy": 0.9888468432583151,
+    "auc_pr": 0.9835508443168401,
+    "auc_roc": 0.9980470084143198,
+    "f1": 0.9322033898305084,
+    "precision": 0.9482758620689655,
+    "recall": 0.9166666666666666,
+    "threshold": 0.725,
+    "n": 5021,
+    "n_pos": 420
+  },
+  "test_inv": {
+    "n": 0
+  },
+  "test_fe": {
+    "accuracy": 0.9888468432583151,
+    "auc_pr": 0.9835508443168401,
+    "auc_roc": 0.9980470084143198,
+    "f1": 0.9322033898305084,
+    "precision": 0.9482758620689655,
+    "recall": 0.9166666666666666,
+    "threshold": 0.725,
+    "n": 5021,
+    "n_pos": 420
+  },
+  "val_event_inv": null,
+  "event_threshold": 0.725,
+  "window_threshold": 0.725,
+  "protocol": {
+    "model": "LSTMTransformerV5",
+    "test_attacker": null,
+    "val_inv": [],
+    "fe_pos_keep": 0.25,
+    "early_stop": "val_f1",
+    "campaign_relabel": true,
+    "secrets_head": true
+  },
+  "previous_v4": {
+    "test_inv_event_auc_pr": 0.522,
+    "test_inv_event_precision": 0.38,
+    "test_inv_event_recall": 0.43,
+    "test_inv_event_f1": 0.4
+  }
+}

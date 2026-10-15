@@ -1,0 +1,1399 @@
+import argparse
+import csv
+import gzip
+import hashlib
+import json
+import os
+import sys
+import time
+import uuid
+from datetime import datetime
+
+import ipaddress
+import numpy as np
+
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "graph_construction"))
+from identity_context import IdentityContext  # noqa: E402
+from privilege_features import DEFAULT_SENSITIVITY, SERVICE_SENSITIVITY  # noqa: E402
+
+# Ground truth a dataset may carry alongside the raw events. None of it may ever
+# become a model feature: normalize_cloudtrail_row() does not copy these into
+# the rows the feature code reads, with one exception -- `split`, which is
+# passed through ONLY so process_batch_file() can restrict label-fitted priors
+# to training rows. No feature reads it (tests/test_identity_features.py).
+GROUND_TRUTH_COLUMNS = (
+    "label", "session_label", "attack_technique", "attack_tactic", "attack_technique_id",
+    "campaign_id", "campaign_family", "chain_id", "stage_id", "hop_id",
+    "parent_event_id", "root_event_id", "causal_relation", "split",
+)
+
+# Best-effort JSON parse of a string value (or passthrough dict/list); returns None if unparseable -- not file I/O.
+def _parse_json_text(value):
+    if value is None:
+        return None
+    if isinstance(value, (dict, list)):
+        return value
+    if isinstance(value, str):
+        text = value.strip()
+        if not text:
+            return None
+        try:
+            return json.loads(text)
+        except Exception:
+            return None
+    return None
+
+
+# True if input_path's extension marks it as JSON/JSONL/NDJSON CloudTrail input (optionally .gz).
+def _is_cloudtrail_json_path(input_path):
+    lower_path = input_path.lower()
+    return lower_path.endswith(('.json', '.jsonl', '.ndjson', '.json.gz', '.jsonl.gz', '.ndjson.gz'))
+
+
+# True if input_path's extension marks it as CSV CloudTrail input (optionally .gz).
+def _is_cloudtrail_csv_path(input_path):
+    lower_path = input_path.lower()
+    return lower_path.endswith(('.csv', '.csv.gz'))
+
+
+# Opens input_path for text reading, transparently gunzipping if it ends in .gz.
+def _open_input_text(input_path):
+    if input_path.lower().endswith('.gz'):
+        return gzip.open(input_path, mode='rt', encoding='utf-8')
+    return open(input_path, mode='r', encoding='utf-8')
+
+
+def _absent_or_present(value):
+    """None/''/missing -> None (absent). Anything else -> the raw value."""
+    if value is None or value == '':
+        return None
+    return value
+
+
+# Canonicalizes a requestParameters dict into one consistent target-node identity, so the same
+# logical IAM entity doesn't become a different graph node depending on which field the
+# triggering API call happened to use (e.g. AssumeRole's roleArn vs CreateRole/AttachRolePolicy's
+# roleName both collapse onto the same arn:aws:iam::ACCOUNT:role/NAME node).
+def _canonicalize_target_from_params(params, account_id):
+    if not isinstance(params, dict):
+        return None
+
+    role_arn = params.get('roleArn')
+    if role_arn:
+        return role_arn
+
+    # roleName/userName checked before policyArn: AttachRolePolicy/AttachUserPolicy/PutRolePolicy/
+    # PutUserPolicy carry BOTH an identity name and a policyArn, and the identity being modified
+    # (the role/user) is the canonical target -- it's what needs to collapse onto the same node as
+    # AssumeRole/CreateRole/CreateUser. policyArn is only the target for policy-only calls
+    # (CreatePolicyVersion, DeletePolicy, ...) that carry no roleName/userName at all.
+    role_name = params.get('roleName')
+    if role_name:
+        return f"arn:aws:iam::{account_id or 'unknown'}:role/{role_name}"
+
+    user_name = params.get('userName')
+    if user_name:
+        return f"arn:aws:iam::{account_id or 'unknown'}:user/{user_name}"
+
+    policy_arn = params.get('policyArn')
+    if policy_arn:
+        return policy_arn
+
+    bucket_name = params.get('bucketName')
+    if bucket_name:
+        return f"arn:aws:s3:::{bucket_name}"
+
+    return None
+
+
+def normalize_cloudtrail_row(row):
+    """Map raw CloudTrail fields onto the internal schema."""
+
+    user_identity = _parse_json_text(row.get('userIdentity')) or {}
+    session_context = user_identity.get('sessionContext') or {}
+    session_attributes = session_context.get('attributes') or {}
+
+    session_issuer = session_context.get('sessionIssuer') or {}
+    principal_arn = row.get('principal_arn') or session_issuer.get('arn') or user_identity.get('arn')
+    principal_type = row.get('principal_type') or user_identity.get('type') or 'Unknown'
+
+   
+    username = row.get('username') or user_identity.get('userName') or session_issuer.get('userName')
+    if not username and principal_arn:
+        username = principal_arn.rsplit('/', 1)[-1]
+
+    request_params = row.get('request_params_raw')
+    if request_params is None:
+        request_params = row.get('requestParameters')
+        if isinstance(request_params, (dict, list)):
+            request_params = json.dumps(request_params)
+
+    recipient_account_id = row.get('recipient_account_id') or row.get('recipientAccountId')
+    account_id = str(recipient_account_id) if recipient_account_id else _extract_account_id(principal_arn)
+
+    # Prefer an already-enriched target_resource alias when present; otherwise dig into
+    # requestParameters (real CloudTrail often puts the actual target there -- e.g. AssumeRole's
+    # roleArn -- rather than in the generic `resources` array), and only fall back to
+    # `resources[0]` after that.
+    target_resource = row.get('target_resource')
+    if not target_resource:
+        target_resource = _canonicalize_target_from_params(_parse_json_text(request_params), account_id)
+    if not target_resource:
+        resources = row.get('resources') or []
+        if isinstance(resources, str):
+            resources = _parse_json_text(resources) or []
+        if isinstance(resources, list) and resources:
+            first_resource = resources[0]
+            if isinstance(first_resource, dict):
+                target_resource = first_resource.get('ARN') or first_resource.get('arn') or first_resource.get('name')
+
+    read_only = _absent_or_present(row.get('read_only'))
+    if read_only is None:
+        read_only = _absent_or_present(row.get('readOnly'))
+
+    mfa_authenticated = _absent_or_present(row.get('mfa_authenticated'))
+    if mfa_authenticated is None:
+        mfa_authenticated = _absent_or_present(session_attributes.get('mfaAuthenticated'))
+
+    normalized = {
+        'timestamp': row.get('timestamp') or row.get('eventTime'),
+        'event_name': row.get('event_name') or row.get('eventName'),
+        'event_source': row.get('event_source') or row.get('eventSource') or '',
+        'principal_type': principal_type,
+        'principal_arn': principal_arn or 'unknown_principal',
+        'username': username or 'unknown_user',
+        'source_ip': row.get('source_ip') or row.get('sourceIPAddress') or '0.0.0.0',
+        'user_agent': row.get('user_agent') or row.get('userAgent') or '',
+        'read_only': read_only,
+        'aws_region': (row.get('aws_region') or '').strip() or (row.get('awsRegion') or '').strip(),
+        'mfa_authenticated': mfa_authenticated,
+        'error_code': row.get('error_code') or row.get('errorCode') or '',
+        'target_resource': target_resource or 'aws_service',
+        'label': row.get('label', '0'),
+        'request_params_raw': request_params or '{}',
+        'access_key_id': row.get('access_key_id') or row.get('accessKeyId') or user_identity.get('accessKeyId') or '',
+        'recipient_account_id': str(recipient_account_id) if recipient_account_id else '',
+        # The acting identity's own ARN. For raw CloudTrail an assumed-role call's
+        # principal_arn above is the role (sessionIssuer.arn), which drops the
+        # session name identity_context needs to link the session to the
+        # AssumeRole that created it. CSV datasets already store the session ARN
+        # in principal_arn, so this is empty for them and principal_arn is used.
+        'session_arn': user_identity.get('arn') or '',
+        # Evaluation metadata, NOT a feature -- see GROUND_TRUTH_COLUMNS.
+        'split': str(row.get('split') or '').strip().lower(),
+    }
+
+    return normalized
+
+
+# Reads a raw CloudTrail CSV or JSON/JSONL file (input_path) and yields each row normalize_cloudtrail_row()'d.
+def iter_input_rows(input_path):
+    with _open_input_text(input_path) as infile:
+        if _is_cloudtrail_json_path(input_path):
+            first_non_ws = ''
+            pos = infile.tell()
+            while True:
+                char = infile.read(1)
+                if not char:
+                    break
+                if not char.isspace():
+                    first_non_ws = char
+                    break
+            infile.seek(pos)
+
+            if first_non_ws in ('{', '['):
+                try:
+                    payload = json.load(infile)
+                except json.JSONDecodeError:
+                    infile.seek(pos)
+                    payload = None
+
+                if payload is not None:
+                    if isinstance(payload, dict) and 'Records' in payload:
+                        rows = payload.get('Records')
+                    elif isinstance(payload, list):
+                        rows = payload
+                    else:
+                        rows = [payload]  # single raw event object
+
+                    if isinstance(rows, list):
+                        for row in rows:
+                            if isinstance(row, dict):
+                                yield normalize_cloudtrail_row(row)
+                    return
+
+            for line in infile:
+                line = line.strip()
+                if not line:
+                    continue
+                row = json.loads(line)
+                if isinstance(row, dict):
+                    yield normalize_cloudtrail_row(row)
+            return
+
+        if not _is_cloudtrail_csv_path(input_path):
+            raise ValueError(f"Unsupported input format: {input_path}")
+
+        reader = csv.DictReader(infile)
+        for row in reader:
+            yield normalize_cloudtrail_row(row)
+
+UNK_TOKEN = "<UNK>"
+
+FIXED_PRINCIPAL_TYPES = [
+    UNK_TOKEN, "Root", "IAMUser", "AssumedRole", "FederatedUser",
+    "AWSAccount", "AWSService", "SAMLUser", "WebIdentityUser", "Unknown",
+]
+
+FIXED_EVENT_SOURCES = [
+    UNK_TOKEN, "iam.amazonaws.com", "sts.amazonaws.com", "ec2.amazonaws.com",
+    "s3.amazonaws.com", "secretsmanager.amazonaws.com", "ssm.amazonaws.com",
+    "cloudtrail.amazonaws.com", "lambda.amazonaws.com", "kms.amazonaws.com",
+    "rds.amazonaws.com", "elasticloadbalancing.amazonaws.com", "account.amazonaws.com",
+    "notifications.amazonaws.com", "ce.amazonaws.com", "budgets.amazonaws.com",
+    "freetier.amazonaws.com",
+ ]
+
+# Growable string->int vocabulary, persisted as a JSON dict (e.g. .event_name_vocab.json) at `path`.
+class VocabIndex:
+    # Loads token->index mapping from `path` json if present, else starts from fixed_tokens or just <UNK>.
+    def __init__(self, fixed_tokens=None, path=None, frozen=False):
+        self.path = path
+        self.growable = fixed_tokens is None
+        # frozen: stop a growable vocab from accepting new tokens, without
+        # losing what it already learned. Needed when feature-engineering
+        # real evaluation data against a model already trained against this
+        # vocab's current size -- any new index appended after training
+        # would be out of bounds for that model's embedding table. A token
+        # unseen at training/freeze time falls back to UNK, same as a
+        # non-growable vocab's out-of-vocabulary handling.
+        self.frozen = frozen
+        if fixed_tokens is not None:
+            self.token_to_idx = {t: i for i, t in enumerate(fixed_tokens)}
+        elif path and os.path.exists(path):
+            self.token_to_idx = json.loads(open(path, encoding='utf-8').read())
+            if UNK_TOKEN not in self.token_to_idx:
+                self.token_to_idx[UNK_TOKEN] = len(self.token_to_idx)
+        else:
+            self.token_to_idx = {UNK_TOKEN: 0}
+
+    # Looks up token's index, assigning a new one if growable and not frozen; unseen tokens fall back to <UNK>.
+    def index(self, token):
+        token = token or UNK_TOKEN
+        if token in self.token_to_idx:
+            return self.token_to_idx[token]
+        if self.growable and not self.frozen:
+            idx = len(self.token_to_idx)
+            self.token_to_idx[token] = idx
+            return idx
+        return self.token_to_idx[UNK_TOKEN]
+
+    # Writes token_to_idx to `self.path` as JSON (e.g. .event_name_vocab.json).
+    def save(self):
+        if self.path:
+            with open(self.path, 'w', encoding='utf-8') as f:
+                json.dump(self.token_to_idx, f, indent=2, sort_keys=True)
+
+
+# Persisted as counts JSON -- .action_risk_prior.json or .principal_risk_prior.json, chosen by the caller's `path`.
+class AdaptiveRiskPrior:
+    """Shrinkage estimate of the attack rate per key, fitted on training labels.
+
+    LABEL-DERIVED FEATURE. score() returns a value computed from ground-truth
+    labels, and it is consumed as a model feature (action_risk_prior and
+    principal_type_prior_risk in TEMPORAL_COLS; event_risk feeds the structural
+    graph attributes). It must therefore follow the same fit/freeze discipline
+    as every scaler in this project: FIT on the training input, FROZEN on every
+    evaluation input. Without `frozen`, running feature engineering over a
+    held-out split folds that split's own labels into the features it produces
+    -- classic target leakage, silent and unlogged.
+
+    `priors` / `default` set the value a key shrinks toward. default=BASE_RATE
+    (what FeatureEngineer uses) shrinks every key toward the fitted overall
+    attack rate instead of toward a hand-assigned per-event number -- the old
+    1-10 "action_map" scores were unexplained magic numbers that also decided
+    the feature for every rarely-seen action."""
+
+    BASE_RATE = "base_rate"
+
+    # Loads {key: [attacks, total]} counts from `path` json if present; frozen+missing file fails loudly.
+    def __init__(self, priors, default=0.1, prior_weight=15, path=None, frozen=False):
+        self.priors = priors
+        self.default = default
+        self.prior_weight = prior_weight
+        self.path = path
+        self.frozen = frozen
+        self.counts = {}  # key -> [attacks_seen, total_seen]
+        if path and os.path.exists(path):
+            with open(path, encoding='utf-8') as f:
+                self.counts = json.load(f)
+        elif frozen:
+            # Frozen means "reuse the training-fitted counts". If they are not
+            # on disk, score() would silently fall back to the hand-tuned
+            # priors alone -- a different feature distribution than the model
+            # was trained on, with no error. Fail loudly instead.
+            raise FileNotFoundError(
+                f"Frozen AdaptiveRiskPrior expects training-fitted counts at {path!r}, "
+                f"which does not exist. Run feature engineering on the training input "
+                f"first so the prior is fitted, then re-run this evaluation."
+            )
+
+    def base_rate(self):
+        """Overall attack rate across every fitted key; 0.0 before any fitting."""
+        attacks = sum(a for a, _ in self.counts.values())
+        total = sum(t for _, t in self.counts.values())
+        return attacks / total if total else 0.0
+
+    # Bayesian-style shrinkage: blends the prior toward the observed attack rate for `key`.
+    def score(self, key):
+        default = self.base_rate() if self.default == self.BASE_RATE else self.default
+        prior = self.priors.get(key, default)
+        attacks, total = self.counts.get(key, (0, 0))
+        return (self.prior_weight * prior + attacks) / (self.prior_weight + total)
+
+    def update(self, key, label):
+        """Folds one row's GROUND-TRUTH LABEL into the running prior.
+
+        This is target encoding: the value returned by score() is a function of
+        labels seen so far. That is legitimate while FITTING on training data,
+        and is leakage everywhere else -- so this is a no-op once frozen, in
+        exactly the same way data_loader.py's StandardScalers are fit on the
+        training graph and transform-only thereafter."""
+        if self.frozen:
+            return
+        attacks, total = self.counts.get(key, (0, 0))
+        attacks += 1 if str(label) == '1' else 0
+        self.counts[key] = (attacks, total + 1)
+
+    # Writes self.counts to `self.path` as JSON -- .action_risk_prior.json or .principal_risk_prior.json.
+    def save(self):
+        # A frozen prior is read-only: writing would let an evaluation run
+        # overwrite the training-fitted counts on disk.
+        if self.path and not self.frozen:
+            with open(self.path, 'w', encoding='utf-8') as f:
+                json.dump(self.counts, f, indent=2, sort_keys=True)
+
+
+# ── Policy/permission feature parsing ─────────────────────────────────────
+
+PRIVILEGED_POLICY_ARN_MARKERS = ("administratoraccess", "poweruseraccess", "iamfullaccess")
+
+
+def _extract_statements(policy_doc):
+    """policy_doc is a (possibly JSON-string-encoded) IAM policy document."""
+    if not policy_doc:
+        return []
+    doc = policy_doc
+    if isinstance(doc, str):
+        doc = _parse_json_text(doc)
+    if not isinstance(doc, dict):
+        return []
+    statements = doc.get('Statement')
+    if statements is None:
+        return []
+    if isinstance(statements, dict):
+        statements = [statements]
+    return statements if isinstance(statements, list) else []
+
+
+# Scans a CloudTrail request's IAM policy document (JSON-string request_params_raw, not a file) for wildcard actions/resources.
+def parse_policy_features(request_params_raw):
+    params = _parse_json_text(request_params_raw)
+    if not isinstance(params, dict):
+        return 0, 0, 0, 0.0
+
+    statements = []
+    for key in ("policyDocument", "assumeRolePolicyDocument"):
+        statements.extend(_extract_statements(params.get(key)))
+
+    has_wildcard_action = 0
+    has_wildcard_resource = 0
+    reach = 0.0
+
+    for stmt in statements:
+        if not isinstance(stmt, dict) or str(stmt.get('Effect', '')).lower() != 'allow':
+            continue
+
+        actions = stmt.get('Action', [])
+        if isinstance(actions, str):
+            actions = [actions]
+        for action in actions:
+            action_lower = str(action).lower()
+            if action_lower == '*' or action_lower.endswith(':*'):
+                has_wildcard_action = 1
+                reach = max(reach, 1.0)
+            elif action_lower in ("sts:assumerole", "iam:passrole"):
+                reach = max(reach, 0.6)
+
+        resources = stmt.get('Resource', [])
+        if isinstance(resources, str):
+            resources = [resources]
+        if any(str(r) == '*' for r in resources):
+            has_wildcard_resource = 1
+
+    policy_arn = str(params.get('policyArn', '')).lower()
+    if any(marker in policy_arn for marker in PRIVILEGED_POLICY_ARN_MARKERS):
+        reach = max(reach, 1.0)
+
+    return len(statements), has_wildcard_action, has_wildcard_resource, reach
+
+
+# ── fe9: resource criticality ─────────────────────────────────────────────
+#
+# target_resource_criticality is the service tier from
+# privilege_features.SERVICE_SENSITIVITY (0 observability .. 3 identity/secrets),
+# the ONE documented convention the graph side already uses -- previously this
+# file kept a second, different hand table (values {2,3,4,5}) that also bumped
+# the score when the resource NAME contained "admin", "root" or "prod", which
+# rewards naming conventions rather than behavior.
+#
+# source_privilege_level is no longer a hand tier either: it comes from
+# identity_context (AWS access levels of permissions the actor is known to hold
+# or has demonstrated). See that module's docstring.
+
+def get_resource_criticality(event_source, target_resource=None):
+    service = (event_source or '').lower().split('.')[0]
+    return SERVICE_SENSITIVITY.get(service, DEFAULT_SENSITIVITY)
+
+
+def _extract_account_id(arn):
+    """arn:aws:{service}:{region}:{account_id}:{resource} -> account_id."""
+    if not arn:
+        return None
+    parts = arn.split(':')
+    if len(parts) >= 5 and parts[0] == 'arn' and parts[4].isdigit():
+        return parts[4]
+    return None
+
+
+# Per-node graph stats (degree, EWMA risk, privilege tier), persisted as JSON at `path` (e.g. .graph_node_state.json).
+class GraphNodeTracker:
+    EWMA_ALPHA = 0.3  # weight on the newest risk sample
+    NODE_AGE_CAP_SECONDS = 86400.0  # number of secs in a day
+
+    # Loads nodes/edge_counts/account_id_counts from `path` json if present (e.g. .graph_node_state.json).
+    def __init__(self, path=None):
+        self.path = path
+        self.nodes = {}
+        self.edge_counts = {}
+        self.account_id_counts = {}
+        if path and os.path.exists(path):
+            raw = json.loads(open(path, encoding='utf-8').read())
+            for node_id, data in raw.get('nodes', {}).items():
+                self.nodes[node_id] = {
+                    'degree': data['degree'],
+                    'first_seen': datetime.fromisoformat(data['first_seen']),
+                    'last_seen': datetime.fromisoformat(data['last_seen']),
+                    'privilege_tier': data['privilege_tier'],
+                    'historical_risk': data['historical_risk'],
+                }
+            self.edge_counts = raw.get('edge_counts', {})
+            self.account_id_counts = raw.get('account_id_counts', {})
+
+    # Writes nodes/edge_counts/account_id_counts to `self.path` as JSON (e.g. .graph_node_state.json).
+    def save(self):
+        if not self.path:
+            return
+        serializable = {
+            'nodes': {
+                node_id: {
+                    'degree': data['degree'],
+                    'first_seen': data['first_seen'].isoformat(),
+                    'last_seen': data['last_seen'].isoformat(),
+                    'privilege_tier': data['privilege_tier'],
+                    'historical_risk': data['historical_risk'],
+                }
+                for node_id, data in self.nodes.items()
+            },
+            'edge_counts': self.edge_counts,
+            'account_id_counts': self.account_id_counts,
+        }
+        with open(self.path, 'w', encoding='utf-8') as f:
+            json.dump(serializable, f, indent=2, sort_keys=True)
+
+    # Creates node_id's entry on first sight, then bumps its degree and last_seen timestamp.
+    def _touch_node(self, node_id, current_ts):
+        if node_id not in self.nodes:
+            self.nodes[node_id] = {
+                'degree': 0,
+                'first_seen': current_ts,
+                'last_seen': current_ts,
+                'privilege_tier': 0,
+                'historical_risk': 0.0,
+            }
+        node = self.nodes[node_id]
+        node['degree'] += 1
+        node['last_seen'] = current_ts
+        return node
+
+    # Records one edge, updating both endpoints' degree and the source's EWMA historical_risk/privilege_tier.
+    def record_edge(self, source_node, target_node, current_ts, event_risk, privilege_signal):
+        source = self._touch_node(source_node, current_ts)
+        self._touch_node(target_node, current_ts)  # target's degree also grows
+
+        edge_key = f"{source_node}||{target_node}"
+        self.edge_counts[edge_key] = self.edge_counts.get(edge_key, 0) + 1
+
+        source['historical_risk'] = (
+            self.EWMA_ALPHA * event_risk + (1 - self.EWMA_ALPHA) * source['historical_risk']
+        )
+        source['privilege_tier'] = max(source['privilege_tier'], privilege_signal)
+
+        age_seconds = (current_ts - source['first_seen']).total_seconds()
+
+        return {
+            'source_node_degree': source['degree'],
+            'edge_interaction_count': self.edge_counts[edge_key],
+            'source_node_age_normalized': min(age_seconds / self.NODE_AGE_CAP_SECONDS, 1.0),
+            'source_privilege_level': source['privilege_tier'],
+            'source_historical_risk': round(source['historical_risk'], 4),
+        }
+
+    # 1 if principal_arn's account differs from recipient_account_id (or this run's most-common account).
+    def cross_account_flag(self, principal_arn, recipient_account_id):
+        account_id = _extract_account_id(principal_arn)
+        if not account_id:
+            return 0
+        self.account_id_counts[account_id] = self.account_id_counts.get(account_id, 0) + 1
+
+        if recipient_account_id:
+            return 1 if account_id != recipient_account_id else 0
+
+        home_account = max(self.account_id_counts, key=self.account_id_counts.get)
+        return 1 if account_id != home_account else 0
+
+
+# ── Shared feature engineering ─────────────────────────────────────────────
+
+# Parses a CloudTrail timestamp string in either ISO8601 or the synthetic dataset's fixed format.
+def _parse_timestamp(timestamp_str):
+    if 'T' in timestamp_str:
+        return datetime.fromisoformat(timestamp_str.replace('Z', '+00:00'))
+    return datetime.strptime(timestamp_str, "%Y-%m-%d %H:%M:%S%z")  # 2026-03-31 10:00:00+0000
+
+SESSION_GAP_SECONDS = 1800  # inactivity gap that starts a new session
+
+# Per-principal session/velocity state, persisted as JSON at `path` (e.g. .state_tracker.json).
+class StateTracker:
+    # Loads per-principal last_ts/actions/session state from `path` json if present.
+    def __init__(self, path=None):
+        self.path = path
+        self.user_registry = {}
+        if path and os.path.exists(path):
+            raw = json.loads(open(path, encoding='utf-8').read())
+            for p_arn, data in raw.items():
+                self.user_registry[p_arn] = {
+                    'last_ts': datetime.fromisoformat(data['last_ts']),
+                    'actions': set(data['actions']),
+                    'session_start_ts': datetime.fromisoformat(data['session_start_ts']),
+                    'session_event_count': data['session_event_count'],
+                }
+
+    # Writes user_registry to `self.path` as JSON (e.g. .state_tracker.json).
+    def save(self):
+        if not self.path:
+            return
+        serializable = {
+            p_arn: {
+                'last_ts': data['last_ts'].isoformat(),
+                'actions': sorted(data['actions']),
+                'session_start_ts': data['session_start_ts'].isoformat(),
+                'session_event_count': data['session_event_count'],
+            }
+            for p_arn, data in self.user_registry.items()
+        }
+        with open(self.path, 'w', encoding='utf-8') as f:
+            json.dump(serializable, f, indent=2, sort_keys=True)
+
+    # Updates p_arn's session state and returns (velocity, is_new_action, session_duration_s, events_per_minute).
+    def get_metrics(self, p_arn, event_name, current_ts):
+        if p_arn not in self.user_registry:
+            self.user_registry[p_arn] = {
+                'last_ts': current_ts,
+                'actions': {event_name},
+                'session_start_ts': current_ts,
+                'session_event_count': 1,
+            }
+            return 0.0, 1, 0.0, 1.0  # velocity, is_new_action, session_duration_s, events_per_minute
+
+        user_data = self.user_registry[p_arn]
+
+        delta = (current_ts - user_data['last_ts']).total_seconds()
+        velocity = max(0, 1 - (delta / 3600))
+        is_new_action = 1 if event_name not in user_data['actions'] else 0
+
+        if delta > SESSION_GAP_SECONDS:
+            user_data['session_start_ts'] = current_ts
+            user_data['session_event_count'] = 1
+        else:
+            user_data['session_event_count'] += 1
+
+        session_duration = (current_ts - user_data['session_start_ts']).total_seconds()
+        session_minutes = max(session_duration / 60.0, 1.0 / 60.0)  # avoid /0 on a session's first event
+        events_per_minute = user_data['session_event_count'] / session_minutes
+
+        user_data['last_ts'] = current_ts
+        user_data['actions'].add(event_name)
+
+        return velocity, is_new_action, session_duration, events_per_minute
+
+
+# Orchestrates all sub-trackers/priors (see their own JSON files) to turn one raw log row into structural+temporal features.
+class FeatureEngineer:
+    # Wires up VocabIndex/StateTracker/GraphNodeTracker/IdentityContext/AdaptiveRiskPrior x2 from the given JSON file paths.
+    def __init__(self, event_name_vocab_path=None, state_tracker_path=None, graph_state_path=None,
+                 action_prior_path=None, principal_prior_path=None, freeze_vocab=False,
+                 freeze_priors=False, identity_state_path=None):
+        self.tracker = StateTracker(path=state_tracker_path)
+        self.graph_tracker = GraphNodeTracker(path=graph_state_path)
+        self.identity = IdentityContext(path=identity_state_path)
+        self.principal_type_vocab = VocabIndex(fixed_tokens=FIXED_PRINCIPAL_TYPES)
+        self.event_source_vocab = VocabIndex(fixed_tokens=FIXED_EVENT_SOURCES)
+        self.event_name_vocab = VocabIndex(path=event_name_vocab_path, frozen=freeze_vocab)
+
+        self.freeze_priors = freeze_priors
+        self.labels_observed = 0          # rows whose label was folded into the priors
+        self.labels_withheld = 0          # rows skipped because they are not training rows
+
+        # No hand-assigned per-event or per-principal-type scores: every key
+        # shrinks toward the fitted training base rate (see AdaptiveRiskPrior).
+        self.action_risk_prior = AdaptiveRiskPrior(
+            priors={}, default=AdaptiveRiskPrior.BASE_RATE, prior_weight=15,
+            path=action_prior_path, frozen=freeze_priors,
+        )
+        self.principal_risk_prior = AdaptiveRiskPrior(
+            priors={}, default=AdaptiveRiskPrior.BASE_RATE, prior_weight=15,
+            path=principal_prior_path, frozen=freeze_priors,
+        )
+        self._ctx_row = None
+        self._ctx = None
+
+    # Persists every sub-tracker -- event_name_vocab, state tracker, graph tracker, identity context, both risk priors.
+    def save_state(self):
+        self.event_name_vocab.save()
+        self.tracker.save()
+        self.graph_tracker.save()
+        self.identity.save()
+        self.action_risk_prior.save()
+        self.principal_risk_prior.save()
+
+    def observe_label(self, log):
+        """Folds this row's ground-truth label into the adaptive priors.
+
+        MUST NOT be called with evaluation labels. Two guards:
+          * frozen priors ignore every update (any non-training input), and
+          * on a training input that carries a `split` column, only rows with
+            split == "train" are folded in. Without this, fitting on a
+            synthetic file that also holds its own val/test rows put those
+            rows' labels into the features they are later scored with."""
+        if self.freeze_priors:
+            return
+        split = log.get('split') or ''
+        if split and split != 'train':
+            self.labels_withheld += 1
+            return
+        label = log.get('label', '0')
+        self.action_risk_prior.update(log.get('event_name'), label)
+        self.principal_risk_prior.update(log.get('principal_type', ''), label)
+        self.labels_observed += 1
+
+    def _context(self, log):
+        """Identity/permission context for this row, computed once even though
+        both get_structural_data and get_temporal_features need it (the context
+        is stateful: observing the same row twice would count it twice)."""
+        if self._ctx_row is not log:
+            timestamp_str = log.get('timestamp') or log.get('eventTime')
+            if not timestamp_str:
+                raise ValueError(f"row for principal {log.get('principal_arn')!r} has no timestamp/eventTime")
+            self._ctx = self.identity.observe(log, _parse_timestamp(timestamp_str))
+            self._ctx_row = log
+        return self._ctx
+
+    # Builds one row of GNN structural features (source/target node, edge type, graph-topology attrs) for the structural CSV.
+    def get_structural_data(self, log):
+        p_arn = log.get('principal_arn', 'unknown_principal')
+        event = log.get('event_name', 'unknown_action')
+        target = log.get('target_resource') or 'aws_service'
+
+        timestamp_str = log.get('timestamp') or log.get('eventTime')
+        if not timestamp_str:
+            raise ValueError(f"row for principal {p_arn!r} has no timestamp/eventTime")
+        dt = _parse_timestamp(timestamp_str)
+
+        event_risk = self.action_risk_prior.score(event)
+        privilege_signal = self._context(log)['source_privilege_level']
+
+        graph_attrs = self.graph_tracker.record_edge(p_arn, target, dt, event_risk, privilege_signal)
+        graph_attrs['target_resource_criticality'] = get_resource_criticality(log.get('event_source'), target)
+        graph_attrs['is_cross_account'] = self.graph_tracker.cross_account_flag(
+            p_arn, log.get('recipient_account_id')
+        )
+
+        return {
+            'source_node': p_arn,
+            'target_node': target,
+            'edge_type': event,
+            **graph_attrs,
+        }
+
+    # Builds one row of LSTM temporal features (TEMPORAL_COLS, in order) for the temporal CSV.
+    def get_temporal_features(self, log):
+        f = []
+        p_arn = log.get('principal_arn', 'unknown')
+
+        timestamp_str = log.get('timestamp') or log.get('eventTime')
+        if not timestamp_str:
+            raise ValueError(f"row for principal {p_arn!r} has no timestamp/eventTime")
+
+        dt = _parse_timestamp(timestamp_str)
+
+        # PILLAR 1: IDENTITY & DYNAMICS
+        mfa_raw = log.get('mfa_authenticated')
+        if mfa_raw is None:
+            f.append(0)  # no_mfa: unknown, not claimed true or false
+            f.append(1)  # mfa_absent
+        else:
+            mfa = str(mfa_raw).lower()
+            f.append(1 if mfa in ['false', 'no', 'none', ''] else 0)  # no_mfa
+            f.append(0)  # mfa_absent
+
+        p_type = log.get('principal_type', '')
+        f.append(self.principal_risk_prior.score(p_type))  # principal_type_prior_risk
+        f.append(self.principal_type_vocab.index(p_type))  # principal_type_idx
+
+        f.append(1 if log.get('access_key_id') else 0)  # has_access_key
+
+        velocity, is_new_action, session_duration, events_per_minute = self.tracker.get_metrics(
+            p_arn, log.get('event_name'), dt
+        )
+        f.append(velocity)  # action_velocity
+        f.append(is_new_action)  # is_new_action
+        f.append(min(session_duration / 3600.0, 1.0))  # session_duration_normalized
+        f.append(min(events_per_minute / 10.0, 1.0))  # events_per_minute_normalized
+
+        # PILLAR 2: TEMPORAL CONTEXT
+        h_rad = 2 * np.pi * dt.hour / 24.0
+        f.append(np.sin(h_rad))  # time_sin
+        f.append(np.cos(h_rad))  # time_cos
+        f.append(1 if dt.weekday() >= 5 else 0)  # is_weekend
+        f.append(1 if dt.hour < 9 or dt.hour > 18 else 0)  # is_off_hours
+
+        # PILLAR 3: ACTION INTENT
+        event_name = log.get('event_name')
+        f.append(self.action_risk_prior.score(event_name))  # action_risk_prior
+        f.append(self.event_name_vocab.index(event_name))  # event_name_idx
+        f.append(self.event_source_vocab.index(log.get('event_source')))  # event_source_idx
+
+        read_only = log.get('read_only')
+        if read_only is None:
+            f.append(0)  # is_write_action: unknown, default to the safer (read) assumption
+            f.append(1)  # read_only_absent
+        else:
+            f.append(1 if str(read_only).lower() == 'false' else 0)  # is_write_action
+            f.append(0)  # read_only_absent
+
+        err = log.get('error_code', '')
+        f.append(1 if err else 0)  # has_error
+        f.append(1 if err == "AccessDenied" else 0)  # is_access_denied
+
+        f.append(1 if "iam" in log.get('event_source', '') else 0)  # is_iam_event
+        f.append(1 if any(x in (event_name or '') for x in ['Describe', 'List', 'Get']) else 0)  # is_recon_action
+        f.append(1 if event_name in ["DeleteTrail", "StopLogging"] else 0)  # is_defense_evasion
+        f.append(1 if event_name == "GetCallerIdentity" else 0)  # is_get_caller_identity
+
+        # PILLAR 4: METADATA ANOMALIES
+        ua = str(log.get('user_agent', '')).lower()
+        f.append(1 if any(x in ua for x in ['kali', 'pacu', 'metasploit', 'requests']) else 0)  # is_malicious_user_agent
+
+        try:
+            ip = log.get('source_ip', '0.0.0.0')
+            f.append(1 if not ipaddress.ip_address(ip).is_private else 0)  # is_public_ip
+        except Exception:
+            f.append(1)
+
+        request_params_raw = str(log.get('request_params_raw', '{}'))
+        f.append(min(len(request_params_raw) / 750.0, 1.0))  # params_length_normalized
+
+        target_str = str(log.get('target_resource', '')).lower()
+        f.append(1 if any(x in target_str for x in ['admin', 'vault', 'prod']) else 0)  # targets_sensitive_resource
+        f.append(1 if log.get('aws_region') != "us-east-1" else 0)  # is_non_default_region
+        f.append(1 if "Create" in (event_name or '') and "Key" in (event_name or '') else 0)  # is_create_key
+        f.append(1 if any(x in log.get('event_source', '') for x in ['secrets', 'kms']) else 0)  # is_secrets_or_kms
+        f.append(1 if "Attach" in (event_name or '') or "Put" in (event_name or '') else 0)  # is_permission_modification
+
+        # PILLAR 5: POLICY STRUCTURE
+        stmt_count, wildcard_action, wildcard_resource, privileged_reach = parse_policy_features(request_params_raw)
+        f.append(min(stmt_count / 5.0, 1.0))  # policy_statement_count_normalized
+        f.append(wildcard_action)  # has_wildcard_action
+        f.append(wildcard_resource)  # has_wildcard_resource
+        f.append(privileged_reach)  # privileged_action_reach
+
+        # PILLAR 6: IDENTITY LINEAGE & PERMISSION STATE (inferred from the observable prefix)
+        ctx = self._context(log)
+        for col in IDENTITY_COLS:
+            f.append(ctx[col])
+
+        return f
+
+
+TEMPORAL_COLS = [
+    "no_mfa", "mfa_absent", "principal_type_prior_risk", "principal_type_idx",
+    "has_access_key", "action_velocity", "is_new_action",
+    "session_duration_normalized", "events_per_minute_normalized",
+    "time_sin", "time_cos", "is_weekend", "is_off_hours",
+    "action_risk_prior", "event_name_idx", "event_source_idx",
+    "is_write_action", "read_only_absent", "has_error", "is_access_denied",
+    "is_iam_event", "is_recon_action", "is_defense_evasion", "is_get_caller_identity",
+    "is_malicious_user_agent", "is_public_ip", "params_length_normalized",
+    "targets_sensitive_resource", "is_non_default_region", "is_create_key",
+    "is_secrets_or_kms", "is_permission_modification",
+    "policy_statement_count_normalized", "has_wildcard_action",
+    "has_wildcard_resource", "privileged_action_reach",
+]
+# Appended, never inserted: models select temporal features by NAME
+# (pipeline.py reads the LSTM's own feature_cols), so existing checkpoints keep
+# reading the columns they were trained on.
+IDENTITY_COLS = [
+    "new_permission_count_log", "permission_expansion_score", "privilege_delta",
+    "target_permission_coverage", "actor_permission_coverage",
+    "principal_handoff", "causal_depth_normalized", "lineage_enabling_steps_normalized",
+]
+TEMPORAL_COLS = TEMPORAL_COLS + IDENTITY_COLS
+GRAPH_ATTR_FIELDS = [
+    "source_node_degree", "edge_interaction_count", "source_node_age_normalized",
+    "source_privilege_level", "source_historical_risk",
+    "target_resource_criticality", "is_cross_account",
+]
+STRUCT_FIELDS = ["log_id", "source_node", "target_node", "edge_type", "label"] + GRAPH_ATTR_FIELDS
+TEMP_FIELDS = ["log_id", "username", "timestamp"] + TEMPORAL_COLS + ["label"]
+
+DATA_DIR = "datasets/privilege-escalation"
+DEFAULT_INPUT = os.path.join(DATA_DIR, "synthetic_cloudtrail.csv")
+STRUCT_OUT = os.path.join(DATA_DIR, "cloudtrail_structural.csv")
+TEMPORAL_OUT = os.path.join(DATA_DIR, "cloudtrail_temporal.csv")
+STATE_FILE = os.path.join(DATA_DIR, ".feature_engine9_state.json")
+EVENT_NAME_VOCAB_FILE = os.path.join(DATA_DIR, ".event_name_vocab.json")
+STATE_TRACKER_FILE = os.path.join(DATA_DIR, ".state_tracker.json")
+GRAPH_NODE_STATE_FILE = os.path.join(DATA_DIR, ".graph_node_state.json")
+IDENTITY_STATE_FILE = os.path.join(DATA_DIR, ".identity_state.json")
+ACTION_PRIOR_FILE = os.path.join(DATA_DIR, ".action_risk_prior.json")
+PRINCIPAL_PRIOR_FILE = os.path.join(DATA_DIR, ".principal_risk_prior.json")
+
+
+def _derive_paths(input_path: str) -> dict:
+    """Output paths for a given --input. The default input keeps its
+    original fixed filenames (cloudtrail_structural.csv etc.) unchanged,
+    for backward compatibility with what's already been built from it.
+    Any other input gets its own filenames derived from its basename, so
+    e.g. running against real_dataset_test.csv can never silently append
+    into the same structural/temporal CSV the synthetic training set
+    already built -- previously a real risk, since those were fixed
+    constants regardless of --input.
+
+    event_name_vocab is deliberately NOT derived -- it must stay the same
+    file across every dataset evaluated against a given trained model, or
+    the same index would silently mean a different event name depending
+    on which dataset was processed most recently.
+    """
+    if os.path.abspath(input_path) == os.path.abspath(DEFAULT_INPUT):
+        return {
+            "struct_out": STRUCT_OUT, "temporal_out": TEMPORAL_OUT,
+            "state_file": STATE_FILE, "state_tracker_file": STATE_TRACKER_FILE,
+            "graph_node_state_file": GRAPH_NODE_STATE_FILE,
+            "identity_state_file": IDENTITY_STATE_FILE,
+        }
+    stem = os.path.splitext(os.path.basename(os.path.normpath(input_path)))[0]
+    return _paths_for_stem(stem)
+
+
+def _paths_for_stem(stem: str) -> dict:
+    return {
+        "struct_out": os.path.join(DATA_DIR, f"{stem}_structural.csv"),
+        "temporal_out": os.path.join(DATA_DIR, f"{stem}_temporal.csv"),
+        "state_file": os.path.join(DATA_DIR, f".feature_engine9_state_{stem}.json"),
+        "state_tracker_file": os.path.join(DATA_DIR, f".state_tracker_{stem}.json"),
+        "graph_node_state_file": os.path.join(DATA_DIR, f".graph_node_state_{stem}.json"),
+        "identity_state_file": os.path.join(DATA_DIR, f".identity_state_{stem}.json"),
+    }
+
+
+def file_fingerprint(path: str) -> str:
+    """sha256 of a file's bytes -- identifies WHICH version of an input a cached
+    output or a fitted prior came from."""
+    h = hashlib.sha256()
+    with open(path, 'rb') as f:
+        for chunk in iter(lambda: f.read(1 << 20), b''):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def prior_meta_path(prior_path: str) -> str:
+    return prior_path + ".meta.json"
+
+
+def read_prior_meta(prior_path: str):
+    meta = prior_meta_path(prior_path)
+    if not os.path.exists(meta):
+        return None
+    with open(meta, encoding='utf-8') as f:
+        return json.load(f)
+
+# ── Fast-lane: defense-evasion actions that get an immediate alert ───────────
+CRITICAL_ACTIONS = {
+    "StopLogging":     "CloudTrail logging disabled",
+    "DeleteTrail":     "CloudTrail trail deleted",
+    "UpdateDetector":  "GuardDuty detector reconfigured/disabled",
+    "DeleteFlowLogs":  "VPC flow logs deleted",
+}
+
+# Prints an immediate [FAST-LANE ALERT] if row's action is a defense-evasion action (CRITICAL_ACTIONS) -- no file I/O.
+def fast_lane_alert(row) -> None:
+  
+    event_name = row.get('event_name')
+    reason = CRITICAL_ACTIONS.get(event_name)
+    if reason:
+        principal = row.get('principal_arn', 'unknown_principal')
+        print(f"[FAST-LANE ALERT] {event_name} by {principal} - {reason}")
+
+
+# ── State (processed-file tracking, so re-running / restarting the watcher
+#    never reprocesses a CloudTrail log file twice) ────────────────────────────
+
+# Reads the processed-files list from STATE_FILE (.feature_engine9_state.json), or {"processed_files": []} if absent.
+def load_state() -> dict:
+    if os.path.exists(STATE_FILE):
+        return json.loads(open(STATE_FILE, encoding='utf-8').read())
+    return {"processed_files": []}
+
+
+# Writes state (the processed-files list) to STATE_FILE (.feature_engine9_state.json).
+def save_state(state: dict) -> None:
+    with open(STATE_FILE, 'w', encoding='utf-8') as f:
+        json.dump(state, f)
+
+
+# ── Micro-batch processing: one CloudTrail log file = one unit of work ───────
+
+def _check_output_schema(path, expected_fields):
+    """Refuses to append rows with a different column layout than what's
+    already in the file -- the structural schema changed from fe8 (7 new
+    graph-attribute columns)."""
+    if not os.path.exists(path):
+        return
+    with open(path, encoding='utf-8') as f:
+        existing_header = next(csv.reader(f), None)
+    if existing_header is not None and existing_header != expected_fields:
+        raise SystemExit(
+            f"{path} has a different column layout than feature_engine9 produces.\n"
+            f"Delete it (and its structural/temporal sibling) and re-run to regenerate from scratch."
+        )
+
+
+# Re-sorts TEMPORAL_OUT (cloudtrail_temporal.csv) by (username, timestamp) after appending new_rows.
+def _rewrite_temporal_sorted(new_rows) -> None:
+    existing_rows = []
+    if os.path.exists(TEMPORAL_OUT):
+        with open(TEMPORAL_OUT, encoding='utf-8') as f:
+            existing_rows = list(csv.DictReader(f))
+
+    combined = existing_rows + new_rows
+    combined.sort(key=lambda r: (r['username'], _parse_timestamp(r['timestamp'])))
+
+    tmp_path = TEMPORAL_OUT + ".tmp"
+    with open(tmp_path, mode='w', newline='', encoding='utf-8') as f:
+        writer = csv.DictWriter(f, fieldnames=TEMP_FIELDS)
+        writer.writeheader()
+        writer.writerows(combined)
+    os.replace(tmp_path, TEMPORAL_OUT)
+
+
+def process_batch_file(engine: FeatureEngineer, input_path: str, split_of_log_id=None) -> int:
+    """Processes a single arrived log file, appending features to the
+    structural/temporal output CSVs. Returns rows processed.
+
+    split_of_log_id (optional, log_id -> train/val/test, e.g. from
+    campaign_split.read_split_file) overrides each row's `split`, so the
+    label-fitted priors learn from that split's TRAIN rows only. Every row
+    must be assigned."""
+    _check_output_schema(STRUCT_OUT, STRUCT_FIELDS)
+    _check_output_schema(TEMPORAL_OUT, TEMP_FIELDS)
+
+    struct_is_new = not os.path.exists(STRUCT_OUT)
+    os.makedirs(DATA_DIR, exist_ok=True)
+
+    count = 0
+    new_temp_rows = []
+    with open(STRUCT_OUT, mode='a', newline='', encoding='utf-8') as struct_out:
+        struct_writer = csv.DictWriter(struct_out, fieldnames=STRUCT_FIELDS)
+        if struct_is_new:
+            struct_writer.writeheader()
+
+        for source_row_index, row in enumerate(iter_input_rows(input_path)):
+            fast_lane_alert(row)  # low-latency lane, runs before full feature computation
+
+            try:
+                struct = engine.get_structural_data(row)
+                temporal = engine.get_temporal_features(row)
+            except ValueError as e:
+                # NOTE: log_id below is indexed by source_row_index, NOT by
+                # `count`. It previously used `count`, which is only
+                # incremented for successfully-processed rows -- so a single
+                # skip here silently shifted every subsequent log_id one row
+                # off its true position in the input CSV. Downstream,
+                # evaluate_session_level.py indexes the raw CSV by that
+                # number to recover each edge's session, so the drift would
+                # have misattributed every following edge to the wrong
+                # session with no error anywhere. No skip has occurred on the
+                # current datasets (row counts match exactly), but the
+                # coupling was silent and is now removed.
+                print(f"[SKIP] {input_path} row {source_row_index}: {e}")
+                continue
+
+            label = row.get("label", "0")
+            log_id = f"{os.path.basename(input_path)}:{source_row_index}"
+            if split_of_log_id is not None:
+                if log_id not in split_of_log_id:
+                    raise ValueError(f"{log_id} has no entry in the split file; the split file "
+                                     f"was built for a different input")
+                row['split'] = split_of_log_id[log_id]
+
+            # Update the adaptive priors *after* scoring this row, so its own
+            # label can't leak into its own action_risk_prior/principal_risk_prior features.
+            engine.observe_label(row)
+
+            struct_row = {
+                "log_id": log_id,
+                "source_node": struct["source_node"],
+                "target_node": struct["target_node"],
+                "edge_type": struct["edge_type"],
+                "label": label,
+            }
+            for field in GRAPH_ATTR_FIELDS:
+                struct_row[field] = struct[field]
+            struct_writer.writerow(struct_row)
+
+            temp_row = {
+                "log_id": log_id,
+                "username": row.get("username", "unknown_user"),
+                "timestamp": row.get("timestamp"),
+                "label": label,
+            }
+            for i, val in enumerate(temporal):
+                temp_row[TEMPORAL_COLS[i]] = val
+            new_temp_rows.append(temp_row)
+
+            count += 1
+
+    if new_temp_rows:
+        _rewrite_temporal_sorted(new_temp_rows)
+
+    engine.save_state()
+    print(f"[BATCH] {input_path} -> {count} rows (struct/temporal features written)")
+    if not engine.freeze_priors:
+        print(f"[PRIORS] fitted on {engine.labels_observed} training rows; "
+              f"{engine.labels_withheld} non-training rows (split != train) withheld")
+    return count
+
+
+def run_batch(input_path: str, freeze_vocab: bool = False, freeze_priors: bool = None,
+              rebuild: bool = False, split_file: str = None, tag: str = None) -> None:
+    """freeze_priors defaults to "frozen unless this IS the training input".
+
+    The adaptive risk priors are fitted from ground-truth labels, so folding a
+    held-out split's labels into them is target leakage. Defaulting the freeze
+    off the input path means the safe behaviour is automatic: only the default
+    (training) input may fit the priors, everything else reuses them read-only.
+    Pass freeze_priors explicitly to override -- e.g. False when deliberately
+    refitting on a new training set. Within the training input, only rows whose
+    `split` column is "train" (or that have no split column) are fitted.
+
+    Cached outputs are tied to the CONTENT of the input they came from (sha256),
+    not just its file name. Regenerating an input under the same name used to be
+    skipped as "already processed", leaving features -- and priors fitted on the
+    OLD data -- in place with no warning. Now that is an error unless
+    rebuild=True, which deletes this input's derived outputs and tracker state
+    (and, when fitting, the priors) and starts clean.
+
+    split_file + tag: build a SEPARATE feature set for a within-synthetic
+    evaluation split (campaign_split.py). Priors learn from the split file's
+    train rows only, and every output -- features, tracker state, priors -- gets
+    the tag in its name, so the default training artifacts (and the live
+    pipeline that reads them) are never touched. A split file without a tag is
+    refused for exactly that reason."""
+    global STRUCT_OUT, TEMPORAL_OUT, STATE_FILE, STATE_TRACKER_FILE, GRAPH_NODE_STATE_FILE, IDENTITY_STATE_FILE
+    if not os.path.exists(input_path):
+        print(f"Error: Could not find {input_path}")
+        raise SystemExit(1)
+    if split_file and not tag:
+        raise SystemExit("--split-file needs --tag, so the split-specific priors and features get "
+                         "their own files instead of replacing the default training artifacts.")
+
+    is_training_input = os.path.abspath(input_path) == os.path.abspath(DEFAULT_INPUT)
+    if freeze_priors is None:
+        freeze_priors = not (is_training_input or split_file)
+
+    stem = os.path.splitext(os.path.basename(os.path.normpath(input_path)))[0]
+    paths = _paths_for_stem(f"{stem}_{tag}") if tag else _derive_paths(input_path)
+    STRUCT_OUT = paths["struct_out"]
+    TEMPORAL_OUT = paths["temporal_out"]
+    STATE_FILE = paths["state_file"]
+    STATE_TRACKER_FILE = paths["state_tracker_file"]
+    GRAPH_NODE_STATE_FILE = paths["graph_node_state_file"]
+    IDENTITY_STATE_FILE = paths["identity_state_file"]
+
+    name = os.path.basename(input_path)
+    fingerprint = file_fingerprint(input_path)
+    split_of_log_id = None
+    if split_file:
+        import campaign_split
+        split_of_log_id = campaign_split.read_split_file(split_file)
+        fingerprint = f"{fingerprint}+split:{file_fingerprint(split_file)}"
+    if tag:
+        prior_files = tuple(os.path.join(DATA_DIR, os.path.basename(p).replace(".json", f"_{tag}.json"))
+                            for p in (ACTION_PRIOR_FILE, PRINCIPAL_PRIOR_FILE))
+    else:
+        prior_files = (ACTION_PRIOR_FILE, PRINCIPAL_PRIOR_FILE)
+
+    if rebuild:
+        doomed = [STRUCT_OUT, TEMPORAL_OUT, STATE_FILE, STATE_TRACKER_FILE,
+                  GRAPH_NODE_STATE_FILE, IDENTITY_STATE_FILE]
+        if not freeze_priors:
+            doomed += [p for f in prior_files for p in (f, prior_meta_path(f))]
+        for path in doomed:
+            if os.path.exists(path):
+                os.remove(path)
+                print(f"[REBUILD] removed {path}")
+
+    state = load_state()
+    processed = set(state["processed_files"])
+    fingerprints = state.setdefault("fingerprints", {})
+    if name in processed:
+        recorded = fingerprints.get(name)
+        if recorded == fingerprint:
+            print(f"[SKIP] {input_path} was already processed (in {STATE_FILE}) -- not re-appending.")
+            return
+        if recorded is None:
+            print(f"[SKIP] {input_path} was processed before content fingerprints were recorded, so "
+                  f"its outputs cannot be verified against the current file. Pass --rebuild to regenerate.")
+            return
+        raise SystemExit(
+            f"{input_path} has CHANGED since it was processed (sha256 {recorded[:12]} -> "
+            f"{fingerprint[:12]}). Its outputs in {STRUCT_OUT} / {TEMPORAL_OUT}"
+            f"{' and the fitted priors' if not freeze_priors else ''} describe the old file. "
+            f"Re-run with --rebuild."
+        )
+
+    if not freeze_priors:
+        for prior_file in prior_files:
+            if not os.path.exists(prior_file):
+                continue
+            meta = read_prior_meta(prior_file)
+            if meta is None or meta.get("sha256") != fingerprint:
+                fitted_on = "an unrecorded input" if meta is None else f"{meta.get('input')!r} (another version)"
+                raise SystemExit(
+                    f"{prior_file} holds priors fitted on {fitted_on}. Fitting on {name} would add "
+                    f"its labels on top of those. Re-run with --rebuild."
+                )
+
+    engine = FeatureEngineer(
+        event_name_vocab_path=EVENT_NAME_VOCAB_FILE,  # always shared, see _derive_paths
+        state_tracker_path=STATE_TRACKER_FILE,
+        graph_state_path=GRAPH_NODE_STATE_FILE,
+        identity_state_path=IDENTITY_STATE_FILE,
+        action_prior_path=prior_files[0],
+        principal_prior_path=prior_files[1],
+        freeze_vocab=freeze_vocab,
+        freeze_priors=freeze_priors,
+    )
+    print(f"Reading logs in BATCH mode from {input_path}...")
+    print(f"  struct_out:   {STRUCT_OUT}")
+    print(f"  temporal_out: {TEMPORAL_OUT}")
+    print(f"  vocab frozen:  {freeze_vocab}")
+    print(f"  priors frozen: {freeze_priors}"
+          f"{'  (label-derived features are READ-ONLY on this input)' if freeze_priors else '  (FITTING on this input)'}")
+    process_batch_file(engine, input_path, split_of_log_id)
+
+    if not freeze_priors:
+        if engine.labels_withheld == 0:
+            print(f"[PRIORS] WARNING: {name} has no `split` column (or no non-train rows), so every "
+                  f"row's label was fitted. Only do this on a file that holds training rows only.")
+        meta = {"input": name, "sha256": fingerprint, "rows_fitted": engine.labels_observed,
+                "rows_withheld": engine.labels_withheld, "fitted_at": datetime.now().isoformat(),
+                "split_file": os.path.basename(split_file) if split_file else None}
+        for prior_file in prior_files:
+            with open(prior_meta_path(prior_file), 'w', encoding='utf-8') as f:
+                json.dump(meta, f, indent=2, sort_keys=True)
+
+    processed.add(name)
+    state["processed_files"] = sorted(processed)
+    fingerprints[name] = fingerprint
+    save_state(state)
+
+
+# ── Watch mode: react to new log files landing (stand-in for S3 trigger) ─────
+
+def _file_is_stable(path: str, checks: int = 2, interval: float = 0.3) -> bool:
+    """Waits until a file's size stops changing, so we don't read a
+    CloudTrail log file mid-write."""
+    last_size = -1
+    stable_count = 0
+    while stable_count < checks:
+        try:
+            size = os.path.getsize(path)
+        except OSError:
+            return False
+        if size == last_size:
+            stable_count += 1
+        else:
+            stable_count = 0
+            last_size = size
+        time.sleep(interval)
+    return True
+
+
+# Watches `directory` and runs process_batch_file() on each new CloudTrail log file that lands, tracked via STATE_FILE.
+def watch_folder(directory: str) -> None:
+    from watchdog.events import FileSystemEventHandler
+    from watchdog.observers import Observer
+
+    global STRUCT_OUT, TEMPORAL_OUT, STATE_FILE, STATE_TRACKER_FILE, GRAPH_NODE_STATE_FILE, IDENTITY_STATE_FILE
+    os.makedirs(directory, exist_ok=True)
+    # Watched files are live/evaluation traffic. They previously wrote into the
+    # TRAINING outputs (cloudtrail_structural/temporal.csv), mutated the
+    # training trackers, and FITTED the label priors on whatever arrived. Now
+    # they get their own outputs and state, and read the vocab and priors only.
+    paths = _paths_for_stem("watch_" + os.path.basename(os.path.normpath(directory)))
+    STRUCT_OUT = paths["struct_out"]
+    TEMPORAL_OUT = paths["temporal_out"]
+    STATE_FILE = paths["state_file"]
+    STATE_TRACKER_FILE = paths["state_tracker_file"]
+    GRAPH_NODE_STATE_FILE = paths["graph_node_state_file"]
+    IDENTITY_STATE_FILE = paths["identity_state_file"]
+    engine = FeatureEngineer(
+        event_name_vocab_path=EVENT_NAME_VOCAB_FILE,
+        state_tracker_path=STATE_TRACKER_FILE,
+        graph_state_path=GRAPH_NODE_STATE_FILE,
+        identity_state_path=IDENTITY_STATE_FILE,
+        action_prior_path=ACTION_PRIOR_FILE,
+        principal_prior_path=PRINCIPAL_PRIOR_FILE,
+        freeze_vocab=True, freeze_priors=True,
+    )
+    state = load_state()
+    processed = set(state["processed_files"])
+
+    # watchdog handler: fires process_batch_file() on each new, size-stable log file dropped into `directory`.
+    class ArrivalHandler(FileSystemEventHandler):
+        def on_created(self, event):
+            if event.is_directory:
+                return
+            path = event.src_path
+            name = os.path.basename(path)
+            if name in processed or not name.endswith(('.csv', '.csv.gz', '.json', '.jsonl', '.ndjson', '.json.gz', '.jsonl.gz', '.ndjson.gz')):
+                return
+            if not _file_is_stable(path):
+                return
+            process_batch_file(engine, path)
+            processed.add(name)
+            state["processed_files"] = sorted(processed)
+            save_state(state)
+
+    observer = Observer()
+    observer.schedule(ArrivalHandler(), directory, recursive=False)
+    observer.start()
+    print(f"Watching {directory} for new CloudTrail log files (Ctrl+C to stop)...")
+    try:
+        while True:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        print("\nStopped watching.")
+    finally:
+        observer.stop()
+        observer.join()
+
+
+# ── Optional: drop chunks of a real CloudTrail CSV into the watched folder,
+#    for demoing without a real S3 bucket / EventBridge rule ─────────────────
+
+def simulate_incoming_files(directory: str, source_path: str, min_rows: int = 5, max_rows: int = 20,
+                             min_interval: float = 3.0, max_interval: float = 8.0) -> None:
+    """Periodically drops a new CSV into `directory`, each containing the next
+    chunk of rows read from `source_path` -- a stand-in for a CloudTrail log
+    file landing in S3 every ~5 minutes, compressed down to seconds for demo
+    purposes."""
+    import random
+    import threading
+
+    os.makedirs(directory, exist_ok=True)
+
+    with open(source_path, newline='', encoding='utf-8') as f:
+        reader = csv.DictReader(f)
+        fieldnames = reader.fieldnames
+        rows = list(reader)
+
+    if not rows:
+        print(f"[SIMULATE] {source_path} has no rows -- nothing to drop.")
+        return
+
+    def loop():
+        pos = 0
+        while pos < len(rows):
+            time.sleep(random.uniform(min_interval, max_interval))
+            chunk = rows[pos:pos + random.randint(min_rows, max_rows)]
+            pos += len(chunk)
+            fname = f"cloudtrail_{int(time.time())}_{uuid.uuid4().hex[:8]}.csv"
+            path = os.path.join(directory, fname)
+            with open(path, mode='w', newline='', encoding='utf-8') as out:
+                writer = csv.DictWriter(out, fieldnames=fieldnames)
+                writer.writeheader()
+                writer.writerows(chunk)
+            print(f"[SIMULATE] dropped {fname} ({len(chunk)} events, {pos}/{len(rows)} from {source_path})")
+        print(f"[SIMULATE] all {len(rows)} rows from {source_path} have been dropped into {directory}")
+
+    t = threading.Thread(target=loop, daemon=True)
+    t.start()
+
+# CLI entrypoint: one-shot batch mode (--input) or watch mode (--watch[, --simulate]), see argparse help below.
+def main():
+    parser = argparse.ArgumentParser(description="Micro-batch CloudTrail feature engine")
+    parser.add_argument("--input", default=DEFAULT_INPUT, help="CSV to process in one-shot batch mode")
+    parser.add_argument("--watch", metavar="DIR", help="Watch DIR and process each new log file as it lands")
+    parser.add_argument("--simulate", action="store_true",
+                         help="With --watch, also chunk --input into small CSVs dropped into DIR periodically")
+    parser.add_argument("--fit-priors", action="store_true",
+                        help="Fit the label-derived adaptive risk priors on this input. Only "
+                             "valid for TRAINING data -- doing this on a held-out split folds "
+                             "its labels into the features. Default: priors are frozen for any "
+                             "input other than the training default.")
+    parser.add_argument("--freeze-vocab", action="store_true",
+                         help="Do not add new event names to the shared event_name vocab -- use when "
+                              "feature-engineering evaluation data (e.g. real_dataset_test.csv) against "
+                              "a model already trained against the current vocab size. Unseen event "
+                              "names map to <UNK> instead of growing the vocab out from under the model.")
+    parser.add_argument("--rebuild", action="store_true",
+                        help="Delete this input's derived outputs and tracker state (and, when fitting, "
+                             "the priors) and process it from scratch. Required after regenerating an "
+                             "input under the same file name.")
+    parser.add_argument("--split-file", default=None,
+                        help="A campaign_split.py split file (log_id,split): fit the priors on its "
+                             "train rows only, for a within-synthetic evaluation. Needs --tag.")
+    parser.add_argument("--tag", default=None,
+                        help="Suffix for every output of a --split-file run (features, state, "
+                             "priors), e.g. campaign_family. Keeps the default artifacts untouched.")
+    args = parser.parse_args()
+
+    if args.watch:
+        if args.simulate:
+            simulate_incoming_files(args.watch, args.input)
+        watch_folder(args.watch)
+    else:
+        run_batch(args.input, freeze_vocab=args.freeze_vocab,
+                  freeze_priors=(False if args.fit_priors else None), rebuild=args.rebuild,
+                  split_file=args.split_file, tag=args.tag)
+
+
+if __name__ == "__main__":
+    main()
+
+#python feature_engine9.py --input datasets/privilege-escalation/some_other_file.csv
+#python feature_engine9.py --watch incoming/
+#python feature_engine9.py --watch incoming/ --simulate

@@ -1,0 +1,13 @@
+{
+  "processed_files": [
+    "2.json",
+    "attack.json",
+    "attack_chain.json",
+    "malicious.json",
+    "malicious_logs.json",
+    "risk.json",
+    "synthetic.json",
+    "synthetic2.json",
+    "synthetic3.json"
+  ]
+}

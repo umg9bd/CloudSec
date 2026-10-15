@@ -1,0 +1,64 @@
+{
+  "schema_version": "lstm_transformer_v6.3",
+  "recipe": "v6.3",
+  "selected_epoch": 5,
+  "dropped_features": [
+    "params_length_normalized",
+    "no_mfa",
+    "mfa_absent"
+  ],
+  "dev": {
+    "event": {
+      "accuracy": 0.7774155445310654,
+      "auc_pr": 0.3157716513329958,
+      "auc_roc": 0.8467729618557502,
+      "f1": 0.5114590894949704,
+      "precision": 0.3579619683553491,
+      "recall": 0.8954248366013072,
+      "threshold": 0.18614827709314516,
+      "n": 21165,
+      "n_pos": 2754
+    },
+    "session": {
+      "accuracy": 0.9542124542124543,
+      "auc_pr": 0.8460665964660726,
+      "auc_roc": 0.9595552260934025,
+      "f1": 0.8344370860927153,
+      "precision": 0.7875,
+      "recall": 0.8873239436619719,
+      "threshold": 0.9646883130073547,
+      "n": 546,
+      "n_pos": 71,
+      "best_f1": 0.8289473684210527
+    }
+  },
+  "unk_rate_dev": {
+    "all": 0.32256083156154025,
+    "attack": 0.00944081336238199
+  },
+  "syn_val_event": {
+    "accuracy": 0.8247209590739976,
+    "auc_pr": 0.9959409214732671,
+    "auc_roc": 0.9997916566501595,
+    "f1": 0.3375,
+    "precision": 0.20300751879699247,
+    "recall": 1.0,
+    "threshold": 0.18614827709314516,
+    "n": 2419,
+    "n_pos": 108
+  },
+  "syn_test_event": {
+    "accuracy": 0.9035277177825773,
+    "auc_pr": 0.9977916507238155,
+    "auc_roc": 0.999741015439888,
+    "f1": 0.6854460093896714,
+    "precision": 0.5214285714285715,
+    "recall": 1.0,
+    "threshold": 0.18614827709314516,
+    "n": 1389,
+    "n_pos": 146
+  },
+  "event_threshold": 0.18614827709314516,
+  "session_threshold": 0.9646883130073547,
+  "real_test_scored": false
+}

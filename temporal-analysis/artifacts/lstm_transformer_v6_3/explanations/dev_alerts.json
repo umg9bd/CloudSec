@@ -1,0 +1,397 @@
+[
+  {
+    "log_id": "real_dataset_dev.csv:3190",
+    "username": "stratus-redteam1",
+    "timestamp": "2026-07-08 18:40:10+00:00",
+    "event_name": "CreateRole",
+    "score": 0.9991,
+    "window_events": 32,
+    "top_events": [
+      {
+        "position": 30,
+        "minutes_before": 0.02,
+        "effect": 0.1356,
+        "score_without": 0.9989,
+        "event_name": "GetUser"
+      },
+      {
+        "position": 28,
+        "minutes_before": 0.08,
+        "effect": 0.1174,
+        "score_without": 0.9989,
+        "event_name": "GetUser"
+      },
+      {
+        "position": 29,
+        "minutes_before": 0.05,
+        "effect": 0.065,
+        "score_without": 0.999,
+        "event_name": "GetCallerIdentity"
+      },
+      {
+        "position": 27,
+        "minutes_before": 1.08,
+        "effect": 0.0367,
+        "score_without": 0.999,
+        "event_name": "<UNK>"
+      },
+      {
+        "position": 24,
+        "minutes_before": 1.12,
+        "effect": 0.036,
+        "score_without": 0.999,
+        "event_name": "ListRolePolicies"
+      }
+    ],
+    "top_features": [
+      {
+        "feature": "log_seconds_since_prev",
+        "value_now": 0.6931,
+        "contribution_now": -0.2491,
+        "contribution_window": 1.5345
+      },
+      {
+        "feature": "privileged_action_reach",
+        "value_now": 0.6,
+        "contribution_now": 1.3929,
+        "contribution_window": 1.391
+      },
+      {
+        "feature": "event_name=CreateRole",
+        "value_now": null,
+        "contribution_now": 0.6326,
+        "contribution_window": 1.2189
+      },
+      {
+        "feature": "action_risk_prior",
+        "value_now": 0.6811,
+        "contribution_now": 1.1726,
+        "contribution_window": 1.121
+      },
+      {
+        "feature": "is_recon_action",
+        "value_now": 0.0,
+        "contribution_now": -0.0,
+        "contribution_window": 1.0249
+      }
+    ],
+    "baseline_score": 0.767,
+    "ig_completeness_error": 0.0132
+  },
+  {
+    "log_id": "real_dataset_dev.csv:7742",
+    "username": "stratus-redteam1",
+    "timestamp": "2026-07-09 17:08:48+00:00",
+    "event_name": "AttachRolePolicy",
+    "score": 0.999,
+    "window_events": 32,
+    "top_events": [
+      {
+        "position": 30,
+        "minutes_before": 0.02,
+        "effect": -0.0961,
+        "score_without": 0.9991,
+        "event_name": "CreateRole"
+      },
+      {
+        "position": 27,
+        "minutes_before": 0.38,
+        "effect": 0.0921,
+        "score_without": 0.9989,
+        "event_name": "ListRolePolicies"
+      },
+      {
+        "position": 28,
+        "minutes_before": 0.35,
+        "effect": 0.0355,
+        "score_without": 0.9989,
+        "event_name": "<UNK>"
+      },
+      {
+        "position": 13,
+        "minutes_before": 1.85,
+        "effect": 0.0327,
+        "score_without": 0.9989,
+        "event_name": "GetRolePolicy"
+      },
+      {
+        "position": 24,
+        "minutes_before": 0.4,
+        "effect": 0.0297,
+        "score_without": 0.9989,
+        "event_name": "<UNK>"
+      }
+    ],
+    "top_features": [
+      {
+        "feature": "privileged_action_reach",
+        "value_now": 1.0,
+        "contribution_now": 1.8634,
+        "contribution_window": 2.0227
+      },
+      {
+        "feature": "log_seconds_since_prev",
+        "value_now": 0.6931,
+        "contribution_now": -0.1019,
+        "contribution_window": 1.3456
+      },
+      {
+        "feature": "session_duration_normalized",
+        "value_now": 0.7506,
+        "contribution_now": -0.9374,
+        "contribution_window": -1.2546
+      },
+      {
+        "feature": "target_permission_coverage",
+        "value_now": 1.0,
+        "contribution_now": 1.2288,
+        "contribution_window": 1.2285
+      },
+      {
+        "feature": "privilege_delta",
+        "value_now": 1.0,
+        "contribution_now": 1.004,
+        "contribution_window": 1.0115
+      }
+    ],
+    "baseline_score": 0.767,
+    "ig_completeness_error": 0.0262
+  },
+  {
+    "log_id": "real_dataset_dev.csv:8416",
+    "username": "stratus-redteam",
+    "timestamp": "2026-07-10 11:39:26+00:00",
+    "event_name": "AttachRolePolicy",
+    "score": 0.9988,
+    "window_events": 32,
+    "top_events": [
+      {
+        "position": 30,
+        "minutes_before": 0.02,
+        "effect": 0.3014,
+        "score_without": 0.9983,
+        "event_name": "CreateRole"
+      },
+      {
+        "position": 29,
+        "minutes_before": 0.93,
+        "effect": 0.1401,
+        "score_without": 0.9986,
+        "event_name": "GetUser"
+      },
+      {
+        "position": 26,
+        "minutes_before": 0.98,
+        "effect": 0.059,
+        "score_without": 0.9987,
+        "event_name": "GetUser"
+      },
+      {
+        "position": 25,
+        "minutes_before": 1.17,
+        "effect": 0.0555,
+        "score_without": 0.9987,
+        "event_name": "<UNK>"
+      },
+      {
+        "position": 27,
+        "minutes_before": 0.97,
+        "effect": 0.0525,
+        "score_without": 0.9987,
+        "event_name": "GetUser"
+      }
+    ],
+    "top_features": [
+      {
+        "feature": "privileged_action_reach",
+        "value_now": 1.0,
+        "contribution_now": 1.6612,
+        "contribution_window": 1.7897
+      },
+      {
+        "feature": "log_seconds_since_prev",
+        "value_now": 0.6931,
+        "contribution_now": -0.1159,
+        "contribution_window": 1.2546
+      },
+      {
+        "feature": "target_permission_coverage",
+        "value_now": 1.0,
+        "contribution_now": 1.0954,
+        "contribution_window": 1.0954
+      },
+      {
+        "feature": "privilege_delta",
+        "value_now": 1.0,
+        "contribution_now": 0.8844,
+        "contribution_window": 0.8844
+      },
+      {
+        "feature": "permission_expansion_score",
+        "value_now": 1.0,
+        "contribution_now": 0.8571,
+        "contribution_window": 0.8571
+      }
+    ],
+    "baseline_score": 0.767,
+    "ig_completeness_error": 0.0405
+  },
+  {
+    "log_id": "real_dataset_dev.csv:20089",
+    "username": "stratus-redteam",
+    "timestamp": "2026-08-27 16:20:49+00:00",
+    "event_name": "CreateUser",
+    "score": 0.9986,
+    "window_events": 32,
+    "top_events": [
+      {
+        "position": 30,
+        "minutes_before": 0.0,
+        "effect": 0.2569,
+        "score_without": 0.9982,
+        "event_name": "GetUser"
+      },
+      {
+        "position": 27,
+        "minutes_before": 0.35,
+        "effect": -0.0455,
+        "score_without": 0.9986,
+        "event_name": "<UNK>"
+      },
+      {
+        "position": 25,
+        "minutes_before": 2.22,
+        "effect": 0.0361,
+        "score_without": 0.9985,
+        "event_name": "GetCallerIdentity"
+      },
+      {
+        "position": 24,
+        "minutes_before": 2.72,
+        "effect": 0.0355,
+        "score_without": 0.9985,
+        "event_name": "GetCallerIdentity"
+      },
+      {
+        "position": 7,
+        "minutes_before": 4.33,
+        "effect": 0.0272,
+        "score_without": 0.9985,
+        "event_name": "GetCallerIdentity"
+      }
+    ],
+    "top_features": [
+      {
+        "feature": "log_seconds_since_prev",
+        "value_now": 0.0,
+        "contribution_now": -0.0,
+        "contribution_window": 2.2302
+      },
+      {
+        "feature": "is_recon_action",
+        "value_now": 0.0,
+        "contribution_now": -0.0,
+        "contribution_window": 1.7241
+      },
+      {
+        "feature": "event_name=CreateUser",
+        "value_now": null,
+        "contribution_now": -0.2851,
+        "contribution_window": 1.2132
+      },
+      {
+        "feature": "action_risk_prior",
+        "value_now": 0.4898,
+        "contribution_now": 1.1904,
+        "contribution_window": 1.138
+      },
+      {
+        "feature": "is_write_action",
+        "value_now": 1.0,
+        "contribution_now": 0.9657,
+        "contribution_window": 0.9492
+      }
+    ],
+    "baseline_score": 0.767,
+    "ig_completeness_error": 0.0094
+  },
+  {
+    "log_id": "real_dataset_dev.csv:4703",
+    "username": "stratus-redteam1",
+    "timestamp": "2026-07-08 19:59:55+00:00",
+    "event_name": "AttachUserPolicy",
+    "score": 0.9984,
+    "window_events": 32,
+    "top_events": [
+      {
+        "position": 30,
+        "minutes_before": 0.02,
+        "effect": 0.4312,
+        "score_without": 0.9976,
+        "event_name": "CreateUser"
+      },
+      {
+        "position": 29,
+        "minutes_before": 0.2,
+        "effect": 0.3349,
+        "score_without": 0.9978,
+        "event_name": "<UNK>"
+      },
+      {
+        "position": 28,
+        "minutes_before": 0.5,
+        "effect": 0.2278,
+        "score_without": 0.998,
+        "event_name": "<UNK>"
+      },
+      {
+        "position": 25,
+        "minutes_before": 0.58,
+        "effect": -0.0566,
+        "score_without": 0.9985,
+        "event_name": "<UNK>"
+      },
+      {
+        "position": 26,
+        "minutes_before": 0.57,
+        "effect": -0.0419,
+        "score_without": 0.9985,
+        "event_name": "<UNK>"
+      }
+    ],
+    "top_features": [
+      {
+        "feature": "privileged_action_reach",
+        "value_now": 1.0,
+        "contribution_now": 2.6238,
+        "contribution_window": 2.6238
+      },
+      {
+        "feature": "session_duration_normalized",
+        "value_now": 1.0,
+        "contribution_now": -1.715,
+        "contribution_window": -2.4132
+      },
+      {
+        "feature": "log_seconds_since_prev",
+        "value_now": 0.6931,
+        "contribution_now": -0.2328,
+        "contribution_window": 2.3847
+      },
+      {
+        "feature": "target_permission_coverage",
+        "value_now": 1.0,
+        "contribution_now": 1.7245,
+        "contribution_window": 1.7245
+      },
+      {
+        "feature": "permission_expansion_score",
+        "value_now": 1.0,
+        "contribution_now": 1.4316,
+        "contribution_window": 1.4316
+      }
+    ],
+    "baseline_score": 0.767,
+    "ig_completeness_error": 0.0153
+  }
+]
