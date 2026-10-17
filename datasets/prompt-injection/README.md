@@ -1,49 +1,85 @@
-# Stage-1 Prompt-Injection Dataset (cloud-specific slice)
+# Stage-1 Prompt-Injection Dataset (cloud-specific slice) — v0.2.0
 
-This directory holds the **cloud-specific, team-generated** portion of the Stage-1
-dataset — the gap that public prompt-injection sets and agent benchmarks do **not**
-cover (AWS credential theft, privilege escalation, defense evasion, exfiltration,
-indirect injection in tool output, and the **hard-safe** counterparts that keep a
-security gate from blocking legitimate cloud work).
+The team-generated, **cloud-specific** portion of the Stage-1 prompt-injection
+dataset — the gap public sets don't cover (AWS credential theft, privilege
+escalation, disabling logging, exfiltration, data destruction, system-prompt
+extraction, indirect injection in tool/retrieved content), plus the **hard-safe**
+counterparts that keep a security gate from blocking legitimate cloud work.
 
-It is **not the whole Stage-1 dataset.** It is the differentiator. Combine it with
-the public + benchmark data below for realism and volume.
+It is **not the whole Stage-1 dataset** and **must not be trained on alone**
+(see "Honest numbers"). Merge it with the public sets via `merge_public.py`.
+
+## v0.2.0 — Stage-1 review fixes applied
+This version addresses the Stage-1 review in full:
+- **Template-grouped, reproducible split** — `template_id` per row; no template
+  crosses train/test (enforced by an assert); fixed per-label seed (no `hash()`).
+  Output is **byte-identical across runs**.
+- **Multi-label** (`labels` is a list) with **corrected ATLAS mapping**:
+  privilege escalation → `AML.T0053` (and "ignore above + grant admin" also
+  carries `AML.T0051.000`); disabling logging → **ATT&CK `T1562.008`** (ATLAS
+  tactic `AML.TA0007`); `credential_harvesting` / `exfiltration` /
+  `system_prompt_extraction` are separate; **obfuscation is a flag**
+  (`is_obfuscated`) on top of the decoded intent.
+- **More templates** for the thin categories (264 templates, was ~168), varied
+  obfuscation openings, **Unicode / mixed-language** attacks, and **general
+  (non-AWS) benign** prompts so "safe" isn't only short AWS admin.
+- New fields: `template_id, conversation_history, rationale, dataset_version,
+  license, is_obfuscated, is_indirect`.
 
 ## Files
 | File | What |
 |---|---|
-| `generate_prompt_dataset.py` | the generator (templates + paraphrase augmentation). Re-run to regenerate. |
-| `prompt_injection_cloud.jsonl` / `.csv` | the generated rows (2,526), same content both formats |
+| `generate_prompt_dataset.py` | generator (v0.2.0). Deterministic; re-run to regenerate. |
+| `prompt_injection_cloud.jsonl` / `.csv` | the cloud slice (1,258 rows / 264 templates) |
+| `merge_public.py` | maps + merges the licensed public sets, keeping their splits apart |
 
-Regenerate: `python datasets/prompt-injection/generate_prompt_dataset.py` (seeded, deterministic).
+Regenerate: `python datasets/prompt-injection/generate_prompt_dataset.py`
+Merge public: `pip install datasets && python datasets/prompt-injection/merge_public.py`
 
 ## Schema
-`id, text, channel, label, category, atlas_id, cloud_specific, multi_turn, source, reviewed_by, split`
-- **channel**: `user_prompt` | `retrieved_content` | `tool_output` — the untrusted-context signal (instruction-like text in data the agent *reads* is indirect injection).
-- **label**: `benign | injection_direct | injection_indirect | jailbreak | secret_extraction | defense_evasion | ambiguous`
-- **atlas_id**: MITRE ATLAS technique (e.g. `AML.T0051.000` direct injection, `.001` indirect, `T0054` jailbreak, `T0056` system-prompt extraction, `T0068` obfuscation, `T0098` credential harvesting).
-- **reviewed_by**: **empty on purpose** — every row needs a human reviewer before training (the spec requires reviewed labels).
-- **split**: `train`/`test`, stratified 80/20 by label (seeded).
+`id, template_id, text, channel, labels, primary_label, category, atlas_ids,
+atlas_tactic, is_obfuscated, is_indirect, multi_turn, conversation_history,
+rationale, cloud_specific, source, license, dataset_version, reviewed_by, split`
+- **labels**: multi-label list (CSV: pipe-joined). e.g. `["prompt_injection_direct","privilege_escalation"]`.
+- **channel**: `user_prompt | retrieved_content | tool_output` (indirect-injection signal).
+- **template_id**: groups all renders of one base template — the split holds out whole templates.
+- **conversation_history**: list of turns for multi-turn rows (CSV: ` ||| `-joined); `text` is the joined view.
+- **reviewed_by**: empty on cloud rows — **needs a human reviewer before training**.
+- **split**: `train`/`test` (cloud, grouped by template). Public rows (after merge) use `public_train`/`public_test`.
 
-## Current composition (this slice only)
-~2,526 rows: **attack 1,181 · benign 1,142 · ambiguous 203**.
-Labels: benign 1142, secret_extraction 411, defense_evasion 278, injection_direct 242, ambiguous 203, jailbreak 137, injection_indirect 113.
-Channels: user_prompt 2,388 · retrieved_content 113 · tool_output 25.
+## Composition (cloud slice)
+1,258 rows / 264 templates. By primary label (rows / templates):
+benign 352/49, jailbreak 159/21, prompt_injection_indirect 135/64, ambiguous 119/14,
+credential_harvesting 95/27, exfiltration 81/24, privilege_escalation 76/18,
+defense_evasion_logging 75/17, data_destruction 63/15, prompt_injection_direct 59/10,
+system_prompt_extraction 44/5.
+Channels: user_prompt 1,102 · retrieved_content 119 · tool_output 37.
+Flags: obfuscated 85 · indirect 135 · multi_turn 26 · non-ASCII 13.
 
-## How to build the full Stage-1 set (TODO for the team)
-1. **Add the licensed public sets** (human-written, generic signal):
-   - `deepset/prompt-injections` (Apache-2.0), `jackhhao/jailbreak-classification` (Apache-2.0), `Lakera/gandalf_ignore_instructions` (MIT).
-   - Map their binary labels into this schema (injection→`injection_direct`/`secret_extraction`, jailbreak→`jailbreak`); set `source` accordingly, `cloud_specific=false`.
-   - **Exclude** `xTRam1/safe-guard-prompt-injection` until its license is confirmed.
-2. **Check + add agent/indirect benchmarks** (closest to the AWS-agent gaps): **InjecAgent**, **AgentDojo**, **BIPIA** (indirect injection in documents). Verify licenses first.
-3. **Human-review** a sample of every label (fill `reviewed_by`); report inter-annotator agreement.
-4. **Grow thin categories** (jailbreak, indirect) with more hand-written diversity.
+## Honest numbers (why you must merge the public sets)
+- A TF-IDF baseline scores ~**0.40** macro-F1 on the **grouped** split (it scored a
+  meaningless **1.000** on the old leaky split — that's the bug this version fixes).
+  ~0.40 is the real difficulty; report numbers only on the grouped/held-out split.
+- Trained on this slice alone, a model flags a large share of **human-written**
+  benign prompts as attacks. The cloud slice gives coverage, **not** realism —
+  the human-written public sets supply that. Use `merge_public.py`, train on
+  `train + public_train`, and report **separately** on `cloud test` and each
+  `public_test` (out-of-distribution).
+
+## Known-thin spots (grow these next)
+- `system_prompt_extraction` (5 templates) and non-ASCII (13 rows) are the
+  thinnest; multi-turn is 5 skeletons. Add templates (not more renders).
 
 ## Honest limitations (disclose in the paper)
-- These rows are **synthetic/team-written**. A classifier can learn the team's *writing style* rather than real attacks, so the realistic signal must come from the human-written public + benchmark data; keep these paraphrase-diverse and **do not train on this slice alone**.
-- Paraphrase augmentation multiplies surface forms of the same intent — good for robustness, but count *templates*, not rows, when judging true diversity.
-- Labels here are **unreviewed** until `reviewed_by` is filled.
-- The cloud attacks are **standard, publicly-documented (OWASP/ATLAS) patterns**, authored to train a *defensive* classifier that blocks them.
+- Rows are **synthetic/team-written** and **unreviewed** (`reviewed_by=""`); a
+  classifier can learn writing style, so the realism must come from the public +
+  agent-benchmark data. **Do not train on this slice alone.**
+- Count **templates**, not rows, when judging diversity.
+- Attacks are standard, publicly-documented (OWASP/ATLAS) patterns, authored to
+  train a **defensive** classifier that blocks them.
 
-## Note on novelty
-A cloud-security prompt-injection + hard-safe benchmark does **not** exist publicly — so this slice (once reviewed and expanded) is a legitimate **dataset contribution**, even though prompt-injection *detection* as a technique is prior art (Llama Guard, Bedrock, US 12689653). Put the value here, not in the classifier architecture.
+## Novelty note
+A cloud-security prompt-injection + hard-safe benchmark does not exist publicly,
+so this slice (once reviewed + expanded + merged) is a legitimate **dataset
+contribution**, even though prompt-injection *detection* as a technique is prior
+art. The value is the cloud-specific + hard-safe coverage, not the classifier.
