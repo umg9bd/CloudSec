@@ -22,7 +22,7 @@ import feature_engine9 as fe9                 # noqa: E402
 import notify                                 # noqa: E402
 import prod.scorer as lstm_scorer             # noqa: E402
 import lstm_inference as tlt                  # noqa: E402  (scoring only -- nothing trains here)
-from gnn_scorer import GNNScorer              # noqa: E402
+from gnn_scorer import GNNScorer, EnsembleGNNScorer  # noqa: E402
 
 CONFIG_PATH = os.path.join(ROOT, "pipeline_config.json")
 INPUT_SUFFIXES = (".csv", ".csv.gz", ".json", ".jsonl", ".ndjson", ".json.gz", ".jsonl.gz", ".ndjson.gz")
@@ -51,6 +51,7 @@ def append_csv(df: pd.DataFrame, path: str) -> None:
 @dataclass
 class PipelineConfig:
     hgt_checkpoint: str = "checkpoints/best_HGT_wrapped.pt"
+    hgt_checkpoints: list = field(default_factory=list)  # seed ensemble; when set, averages these and ignores hgt_checkpoint
     lstm_checkpoint: str = "temporal-analysis/artifacts/lstm_transformer_clean/temporal_lstm_transformer.pt"
     weight_graph: float = 0.5          # w; the sequence branch gets 1 - w
     alert_threshold: float = 0.5       # on the 0-1 ensemble risk
@@ -88,7 +89,8 @@ class Pipeline:
         self.write_outputs = write_outputs
         self.show_events = show_events
         path = lambda p: p if os.path.isabs(p) else os.path.join(ROOT, p)
-        self.gnn = GNNScorer(path(self.cfg.hgt_checkpoint))
+        hgt_paths = [path(c) for c in self.cfg.hgt_checkpoints] or [path(self.cfg.hgt_checkpoint)]
+        self.gnn = EnsembleGNNScorer(hgt_paths) if len(hgt_paths) > 1 else GNNScorer(hgt_paths[0])
         self.lstm = lstm_scorer.load_scorer(path(self.cfg.lstm_checkpoint))
         self.lstm_features = list(self.lstm.ckpt["feature_cols"])
         self.state_dir = path(self.cfg.state_dir)

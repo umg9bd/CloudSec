@@ -1,17 +1,23 @@
 {
   "hgt_checkpoint": "checkpoints/best_HGT_wrapped.pt",
+  "hgt_checkpoints": [
+    "checkpoints/best_HGT_seed1_wrapped.pt",
+    "checkpoints/best_HGT_seed2_wrapped.pt",
+    "checkpoints/best_HGT_seed3_wrapped.pt"
+  ],
   "lstm_checkpoint": "temporal-analysis/artifacts/lstm_transformer_v6_3_ft/temporal_lstm_transformer.pt",
   "weight_graph": 0.8,
-  "alert_threshold": 0.0888,
+  "alert_threshold": 0.1849,
   "graph_window_hours": 24.0,
   "state_dir": "runtime",
   "alert_dir": "alerts",
   "output_csv": "output/risk_scores.csv",
-  "tuned_on": "real_dataset_dev.csv, 546 sessions: session-level F1=0.895 (weight and threshold chosen there; test never used for tuning)",
+  "tuned_on": "real_dataset_dev.csv, 546 sessions: session-level F1=0.922 (weight and threshold chosen there; test never used for tuning)",
   "explain_top_events": 3,
   "notes": {
     "lstm": "Switched from v5 (lstm_transformer_clean) to v6.3-ft on 2026-09-29: trained on the current feature_engine9 data and served priors, without the label-leaking features (see temporal-analysis/README_v6_3.md). Rollback: point lstm_checkpoint back at temporal-analysis/artifacts/lstm_transformer_clean/temporal_lstm_transformer.pt.",
     "calibration_v63ft": "2026-10-14: the v5-era threshold (0.5139) was too high for v6.3-ft: real test recall 0.70, F1 0.80. Re-chosen from v6.3-ft's OUT-OF-FOLD dev scores (heads refit 5 times, each scoring sessions it never saw), which avoids the optimism of re-tuning on the dev data the heads were fitted on. (Superseded by the 2026-10-15 re-tune below.)",
-    "calibration_hgt_retune": "2026-10-15: the HGT was retrained after rank-normalizing action_global_frequency (window-invariant edge feature; real-test edge-level ROC-AUC 0.25 -> ~0.78 mean over 5 seeds). The stronger graph branch moved the dev-optimal ensemble weight from 0.5 to 0.8, so w and threshold were re-chosen on dev (w=0.8, threshold=0.0888). Session-level test F1 is essentially unchanged (~0.86) -- session max-aggregation already masked the edge-level weakness -- but the config now matches the current HGT. UNK-holdout training (--unk-holdout-frac) was tried for the 36.5% unseen-action problem and did NOT help (mean 0.78->0.72), so it was reverted."
+    "calibration_hgt_retune": "2026-10-15: the HGT was retrained after rank-normalizing action_global_frequency (window-invariant edge feature; real-test edge-level ROC-AUC 0.25 -> ~0.78 mean over 5 seeds). The stronger graph branch moved the dev-optimal ensemble weight from 0.5 to 0.8, so w and threshold were re-chosen on dev (w=0.8, threshold=0.0888). Session-level test F1 is essentially unchanged (~0.86) -- session max-aggregation already masked the edge-level weakness -- but the config now matches the current HGT. UNK-holdout training (--unk-holdout-frac) was tried for the 36.5% unseen-action problem and did NOT help (mean 0.78->0.72), so it was reverted.",
+    "ensemble_3seed": "2026-10-17: p_graph is now a 3-seed HGT ensemble (hgt_checkpoints = seeds 1/2/3, averaged by gnn_scorer.EnsembleGNNScorer), chosen because a single HGT checkpoint had high real-data variance (edge-level 0.78 +/- 0.11); 3-seed averaging gives 0.83 +/- 0.018 -- same-or-better mean, ~6x more stable. Architecture study on dev confirmed HGT (0.858) > GAT (0.746) > GraphSAGE (0.576). w/threshold re-tuned on dev for the ensemble (w=0.8, threshold=0.1849, dev session F1 0.922). Single frozen test run: F1 0.872 [95% CI 0.821-0.916], session AUC 0.991; beats rules (p=0.019) and LogReg (p<0.001), dead-heat with Random Forest (-0.005, p=0.82), nominally ahead of XGBoost (+0.017, ns). Selection done on dev; test touched once."
   }
 }

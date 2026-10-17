@@ -77,3 +77,44 @@ class GNNScorer:
         assert len(log_ids) == len(probs), f"{len(log_ids)} log_ids vs {len(probs)} probabilities"
         return out.drop(columns="gnn_prob").merge(
             pd.DataFrame({"log_id": log_ids, "gnn_prob": probs}), on="log_id", how="left")
+
+
+class EnsembleGNNScorer:
+    """Seed ensemble: averages per-edge gnn_prob across several GNNScorer
+    checkpoints trained with different seeds. A single HGT checkpoint has high
+    run-to-run variance on real data (edge-level ROC-AUC 0.78 +/- 0.11 over 5
+    seeds); averaging 3 brings that to ~0.83 +/- 0.018 -- same-or-better mean,
+    far more stable (see the seed-ensemble measurement).
+
+    score() returns the mean gnn_prob across checkpoints, NaN only where EVERY
+    checkpoint abstains (the edge's triple was untrained in all of them -- they
+    share training data, so the abstain pattern is identical). build_graph() and
+    .model delegate to the FIRST checkpoint: the per-event explanation is drawn
+    from one representative model, while the risk uses the averaged score.
+    """
+
+    def __init__(self, ckpt_paths, device: str = "cpu"):
+        if not ckpt_paths:
+            raise ValueError("EnsembleGNNScorer needs at least one checkpoint")
+        self.scorers = [GNNScorer(p, device) for p in ckpt_paths]
+        primary = self.scorers[0]
+        self.model = primary.model
+        self.model_args = primary.model_args
+        self.model_type = primary.model_type
+        self.fit_artifacts = primary.fit_artifacts
+        self.trained_triples = primary.trained_triples
+        self.device = device
+
+    def build_graph(self, structural_df: pd.DataFrame):
+        return self.scorers[0].build_graph(structural_df)
+
+    def score(self, structural_df: pd.DataFrame) -> pd.DataFrame:
+        base = pd.DataFrame({"log_id": structural_df["log_id"].astype(str)})
+        cols = []
+        for i, s in enumerate(self.scorers):
+            p = s.score(structural_df).rename(columns={"gnn_prob": f"_p{i}"})
+            p["log_id"] = p["log_id"].astype(str)
+            base = base.merge(p, on="log_id", how="left")
+            cols.append(f"_p{i}")
+        base["gnn_prob"] = base[cols].mean(axis=1, skipna=True)
+        return base[["log_id", "gnn_prob"]]
