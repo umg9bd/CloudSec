@@ -1,0 +1,6 @@
+# Model weights and checkpoints are large and regenerable; their sha256 and the
+# base-model revision are recorded in results/<run>.json instead.
+artifacts/
+.venv/
+tests/.pytest_cache/
+__pycache__/
