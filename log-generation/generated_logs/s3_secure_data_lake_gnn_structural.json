@@ -1,0 +1,26 @@
+[
+  {
+    "log_id": "pred_stream:pred-0001",
+    "source_node": "arn:aws:iam::111122223333:user/agentic-operator",
+    "target_node": "arn:aws:s3:::analytics-prod-data-lake",
+    "edge_type": "CreateBucket",
+    "label": 0,
+    "state": "PROPOSED"
+  },
+  {
+    "log_id": "pred_stream:pred-0002",
+    "source_node": "arn:aws:iam::111122223333:user/agentic-operator",
+    "target_node": "arn:aws:s3:::analytics-prod-data-lake",
+    "edge_type": "PutBucketEncryption",
+    "label": 0,
+    "state": "PROPOSED"
+  },
+  {
+    "log_id": "pred_stream:pred-0003",
+    "source_node": "arn:aws:iam::111122223333:user/agentic-operator",
+    "target_node": "arn:aws:s3:::analytics-prod-data-lake",
+    "edge_type": "PutBucketPublicAccessBlock",
+    "label": 0,
+    "state": "PROPOSED"
+  }
+]

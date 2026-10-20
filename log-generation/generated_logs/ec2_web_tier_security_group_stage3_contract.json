@@ -1,0 +1,187 @@
+{
+  "status": "GENERATED",
+  "request_id": "gen-ec2_web_tier_security_group",
+  "parsed_intent": {
+    "task_category": "ec2_create_security_group",
+    "desired_outcome": "Create an EC2 security group named web-tier-secgroup in vpc-0123456789abcdef0",
+    "explicit_requirements": [
+      "Create EC2 VPC Security Group"
+    ],
+    "provided_parameters": {
+      "description": "Create an EC2 security group named web-tier-secgroup in vpc-0123456789abcdef0",
+      "groupName": "web-tier-secgroup",
+      "vpcId": "vpc-0123456789abcdef0"
+    },
+    "parameter_provenance": {
+      "description": "USER_PROMPT",
+      "groupName": "USER_PROMPT",
+      "vpcId": "USER_PROMPT"
+    },
+    "missing_parameters": [],
+    "ambiguities": [],
+    "needs_clarification": false,
+    "clarification_questions": []
+  },
+  "security_constraints": [],
+  "proposed_actions": [
+    {
+      "step": 1,
+      "action_id": "act-ec2-create-security-group",
+      "service": "ec2",
+      "operation": "CreateSecurityGroup",
+      "iam_permission": "ec2:CreateSecurityGroup",
+      "status": "SUPPORTED",
+      "mapping_rule_id": "MAP-EC2-001",
+      "requirement_type": "REQUIRED",
+      "depends_on": [],
+      "rationale": "Primary action required to fulfill user's functional request"
+    }
+  ],
+  "expected_direct_events": [
+    {
+      "prediction_id": "pred-0001",
+      "step": 1,
+      "action_id": "act-ec2-create-security-group",
+      "service": "ec2",
+      "api_operation": "CreateSecurityGroup",
+      "record_type": "PREDICTED_CLOUDTRAIL_EVENT",
+      "eventSource": "ec2.amazonaws.com",
+      "eventName": "CreateSecurityGroup",
+      "requestParameters": {
+        "groupName": "web-tier-secgroup",
+        "vpcId": "vpc-0123456789abcdef0",
+        "groupDescription": "Create an EC2 security group named web-tier-secgroup in vpc-0123456789abcdef0"
+      },
+      "parameter_provenance": {
+        "groupName": "USER_PROMPT",
+        "vpcId": "USER_PROMPT",
+        "groupDescription": "USER_PROMPT"
+      },
+      "depends_on_predictions": [],
+      "requirement_type": "REQUIRED",
+      "mapping_rule_id": "MAP-EC2-001",
+      "source_refs": [
+        "https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_CreateSecurityGroup.html"
+      ],
+      "fixture_ref": "fixtures/ec2_create_security_group.json",
+      "unknown_fields": [
+        "eventID",
+        "requestID",
+        "eventTime",
+        "responseElements",
+        "recipientAccountId",
+        "awsRegion",
+        "sourceIPAddress",
+        "userAgent"
+      ],
+      "support_status": "VERIFIED",
+      "recording_scope_assumption": "EC2 Management events enabled on CloudTrail trail"
+    }
+  ],
+  "conditional_events": [],
+  "action_dependency_graph": {
+    "nodes": [
+      {
+        "id": "task:gen-ec2_web_tier_security_group",
+        "type": "Task",
+        "label": "Task: ec2_create_security_group",
+        "state": "PROPOSED",
+        "properties": {
+          "task_category": "ec2_create_security_group",
+          "desired_outcome": "Create an EC2 security group named web-tier-secgroup in vpc-0123456789abcdef0"
+        }
+      },
+      {
+        "id": "action:act-ec2-create-security-group",
+        "type": "ProposedAction",
+        "label": "Action: CreateSecurityGroup",
+        "state": "PROPOSED",
+        "properties": {
+          "step": 1,
+          "action_id": "act-ec2-create-security-group",
+          "service": "ec2",
+          "operation": "CreateSecurityGroup",
+          "iam_permission": "ec2:CreateSecurityGroup",
+          "mapping_rule_id": "MAP-EC2-001"
+        }
+      },
+      {
+        "id": "service:ec2",
+        "type": "Service",
+        "label": "Service: ec2.amazonaws.com",
+        "state": "PROPOSED",
+        "properties": {
+          "service_name": "ec2"
+        }
+      },
+      {
+        "id": "resource:arn:aws:ec2:::security-group/web-tier-secgroup",
+        "type": "Resource",
+        "label": "Resource: arn:aws:ec2:::security-group/web-tier-secgroup",
+        "state": "PROPOSED",
+        "properties": {
+          "resource_identifier": "arn:aws:ec2:::security-group/web-tier-secgroup"
+        }
+      },
+      {
+        "id": "event:pred-0001",
+        "type": "PredictedEvent",
+        "label": "PredictedEvent: CreateSecurityGroup",
+        "state": "PREDICTED",
+        "properties": {
+          "prediction_id": "pred-0001",
+          "eventSource": "ec2.amazonaws.com",
+          "eventName": "CreateSecurityGroup",
+          "step": 1,
+          "mapping_rule_id": "MAP-EC2-001"
+        }
+      }
+    ],
+    "edges": [
+      {
+        "source": "task:gen-ec2_web_tier_security_group",
+        "target": "action:act-ec2-create-security-group",
+        "relation": "PROPOSES",
+        "state": "PROPOSED",
+        "properties": {
+          "step": 1
+        }
+      },
+      {
+        "source": "action:act-ec2-create-security-group",
+        "target": "service:ec2",
+        "relation": "INVOKES",
+        "state": "PROPOSED",
+        "properties": {}
+      },
+      {
+        "source": "action:act-ec2-create-security-group",
+        "target": "resource:arn:aws:ec2:::security-group/web-tier-secgroup",
+        "relation": "TARGETS",
+        "state": "PROPOSED",
+        "properties": {}
+      },
+      {
+        "source": "action:act-ec2-create-security-group",
+        "target": "event:pred-0001",
+        "relation": "MAPS_TO_EVENT",
+        "state": "PROPOSED",
+        "properties": {}
+      }
+    ]
+  },
+  "unmodelled_effects": [],
+  "prediction_coverage": {
+    "scope": "validated_catalogue",
+    "complete_within_scope": true,
+    "limitations": []
+  },
+  "missing_parameters": [],
+  "clarification_questions": [],
+  "assumptions": [],
+  "source_provenance": [
+    "https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_CreateSecurityGroup.html"
+  ],
+  "catalogue_version": "1.2.0",
+  "intent_model_version": "fast-path-regex-v1"
+}

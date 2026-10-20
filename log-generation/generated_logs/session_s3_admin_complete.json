@@ -1,0 +1,529 @@
+{
+  "Records": [
+    {
+      "eventVersion": "1.08",
+      "userIdentity": {
+        "type": "IAMUser",
+        "principalId": "AIDABA21410885294352",
+        "arn": "arn:aws:iam::111122223333:user/agentic-operator",
+        "accountId": "111122223333",
+        "userName": "agentic-operator"
+      },
+      "eventTime": "2026-10-20T11:46:06Z",
+      "eventSource": "sts.amazonaws.com",
+      "eventName": "GetCallerIdentity",
+      "awsRegion": "us-east-1",
+      "sourceIPAddress": "198.51.204.67",
+      "userAgent": "aws-sdk-go/v2 aws-cli/2.15.0",
+      "requestParameters": {},
+      "responseElements": null,
+      "errorCode": null,
+      "errorMessage": null,
+      "requestID": "8a8c9628-38c0-446b-a7ea-57b38d67849a",
+      "eventID": "586b4372-bec9-48c8-a489-72a70425f23a",
+      "readOnly": true,
+      "eventType": "AwsApiCall",
+      "managementEvent": true,
+      "recipientAccountId": "111122223333",
+      "eventCategory": "Management"
+    },
+    {
+      "eventVersion": "1.08",
+      "userIdentity": {
+        "type": "IAMUser",
+        "principalId": "AIDA3226AE2797F54EC0",
+        "arn": "arn:aws:iam::111122223333:user/agentic-operator",
+        "accountId": "111122223333",
+        "userName": "agentic-operator"
+      },
+      "eventTime": "2026-10-20T11:46:15Z",
+      "eventSource": "ec2.amazonaws.com",
+      "eventName": "DescribeRegions",
+      "awsRegion": "us-east-1",
+      "sourceIPAddress": "198.51.166.231",
+      "userAgent": "aws-sdk-go/v2 aws-cli/2.15.0",
+      "requestParameters": {},
+      "responseElements": null,
+      "errorCode": null,
+      "errorMessage": null,
+      "requestID": "22b67db5-5353-4461-af57-163ef36d1077",
+      "eventID": "de9832be-7fb4-45fd-b4a9-4c8c508765c8",
+      "readOnly": true,
+      "eventType": "AwsApiCall",
+      "managementEvent": true,
+      "recipientAccountId": "111122223333",
+      "eventCategory": "Management"
+    },
+    {
+      "eventVersion": "1.08",
+      "userIdentity": {
+        "type": "IAMUser",
+        "principalId": "AIDA3C30B0F5F75B422B",
+        "arn": "arn:aws:iam::111122223333:user/agentic-operator",
+        "accountId": "111122223333",
+        "userName": "agentic-operator"
+      },
+      "eventTime": "2026-10-20T11:46:37Z",
+      "eventSource": "s3.amazonaws.com",
+      "eventName": "ListBuckets",
+      "awsRegion": "us-east-1",
+      "sourceIPAddress": "198.51.154.92",
+      "userAgent": "aws-sdk-go/v2 aws-cli/2.15.0",
+      "requestParameters": {},
+      "responseElements": null,
+      "errorCode": null,
+      "errorMessage": null,
+      "requestID": "6a58b3df-7514-40da-81db-320d2b6a6425",
+      "eventID": "e7812db5-c15f-4c0c-b2cb-e20c0a15ed6b",
+      "readOnly": true,
+      "eventType": "AwsApiCall",
+      "managementEvent": true,
+      "recipientAccountId": "111122223333",
+      "eventCategory": "Management"
+    },
+    {
+      "eventVersion": "1.08",
+      "userIdentity": {
+        "type": "IAMUser",
+        "principalId": "AIDA2E71F94C8C97449E",
+        "arn": "arn:aws:iam::111122223333:user/agentic-operator",
+        "accountId": "111122223333",
+        "userName": "agentic-operator"
+      },
+      "eventTime": "2026-10-20T11:47:01Z",
+      "eventSource": "iam.amazonaws.com",
+      "eventName": "GetAccountSummary",
+      "awsRegion": "us-east-1",
+      "sourceIPAddress": "198.51.161.244",
+      "userAgent": "aws-sdk-go/v2 aws-cli/2.15.0",
+      "requestParameters": {},
+      "responseElements": null,
+      "errorCode": null,
+      "errorMessage": null,
+      "requestID": "c797bdb0-b2fb-4335-a836-b033e8a5ebe3",
+      "eventID": "23edba88-dec1-484c-9afb-88bb1edb0317",
+      "readOnly": true,
+      "eventType": "AwsApiCall",
+      "managementEvent": true,
+      "recipientAccountId": "111122223333",
+      "eventCategory": "Management"
+    },
+    {
+      "eventVersion": "1.08",
+      "userIdentity": {
+        "type": "IAMUser",
+        "principalId": "AIDACBEEBEBE78FA40B3",
+        "arn": "arn:aws:iam::111122223333:user/agentic-operator",
+        "accountId": "111122223333",
+        "userName": "agentic-operator"
+      },
+      "eventTime": "2026-10-20T11:47:11Z",
+      "eventSource": "iam.amazonaws.com",
+      "eventName": "ListRoles",
+      "awsRegion": "us-east-1",
+      "sourceIPAddress": "198.51.214.181",
+      "userAgent": "aws-sdk-go/v2 aws-cli/2.15.0",
+      "requestParameters": {},
+      "responseElements": null,
+      "errorCode": null,
+      "errorMessage": null,
+      "requestID": "98c6bf66-f867-4357-8b03-1dff02d97b54",
+      "eventID": "6383286b-7ae2-4117-95a4-63eb25a86ba5",
+      "readOnly": true,
+      "eventType": "AwsApiCall",
+      "managementEvent": true,
+      "recipientAccountId": "111122223333",
+      "eventCategory": "Management"
+    },
+    {
+      "eventVersion": "1.08",
+      "userIdentity": {
+        "type": "IAMUser",
+        "principalId": "AIDA8F28576E8BE04838",
+        "arn": "arn:aws:iam::111122223333:user/agentic-operator",
+        "accountId": "111122223333",
+        "userName": "agentic-operator"
+      },
+      "eventTime": "2026-10-20T11:47:18Z",
+      "eventSource": "s3.amazonaws.com",
+      "eventName": "HeadBucket",
+      "awsRegion": "us-east-1",
+      "sourceIPAddress": "198.51.39.116",
+      "userAgent": "aws-sdk-go/v2 aws-cli/2.15.0",
+      "requestParameters": {
+        "bucketName": "analytics-prod-data-lake"
+      },
+      "responseElements": null,
+      "errorCode": "404NotFound",
+      "errorMessage": "Access denied for HeadBucket",
+      "requestID": "c058daa6-497b-4c97-b049-38692a148ec4",
+      "eventID": "89f37b24-b338-4efa-887a-89c5805ce8f4",
+      "readOnly": true,
+      "eventType": "AwsApiCall",
+      "managementEvent": true,
+      "recipientAccountId": "111122223333",
+      "eventCategory": "Management"
+    },
+    {
+      "eventVersion": "1.08",
+      "userIdentity": {
+        "type": "IAMUser",
+        "principalId": "AIDA474EDE87F56F4D28",
+        "arn": "arn:aws:iam::111122223333:user/agentic-operator",
+        "accountId": "111122223333",
+        "userName": "agentic-operator"
+      },
+      "eventTime": "2026-10-20T11:47:26Z",
+      "eventSource": "s3.amazonaws.com",
+      "eventName": "CreateBucket",
+      "awsRegion": "us-east-1",
+      "sourceIPAddress": "198.51.20.41",
+      "userAgent": "aws-sdk-go/v2 aws-cli/2.15.0",
+      "requestParameters": {
+        "bucketName": "analytics-prod-data-lake",
+        "CreateBucketConfiguration": {}
+      },
+      "responseElements": {
+        "status": "SUCCESS"
+      },
+      "errorCode": null,
+      "errorMessage": null,
+      "requestID": "552925dc-e3e7-44e4-b302-bb4cb237da85",
+      "eventID": "07d2326a-235d-42aa-8336-cd0f0eea98ea",
+      "readOnly": false,
+      "eventType": "AwsApiCall",
+      "managementEvent": true,
+      "recipientAccountId": "111122223333",
+      "eventCategory": "Management"
+    },
+    {
+      "eventVersion": "1.08",
+      "userIdentity": {
+        "type": "IAMUser",
+        "principalId": "AIDA548AB5DA9B654F01",
+        "arn": "arn:aws:iam::111122223333:user/agentic-operator",
+        "accountId": "111122223333",
+        "userName": "agentic-operator"
+      },
+      "eventTime": "2026-10-20T11:47:32Z",
+      "eventSource": "s3.amazonaws.com",
+      "eventName": "PutBucketEncryption",
+      "awsRegion": "us-east-1",
+      "sourceIPAddress": "198.51.189.245",
+      "userAgent": "aws-sdk-go/v2 aws-cli/2.15.0",
+      "requestParameters": {
+        "bucketName": "analytics-prod-data-lake",
+        "ServerSideEncryptionConfiguration": {
+          "rules": [
+            {
+              "applyServerSideEncryptionByDefault": {
+                "sseAlgorithm": "AES256"
+              }
+            }
+          ]
+        }
+      },
+      "responseElements": {
+        "status": "SUCCESS"
+      },
+      "errorCode": null,
+      "errorMessage": null,
+      "requestID": "7bf025ed-93c7-42c1-9227-e3b31e4c0748",
+      "eventID": "4a1a6371-95db-4867-83e5-fcadc39c8767",
+      "readOnly": false,
+      "eventType": "AwsApiCall",
+      "managementEvent": true,
+      "recipientAccountId": "111122223333",
+      "eventCategory": "Management"
+    },
+    {
+      "eventVersion": "1.08",
+      "userIdentity": {
+        "type": "IAMUser",
+        "principalId": "AIDACD8BE0D1184044DF",
+        "arn": "arn:aws:iam::111122223333:user/agentic-operator",
+        "accountId": "111122223333",
+        "userName": "agentic-operator"
+      },
+      "eventTime": "2026-10-20T11:47:37Z",
+      "eventSource": "s3.amazonaws.com",
+      "eventName": "PutBucketPublicAccessBlock",
+      "awsRegion": "us-east-1",
+      "sourceIPAddress": "198.51.108.65",
+      "userAgent": "aws-sdk-go/v2 aws-cli/2.15.0",
+      "requestParameters": {
+        "bucketName": "analytics-prod-data-lake",
+        "PublicAccessBlockConfiguration": {
+          "BlockPublicAcls": true,
+          "IgnorePublicAcls": true,
+          "BlockPublicPolicy": true,
+          "RestrictPublicBuckets": true
+        }
+      },
+      "responseElements": {
+        "status": "SUCCESS"
+      },
+      "errorCode": null,
+      "errorMessage": null,
+      "requestID": "ea796cf6-2776-4f8f-8cec-51fb69675dd5",
+      "eventID": "021924cf-cd49-4080-a6e9-9692b7e8891e",
+      "readOnly": false,
+      "eventType": "AwsApiCall",
+      "managementEvent": true,
+      "recipientAccountId": "111122223333",
+      "eventCategory": "Management"
+    },
+    {
+      "eventVersion": "1.08",
+      "userIdentity": {
+        "type": "IAMUser",
+        "principalId": "AIDAFADE587042124DD6",
+        "arn": "arn:aws:iam::111122223333:user/agentic-operator",
+        "accountId": "111122223333",
+        "userName": "agentic-operator"
+      },
+      "eventTime": "2026-10-20T11:47:43Z",
+      "eventSource": "s3.amazonaws.com",
+      "eventName": "PutBucketVersioning",
+      "awsRegion": "us-east-1",
+      "sourceIPAddress": "198.51.227.43",
+      "userAgent": "aws-sdk-go/v2 aws-cli/2.15.0",
+      "requestParameters": {
+        "bucketName": "analytics-prod-data-lake",
+        "VersioningConfiguration": {
+          "Status": "Enabled"
+        }
+      },
+      "responseElements": {
+        "status": "SUCCESS"
+      },
+      "errorCode": null,
+      "errorMessage": null,
+      "requestID": "795e8cc5-dc28-4b8c-8adc-45b6b6fe7a4a",
+      "eventID": "90a206ea-d91c-46b5-94aa-d08723f358aa",
+      "readOnly": false,
+      "eventType": "AwsApiCall",
+      "managementEvent": true,
+      "recipientAccountId": "111122223333",
+      "eventCategory": "Management"
+    },
+    {
+      "eventVersion": "1.08",
+      "userIdentity": {
+        "type": "IAMUser",
+        "principalId": "AIDAF36807763C46443C",
+        "arn": "arn:aws:iam::111122223333:user/agentic-operator",
+        "accountId": "111122223333",
+        "userName": "agentic-operator"
+      },
+      "eventTime": "2026-10-20T11:47:50Z",
+      "eventSource": "s3.amazonaws.com",
+      "eventName": "PutBucketTagging",
+      "awsRegion": "us-east-1",
+      "sourceIPAddress": "198.51.26.85",
+      "userAgent": "aws-sdk-go/v2 aws-cli/2.15.0",
+      "requestParameters": {
+        "bucketName": "analytics-prod-data-lake",
+        "Tagging": {
+          "TagSet": [
+            {
+              "Key": "Environment",
+              "Value": "Production"
+            }
+          ]
+        }
+      },
+      "responseElements": {
+        "status": "SUCCESS"
+      },
+      "errorCode": null,
+      "errorMessage": null,
+      "requestID": "3d3d9c02-13a3-46f7-9919-f40898c9c481",
+      "eventID": "fa8feccc-b88f-431f-8dcf-c509da3827dc",
+      "readOnly": false,
+      "eventType": "AwsApiCall",
+      "managementEvent": true,
+      "recipientAccountId": "111122223333",
+      "eventCategory": "Management"
+    },
+    {
+      "eventVersion": "1.08",
+      "userIdentity": {
+        "type": "IAMUser",
+        "principalId": "AIDADAD834B1BA2247A5",
+        "arn": "arn:aws:iam::111122223333:user/agentic-operator",
+        "accountId": "111122223333",
+        "userName": "agentic-operator"
+      },
+      "eventTime": "2026-10-20T11:48:02Z",
+      "eventSource": "s3.amazonaws.com",
+      "eventName": "GetBucketEncryption",
+      "awsRegion": "us-east-1",
+      "sourceIPAddress": "198.51.253.207",
+      "userAgent": "aws-sdk-go/v2 aws-cli/2.15.0",
+      "requestParameters": {
+        "bucketName": "analytics-prod-data-lake"
+      },
+      "responseElements": null,
+      "errorCode": null,
+      "errorMessage": null,
+      "requestID": "04a16caa-867b-4dcc-a6fc-0168c6cc0163",
+      "eventID": "dcbef787-320b-48f4-a52a-d586fa53d2ad",
+      "readOnly": true,
+      "eventType": "AwsApiCall",
+      "managementEvent": true,
+      "recipientAccountId": "111122223333",
+      "eventCategory": "Management"
+    },
+    {
+      "eventVersion": "1.08",
+      "userIdentity": {
+        "type": "IAMUser",
+        "principalId": "AIDACD3AE162A4964BDF",
+        "arn": "arn:aws:iam::111122223333:user/agentic-operator",
+        "accountId": "111122223333",
+        "userName": "agentic-operator"
+      },
+      "eventTime": "2026-10-20T11:48:08Z",
+      "eventSource": "s3.amazonaws.com",
+      "eventName": "GetPublicAccessBlock",
+      "awsRegion": "us-east-1",
+      "sourceIPAddress": "198.51.39.79",
+      "userAgent": "aws-sdk-go/v2 aws-cli/2.15.0",
+      "requestParameters": {
+        "bucketName": "analytics-prod-data-lake"
+      },
+      "responseElements": null,
+      "errorCode": null,
+      "errorMessage": null,
+      "requestID": "77ee843b-8f54-48bf-b535-4701763e17e8",
+      "eventID": "f1f40c7e-2b3d-4088-9e71-9d7fbed02858",
+      "readOnly": true,
+      "eventType": "AwsApiCall",
+      "managementEvent": true,
+      "recipientAccountId": "111122223333",
+      "eventCategory": "Management"
+    },
+    {
+      "eventVersion": "1.08",
+      "userIdentity": {
+        "type": "IAMUser",
+        "principalId": "AIDA694463905F724D36",
+        "arn": "arn:aws:iam::111122223333:user/agentic-operator",
+        "accountId": "111122223333",
+        "userName": "agentic-operator"
+      },
+      "eventTime": "2026-10-20T11:48:12Z",
+      "eventSource": "s3.amazonaws.com",
+      "eventName": "GetBucketVersioning",
+      "awsRegion": "us-east-1",
+      "sourceIPAddress": "198.51.211.177",
+      "userAgent": "aws-sdk-go/v2 aws-cli/2.15.0",
+      "requestParameters": {
+        "bucketName": "analytics-prod-data-lake"
+      },
+      "responseElements": null,
+      "errorCode": null,
+      "errorMessage": null,
+      "requestID": "cc1a4d05-486a-4973-a71a-455f8089ce25",
+      "eventID": "aea95362-aa75-4c2f-81be-ce9b822ae699",
+      "readOnly": true,
+      "eventType": "AwsApiCall",
+      "managementEvent": true,
+      "recipientAccountId": "111122223333",
+      "eventCategory": "Management"
+    },
+    {
+      "eventVersion": "1.08",
+      "userIdentity": {
+        "type": "IAMUser",
+        "principalId": "AIDA3DEA1479F2324005",
+        "arn": "arn:aws:iam::111122223333:user/agentic-operator",
+        "accountId": "111122223333",
+        "userName": "agentic-operator"
+      },
+      "eventTime": "2026-10-20T11:48:25Z",
+      "eventSource": "s3.amazonaws.com",
+      "eventName": "PutObject",
+      "awsRegion": "us-east-1",
+      "sourceIPAddress": "198.51.91.12",
+      "userAgent": "aws-sdk-go/v2 aws-cli/2.15.0",
+      "requestParameters": {
+        "bucketName": "analytics-prod-data-lake",
+        "key": "reports/schema.json"
+      },
+      "responseElements": {
+        "status": "SUCCESS"
+      },
+      "errorCode": null,
+      "errorMessage": null,
+      "requestID": "273e4fb9-e42f-44dd-b411-12de6f9a9b38",
+      "eventID": "420f7ce1-b12f-474c-9065-99f40ddfc820",
+      "readOnly": false,
+      "eventType": "AwsApiCall",
+      "managementEvent": true,
+      "recipientAccountId": "111122223333",
+      "eventCategory": "Management"
+    },
+    {
+      "eventVersion": "1.08",
+      "userIdentity": {
+        "type": "IAMUser",
+        "principalId": "AIDA624EECBA95824844",
+        "arn": "arn:aws:iam::111122223333:user/agentic-operator",
+        "accountId": "111122223333",
+        "userName": "agentic-operator"
+      },
+      "eventTime": "2026-10-20T11:48:32Z",
+      "eventSource": "s3.amazonaws.com",
+      "eventName": "HeadObject",
+      "awsRegion": "us-east-1",
+      "sourceIPAddress": "198.51.130.84",
+      "userAgent": "aws-sdk-go/v2 aws-cli/2.15.0",
+      "requestParameters": {
+        "bucketName": "analytics-prod-data-lake",
+        "key": "reports/schema.json"
+      },
+      "responseElements": null,
+      "errorCode": null,
+      "errorMessage": null,
+      "requestID": "2a8665ef-d446-48c4-b60a-2121d3729df8",
+      "eventID": "67b5cc21-322b-4d18-bde7-089b870817c2",
+      "readOnly": true,
+      "eventType": "AwsApiCall",
+      "managementEvent": true,
+      "recipientAccountId": "111122223333",
+      "eventCategory": "Management"
+    },
+    {
+      "eventVersion": "1.08",
+      "userIdentity": {
+        "type": "IAMUser",
+        "principalId": "AIDA04EBA180C6B249E9",
+        "arn": "arn:aws:iam::111122223333:user/agentic-operator",
+        "accountId": "111122223333",
+        "userName": "agentic-operator"
+      },
+      "eventTime": "2026-10-20T11:48:47Z",
+      "eventSource": "s3.amazonaws.com",
+      "eventName": "ListObjectsV2",
+      "awsRegion": "us-east-1",
+      "sourceIPAddress": "198.51.42.115",
+      "userAgent": "aws-sdk-go/v2 aws-cli/2.15.0",
+      "requestParameters": {
+        "bucketName": "analytics-prod-data-lake",
+        "prefix": "reports/"
+      },
+      "responseElements": null,
+      "errorCode": null,
+      "errorMessage": null,
+      "requestID": "795021b2-3faa-4c78-b3c8-83fbca8f3a5f",
+      "eventID": "767083d0-eb8b-4cbf-a30b-23c706c79d34",
+      "readOnly": true,
+      "eventType": "AwsApiCall",
+      "managementEvent": true,
+      "recipientAccountId": "111122223333",
+      "eventCategory": "Management"
+    }
+  ]
+}

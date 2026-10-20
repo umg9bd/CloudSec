@@ -1,0 +1,451 @@
+{
+  "status": "GENERATED",
+  "request_id": "gen-s3_secure_data_lake",
+  "parsed_intent": {
+    "task_category": "s3_create_bucket",
+    "desired_outcome": "Create an S3 bucket named analytics-prod-data-lake for company financial reports",
+    "explicit_requirements": [
+      "Create S3 bucket"
+    ],
+    "provided_parameters": {
+      "bucketName": "analytics-prod-data-lake"
+    },
+    "parameter_provenance": {
+      "bucketName": "USER_PROMPT"
+    },
+    "missing_parameters": [],
+    "ambiguities": [],
+    "needs_clarification": false,
+    "clarification_questions": []
+  },
+  "security_constraints": [
+    {
+      "constraint_id": "SEC-001",
+      "description": "Require server-side encryption at rest",
+      "triggered_action_ids": [
+        "act-s3-put-bucket-encryption"
+      ],
+      "source": "STAGE_2_HARDENING"
+    },
+    {
+      "constraint_id": "SEC-002",
+      "description": "Require PutBucketPublicAccessBlock on S3 bucket",
+      "triggered_action_ids": [
+        "act-s3-put-public-access-block"
+      ],
+      "source": "STAGE_2_HARDENING"
+    }
+  ],
+  "proposed_actions": [
+    {
+      "step": 1,
+      "action_id": "act-s3-create-bucket",
+      "service": "s3",
+      "operation": "CreateBucket",
+      "iam_permission": "s3:CreateBucket",
+      "status": "SUPPORTED",
+      "mapping_rule_id": "MAP-S3-001",
+      "requirement_type": "REQUIRED",
+      "depends_on": [],
+      "rationale": "Primary action required to fulfill user's functional request"
+    },
+    {
+      "step": 2,
+      "action_id": "act-s3-put-bucket-encryption",
+      "service": "s3",
+      "operation": "PutBucketEncryption",
+      "iam_permission": "s3:PutEncryptionConfiguration",
+      "status": "SUPPORTED",
+      "mapping_rule_id": "MAP-S3-002",
+      "requirement_type": "CONDITIONAL",
+      "depends_on": [
+        "act-s3-create-bucket"
+      ],
+      "rationale": "Triggered by security constraint: Require server-side encryption at rest"
+    },
+    {
+      "step": 3,
+      "action_id": "act-s3-put-public-access-block",
+      "service": "s3",
+      "operation": "PutPublicAccessBlock",
+      "iam_permission": "s3:PutBucketPublicAccessBlock",
+      "status": "SUPPORTED",
+      "mapping_rule_id": "MAP-S3-003",
+      "requirement_type": "CONDITIONAL",
+      "depends_on": [
+        "act-s3-create-bucket"
+      ],
+      "rationale": "Triggered by security constraint: Require PutBucketPublicAccessBlock on S3 bucket"
+    }
+  ],
+  "expected_direct_events": [
+    {
+      "prediction_id": "pred-0001",
+      "step": 1,
+      "action_id": "act-s3-create-bucket",
+      "service": "s3",
+      "api_operation": "CreateBucket",
+      "record_type": "PREDICTED_CLOUDTRAIL_EVENT",
+      "eventSource": "s3.amazonaws.com",
+      "eventName": "CreateBucket",
+      "requestParameters": {
+        "bucketName": "analytics-prod-data-lake",
+        "CreateBucketConfiguration": {}
+      },
+      "parameter_provenance": {
+        "bucketName": "USER_PROMPT",
+        "CreateBucketConfiguration": "ACTION_TEMPLATE"
+      },
+      "depends_on_predictions": [],
+      "requirement_type": "REQUIRED",
+      "mapping_rule_id": "MAP-S3-001",
+      "source_refs": [
+        "https://docs.aws.amazon.com/AmazonS3/latest/API/API_CreateBucket.html",
+        "https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-event-reference.html"
+      ],
+      "fixture_ref": "fixtures/s3_create_bucket.json",
+      "unknown_fields": [
+        "eventID",
+        "requestID",
+        "eventTime",
+        "responseElements",
+        "recipientAccountId",
+        "awsRegion",
+        "sourceIPAddress",
+        "userAgent"
+      ],
+      "support_status": "VERIFIED",
+      "recording_scope_assumption": "Management events with read/write type Write enabled on CloudTrail trail"
+    },
+    {
+      "prediction_id": "pred-0002",
+      "step": 2,
+      "action_id": "act-s3-put-bucket-encryption",
+      "service": "s3",
+      "api_operation": "PutBucketEncryption",
+      "record_type": "PREDICTED_CLOUDTRAIL_EVENT",
+      "eventSource": "s3.amazonaws.com",
+      "eventName": "PutBucketEncryption",
+      "requestParameters": {
+        "bucketName": "analytics-prod-data-lake",
+        "ServerSideEncryptionConfiguration": {
+          "rules": [
+            {
+              "applyServerSideEncryptionByDefault": {
+                "sseAlgorithm": "AES256"
+              }
+            }
+          ]
+        }
+      },
+      "parameter_provenance": {
+        "bucketName": "USER_PROMPT",
+        "ServerSideEncryptionConfiguration": "ACTION_TEMPLATE"
+      },
+      "depends_on_predictions": [
+        "pred-0001"
+      ],
+      "requirement_type": "CONDITIONAL",
+      "mapping_rule_id": "MAP-S3-002",
+      "source_refs": [
+        "https://docs.aws.amazon.com/AmazonS3/latest/API/API_PutBucketEncryption.html"
+      ],
+      "fixture_ref": "fixtures/s3_put_bucket_encryption.json",
+      "unknown_fields": [
+        "eventID",
+        "requestID",
+        "eventTime",
+        "responseElements",
+        "recipientAccountId",
+        "awsRegion",
+        "sourceIPAddress",
+        "userAgent"
+      ],
+      "support_status": "VERIFIED",
+      "recording_scope_assumption": "Management events with read/write type Write enabled on CloudTrail trail"
+    },
+    {
+      "prediction_id": "pred-0003",
+      "step": 3,
+      "action_id": "act-s3-put-public-access-block",
+      "service": "s3",
+      "api_operation": "PutPublicAccessBlock",
+      "record_type": "PREDICTED_CLOUDTRAIL_EVENT",
+      "eventSource": "s3.amazonaws.com",
+      "eventName": "PutBucketPublicAccessBlock",
+      "requestParameters": {
+        "bucketName": "analytics-prod-data-lake",
+        "PublicAccessBlockConfiguration": {
+          "BlockPublicAcls": true,
+          "IgnorePublicAcls": true,
+          "BlockPublicPolicy": true,
+          "RestrictPublicBuckets": true
+        }
+      },
+      "parameter_provenance": {
+        "bucketName": "USER_PROMPT",
+        "PublicAccessBlockConfiguration": "ACTION_TEMPLATE"
+      },
+      "depends_on_predictions": [
+        "pred-0001"
+      ],
+      "requirement_type": "CONDITIONAL",
+      "mapping_rule_id": "MAP-S3-003",
+      "source_refs": [
+        "https://docs.aws.amazon.com/AmazonS3/latest/API/API_PutPublicAccessBlock.html",
+        "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html"
+      ],
+      "fixture_ref": "fixtures/s3_put_bucket_public_access_block.json",
+      "unknown_fields": [
+        "eventID",
+        "requestID",
+        "eventTime",
+        "responseElements",
+        "recipientAccountId",
+        "awsRegion",
+        "sourceIPAddress",
+        "userAgent"
+      ],
+      "support_status": "VERIFIED",
+      "recording_scope_assumption": "Management events with read/write type Write enabled on CloudTrail trail. Note: API is PutPublicAccessBlock but CloudTrail eventName is PutBucketPublicAccessBlock."
+    }
+  ],
+  "conditional_events": [],
+  "action_dependency_graph": {
+    "nodes": [
+      {
+        "id": "task:gen-s3_secure_data_lake",
+        "type": "Task",
+        "label": "Task: s3_create_bucket",
+        "state": "PROPOSED",
+        "properties": {
+          "task_category": "s3_create_bucket",
+          "desired_outcome": "Create an S3 bucket named analytics-prod-data-lake for company financial reports"
+        }
+      },
+      {
+        "id": "action:act-s3-create-bucket",
+        "type": "ProposedAction",
+        "label": "Action: CreateBucket",
+        "state": "PROPOSED",
+        "properties": {
+          "step": 1,
+          "action_id": "act-s3-create-bucket",
+          "service": "s3",
+          "operation": "CreateBucket",
+          "iam_permission": "s3:CreateBucket",
+          "mapping_rule_id": "MAP-S3-001"
+        }
+      },
+      {
+        "id": "service:s3",
+        "type": "Service",
+        "label": "Service: s3.amazonaws.com",
+        "state": "PROPOSED",
+        "properties": {
+          "service_name": "s3"
+        }
+      },
+      {
+        "id": "resource:arn:aws:s3:::analytics-prod-data-lake",
+        "type": "Resource",
+        "label": "Resource: arn:aws:s3:::analytics-prod-data-lake",
+        "state": "PROPOSED",
+        "properties": {
+          "resource_identifier": "arn:aws:s3:::analytics-prod-data-lake"
+        }
+      },
+      {
+        "id": "event:pred-0001",
+        "type": "PredictedEvent",
+        "label": "PredictedEvent: CreateBucket",
+        "state": "PREDICTED",
+        "properties": {
+          "prediction_id": "pred-0001",
+          "eventSource": "s3.amazonaws.com",
+          "eventName": "CreateBucket",
+          "step": 1,
+          "mapping_rule_id": "MAP-S3-001"
+        }
+      },
+      {
+        "id": "action:act-s3-put-bucket-encryption",
+        "type": "ProposedAction",
+        "label": "Action: PutBucketEncryption",
+        "state": "PROPOSED",
+        "properties": {
+          "step": 2,
+          "action_id": "act-s3-put-bucket-encryption",
+          "service": "s3",
+          "operation": "PutBucketEncryption",
+          "iam_permission": "s3:PutEncryptionConfiguration",
+          "mapping_rule_id": "MAP-S3-002"
+        }
+      },
+      {
+        "id": "event:pred-0002",
+        "type": "PredictedEvent",
+        "label": "PredictedEvent: PutBucketEncryption",
+        "state": "PREDICTED",
+        "properties": {
+          "prediction_id": "pred-0002",
+          "eventSource": "s3.amazonaws.com",
+          "eventName": "PutBucketEncryption",
+          "step": 2,
+          "mapping_rule_id": "MAP-S3-002"
+        }
+      },
+      {
+        "id": "action:act-s3-put-public-access-block",
+        "type": "ProposedAction",
+        "label": "Action: PutPublicAccessBlock",
+        "state": "PROPOSED",
+        "properties": {
+          "step": 3,
+          "action_id": "act-s3-put-public-access-block",
+          "service": "s3",
+          "operation": "PutPublicAccessBlock",
+          "iam_permission": "s3:PutBucketPublicAccessBlock",
+          "mapping_rule_id": "MAP-S3-003"
+        }
+      },
+      {
+        "id": "event:pred-0003",
+        "type": "PredictedEvent",
+        "label": "PredictedEvent: PutBucketPublicAccessBlock",
+        "state": "PREDICTED",
+        "properties": {
+          "prediction_id": "pred-0003",
+          "eventSource": "s3.amazonaws.com",
+          "eventName": "PutBucketPublicAccessBlock",
+          "step": 3,
+          "mapping_rule_id": "MAP-S3-003"
+        }
+      }
+    ],
+    "edges": [
+      {
+        "source": "task:gen-s3_secure_data_lake",
+        "target": "action:act-s3-create-bucket",
+        "relation": "PROPOSES",
+        "state": "PROPOSED",
+        "properties": {
+          "step": 1
+        }
+      },
+      {
+        "source": "action:act-s3-create-bucket",
+        "target": "service:s3",
+        "relation": "INVOKES",
+        "state": "PROPOSED",
+        "properties": {}
+      },
+      {
+        "source": "action:act-s3-create-bucket",
+        "target": "resource:arn:aws:s3:::analytics-prod-data-lake",
+        "relation": "TARGETS",
+        "state": "PROPOSED",
+        "properties": {}
+      },
+      {
+        "source": "action:act-s3-create-bucket",
+        "target": "event:pred-0001",
+        "relation": "MAPS_TO_EVENT",
+        "state": "PROPOSED",
+        "properties": {}
+      },
+      {
+        "source": "task:gen-s3_secure_data_lake",
+        "target": "action:act-s3-put-bucket-encryption",
+        "relation": "PROPOSES",
+        "state": "PROPOSED",
+        "properties": {
+          "step": 2
+        }
+      },
+      {
+        "source": "action:act-s3-put-bucket-encryption",
+        "target": "service:s3",
+        "relation": "INVOKES",
+        "state": "PROPOSED",
+        "properties": {}
+      },
+      {
+        "source": "action:act-s3-put-bucket-encryption",
+        "target": "resource:arn:aws:s3:::analytics-prod-data-lake",
+        "relation": "TARGETS",
+        "state": "PROPOSED",
+        "properties": {}
+      },
+      {
+        "source": "action:act-s3-put-bucket-encryption",
+        "target": "event:pred-0002",
+        "relation": "MAPS_TO_EVENT",
+        "state": "PROPOSED",
+        "properties": {}
+      },
+      {
+        "source": "action:act-s3-put-bucket-encryption",
+        "target": "action:act-s3-create-bucket",
+        "relation": "DEPENDS_ON",
+        "state": "PROPOSED",
+        "properties": {}
+      },
+      {
+        "source": "task:gen-s3_secure_data_lake",
+        "target": "action:act-s3-put-public-access-block",
+        "relation": "PROPOSES",
+        "state": "PROPOSED",
+        "properties": {
+          "step": 3
+        }
+      },
+      {
+        "source": "action:act-s3-put-public-access-block",
+        "target": "service:s3",
+        "relation": "INVOKES",
+        "state": "PROPOSED",
+        "properties": {}
+      },
+      {
+        "source": "action:act-s3-put-public-access-block",
+        "target": "resource:arn:aws:s3:::analytics-prod-data-lake",
+        "relation": "TARGETS",
+        "state": "PROPOSED",
+        "properties": {}
+      },
+      {
+        "source": "action:act-s3-put-public-access-block",
+        "target": "event:pred-0003",
+        "relation": "MAPS_TO_EVENT",
+        "state": "PROPOSED",
+        "properties": {}
+      },
+      {
+        "source": "action:act-s3-put-public-access-block",
+        "target": "action:act-s3-create-bucket",
+        "relation": "DEPENDS_ON",
+        "state": "PROPOSED",
+        "properties": {}
+      }
+    ]
+  },
+  "unmodelled_effects": [],
+  "prediction_coverage": {
+    "scope": "validated_catalogue",
+    "complete_within_scope": true,
+    "limitations": []
+  },
+  "missing_parameters": [],
+  "clarification_questions": [],
+  "assumptions": [],
+  "source_provenance": [
+    "https://docs.aws.amazon.com/AmazonS3/latest/API/API_CreateBucket.html",
+    "https://docs.aws.amazon.com/AmazonS3/latest/API/API_PutBucketEncryption.html",
+    "https://docs.aws.amazon.com/AmazonS3/latest/API/API_PutPublicAccessBlock.html",
+    "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+    "https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-event-reference.html"
+  ],
+  "catalogue_version": "1.2.0",
+  "intent_model_version": "fast-path-regex-v1"
+}
