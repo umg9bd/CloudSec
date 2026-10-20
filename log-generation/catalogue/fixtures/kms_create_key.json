@@ -1,0 +1,30 @@
+{
+  "eventVersion": "1.08",
+  "userIdentity": {
+    "type": "IAMUser",
+    "principalId": "AIDAEXAMPLEUSERID",
+    "arn": "arn:aws:iam::111122223333:user/test-admin",
+    "accountId": "111122223333"
+  },
+  "eventTime": "2026-10-18T12:10:00Z",
+  "eventSource": "kms.amazonaws.com",
+  "eventName": "CreateKey",
+  "awsRegion": "us-east-1",
+  "requestParameters": {
+    "description": "Customer managed key for data encryption",
+    "keyUsage": "ENCRYPT_DECRYPT"
+  },
+  "responseElements": {
+    "keyMetadata": {
+      "keyId": "12345678-1234-1234-1234-123456789012",
+      "arn": "arn:aws:kms:us-east-1:111122223333:key/12345678-1234-1234-1234-123456789012",
+      "keyState": "Enabled"
+    }
+  },
+  "requestID": "EXAMPLEREQUESTID06",
+  "eventID": "example-uuid-kms-create-key",
+  "eventType": "AwsApiCall",
+  "managementEvent": true,
+  "recipientAccountId": "111122223333",
+  "eventCategory": "Management"
+}

@@ -1,0 +1,28 @@
+{
+  "eventVersion": "1.08",
+  "userIdentity": {
+    "type": "IAMUser",
+    "principalId": "AIDAEXAMPLEUSERID",
+    "arn": "arn:aws:iam::111122223333:user/test-admin",
+    "accountId": "111122223333",
+    "userName": "test-admin"
+  },
+  "eventTime": "2026-10-18T12:00:00Z",
+  "eventSource": "s3.amazonaws.com",
+  "eventName": "CreateBucket",
+  "awsRegion": "us-east-1",
+  "sourceIPAddress": "198.51.100.1",
+  "userAgent": "aws-sdk-go/v2",
+  "requestParameters": {
+    "bucketName": "sample-test-bucket-production",
+    "CreateBucketConfiguration": {}
+  },
+  "responseElements": null,
+  "requestID": "EXAMPLEREQUESTID01",
+  "eventID": "example-uuid-s3-create-bucket",
+  "readOnly": false,
+  "eventType": "AwsApiCall",
+  "managementEvent": true,
+  "recipientAccountId": "111122223333",
+  "eventCategory": "Management"
+}

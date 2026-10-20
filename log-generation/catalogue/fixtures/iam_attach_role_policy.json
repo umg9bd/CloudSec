@@ -1,0 +1,24 @@
+{
+  "eventVersion": "1.08",
+  "userIdentity": {
+    "type": "IAMUser",
+    "principalId": "AIDAEXAMPLEUSERID",
+    "arn": "arn:aws:iam::111122223333:user/test-admin",
+    "accountId": "111122223333"
+  },
+  "eventTime": "2026-10-18T12:05:05Z",
+  "eventSource": "iam.amazonaws.com",
+  "eventName": "AttachRolePolicy",
+  "awsRegion": "us-east-1",
+  "requestParameters": {
+    "roleName": "AppExecutionRole",
+    "policyArn": "arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess"
+  },
+  "responseElements": null,
+  "requestID": "EXAMPLEREQUESTID05",
+  "eventID": "example-uuid-iam-attach-role-policy",
+  "eventType": "AwsApiCall",
+  "managementEvent": true,
+  "recipientAccountId": "111122223333",
+  "eventCategory": "Management"
+}

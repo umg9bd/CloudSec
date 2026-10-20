@@ -1,0 +1,23 @@
+{
+  "eventVersion": "1.08",
+  "userIdentity": {
+    "type": "IAMUser",
+    "principalId": "AIDAEXAMPLEUSERID",
+    "arn": "arn:aws:iam::111122223333:user/test-admin",
+    "accountId": "111122223333"
+  },
+  "eventTime": "2026-10-18T12:10:05Z",
+  "eventSource": "kms.amazonaws.com",
+  "eventName": "EnableKeyRotation",
+  "awsRegion": "us-east-1",
+  "requestParameters": {
+    "keyId": "12345678-1234-1234-1234-123456789012"
+  },
+  "responseElements": null,
+  "requestID": "EXAMPLEREQUESTID07",
+  "eventID": "example-uuid-kms-enable-rotation",
+  "eventType": "AwsApiCall",
+  "managementEvent": true,
+  "recipientAccountId": "111122223333",
+  "eventCategory": "Management"
+}

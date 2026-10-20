@@ -1,0 +1,32 @@
+{
+  "eventVersion": "1.08",
+  "userIdentity": {
+    "type": "IAMUser",
+    "principalId": "AIDAEXAMPLEUSERID",
+    "arn": "arn:aws:iam::111122223333:user/test-admin",
+    "accountId": "111122223333"
+  },
+  "eventTime": "2026-10-18T12:00:05Z",
+  "eventSource": "s3.amazonaws.com",
+  "eventName": "PutBucketEncryption",
+  "awsRegion": "us-east-1",
+  "requestParameters": {
+    "bucketName": "sample-test-bucket-production",
+    "ServerSideEncryptionConfiguration": {
+      "rules": [
+        {
+          "applyServerSideEncryptionByDefault": {
+            "sseAlgorithm": "AES256"
+          }
+        }
+      ]
+    }
+  },
+  "responseElements": null,
+  "requestID": "EXAMPLEREQUESTID02",
+  "eventID": "example-uuid-s3-put-encryption",
+  "eventType": "AwsApiCall",
+  "managementEvent": true,
+  "recipientAccountId": "111122223333",
+  "eventCategory": "Management"
+}

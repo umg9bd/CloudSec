@@ -1,0 +1,32 @@
+{
+  "eventVersion": "1.08",
+  "userIdentity": {
+    "type": "IAMUser",
+    "principalId": "AIDAEXAMPLEUSERID",
+    "arn": "arn:aws:iam::111122223333:user/test-admin",
+    "accountId": "111122223333"
+  },
+  "eventTime": "2026-10-18T12:20:00Z",
+  "eventSource": "lambda.amazonaws.com",
+  "eventName": "CreateFunction20150331",
+  "awsRegion": "us-east-1",
+  "requestParameters": {
+    "functionName": "image-processor-lambda",
+    "role": "arn:aws:iam::111122223333:role/lambda-s3-execution-role",
+    "handler": "index.handler",
+    "runtime": "python3.11"
+  },
+  "responseElements": {
+    "functionName": "image-processor-lambda",
+    "functionArn": "arn:aws:lambda:us-east-1:111122223333:function:image-processor-lambda",
+    "runtime": "python3.11",
+    "role": "arn:aws:iam::111122223333:role/lambda-s3-execution-role",
+    "handler": "index.handler"
+  },
+  "requestID": "EXAMPLEREQUESTID09",
+  "eventID": "example-uuid-lambda-create-function",
+  "eventType": "AwsApiCall",
+  "managementEvent": true,
+  "recipientAccountId": "111122223333",
+  "eventCategory": "Management"
+}
