@@ -1,0 +1,13 @@
+{
+  "capture_limitations": "This is a concise review record, not a raw HTML/PDF capture. content_hash hashes these exact review-record bytes. Running source_sync sync will store raw response bytes and replace this baseline hash only for sections it can verify.",
+  "capture_type": "official-page-section-review",
+  "control_id": "APP-RESOURCE-009",
+  "decision": "supported_with_project-specific_wording",
+  "record_type": "curated_source_section_review",
+  "record_version": 1,
+  "reviewed_at": "2026-10-21T04:45:00Z",
+  "source_name": "OWASP API Security Top 10 (2023)",
+  "source_recommendation_assessment": "OWASP describes API resource-consumption risk from unbounded requests and response sizes. The control asks for appropriate limits/rate controls and expects configuration values to be set from the real product requirements, not guessed.",
+  "source_url": "https://api-security.owasp.org/editions/2023/en/0x11-t10/",
+  "source_version_or_section": "API4:2023 \u2014 Unrestricted Resource Consumption"
+}

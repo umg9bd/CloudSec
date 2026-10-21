@@ -1,0 +1,13 @@
+{
+  "capture_limitations": "This is a concise review record, not a raw HTML/PDF capture. content_hash hashes these exact review-record bytes. Running source_sync sync will store raw response bytes and replace this baseline hash only for sections it can verify.",
+  "capture_type": "official-page-section-review",
+  "control_id": "APP-PATH-005",
+  "decision": "supported",
+  "record_type": "curated_source_section_review",
+  "record_version": 1,
+  "reviewed_at": "2026-10-21T04:45:00Z",
+  "source_name": "OWASP Top 10 (2025)",
+  "source_recommendation_assessment": "The current OWASP Top 10 A01 page identifies broken access control and maps path traversal (CWE-22) among relevant weakness classes. The control constrains file path handling to a trusted base and requires normalization/containment checks.",
+  "source_url": "https://top10.owasp.org/2025/A01_2025-Broken_Access_Control/",
+  "source_version_or_section": "A01:2025 Broken Access Control; CWE-22 Path Traversal mapping"
+}

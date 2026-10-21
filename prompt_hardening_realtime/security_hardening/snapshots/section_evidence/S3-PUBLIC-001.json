@@ -1,0 +1,13 @@
+{
+  "capture_limitations": "This is a concise review record, not a raw HTML/PDF capture. content_hash hashes these exact review-record bytes. Running source_sync sync will store raw response bytes and replace this baseline hash only for sections it can verify.",
+  "capture_type": "official-page-section-review",
+  "control_id": "S3-PUBLIC-001",
+  "decision": "supported",
+  "record_type": "curated_source_section_review",
+  "record_version": 1,
+  "reviewed_at": "2026-10-21T04:45:00Z",
+  "source_name": "Amazon S3 User Guide \u2014 Security best practices",
+  "source_recommendation_assessment": "The S3 guidance recommends blocking public access unless exposure is intended and carefully reviewing policies and access settings. The control requests private-by-default bucket access and an explicit declaration for intentionally public content.",
+  "source_url": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/security-best-practices.html",
+  "source_version_or_section": "Block public access and review bucket policies / ACLs"
+}

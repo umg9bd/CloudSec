@@ -1,0 +1,13 @@
+{
+  "capture_limitations": "This is a concise review record, not a raw HTML/PDF capture. content_hash hashes these exact review-record bytes. Running source_sync sync will store raw response bytes and replace this baseline hash only for sections it can verify.",
+  "capture_type": "official-page-section-review",
+  "control_id": "DEV-CHANGE-002",
+  "decision": "supported",
+  "record_type": "curated_source_section_review",
+  "record_version": 1,
+  "reviewed_at": "2026-10-21T04:45:00Z",
+  "source_name": "AWS Well-Architected Framework \u2014 Security design principles",
+  "source_recommendation_assessment": "The official design-principles page recommends automating security best practices and managing security controls in version-controlled templates. The control converts that guidance into a reviewable change workflow.",
+  "source_url": "https://docs.aws.amazon.com/wellarchitected/latest/framework/sec-design.html",
+  "source_version_or_section": "Automate security best practices; manage controls as code"
+}

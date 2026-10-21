@@ -1,0 +1,13 @@
+{
+  "capture_limitations": "This is a concise review record, not a raw HTML/PDF capture. content_hash hashes these exact review-record bytes. Running source_sync sync will store raw response bytes and replace this baseline hash only for sections it can verify.",
+  "capture_type": "official-page-section-review",
+  "control_id": "APP-AUTHZ-006",
+  "decision": "supported",
+  "record_type": "curated_source_section_review",
+  "record_version": 1,
+  "reviewed_at": "2026-10-21T04:45:00Z",
+  "source_name": "OWASP API Security Top 10 (2023)",
+  "source_recommendation_assessment": "OWASP identifies object-level authorization as a key API risk where endpoints accept object identifiers, and separately lists broken authentication. The control requires authentication and authorization for the specific object belonging to the caller, rather than relying on possession of an ID.",
+  "source_url": "https://api-security.owasp.org/editions/2023/en/0x11-t10/",
+  "source_version_or_section": "API1:2023 Broken Object Level Authorization and API2:2023 Broken Authentication"
+}

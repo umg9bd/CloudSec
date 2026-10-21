@@ -1,0 +1,13 @@
+{
+  "capture_limitations": "This is a concise review record, not a raw HTML/PDF capture. content_hash hashes these exact review-record bytes. Running source_sync sync will store raw response bytes and replace this baseline hash only for sections it can verify.",
+  "capture_type": "official-page-section-review",
+  "control_id": "IAM-CREDS-005",
+  "decision": "supported",
+  "record_type": "curated_source_section_review",
+  "record_version": 1,
+  "reviewed_at": "2026-10-21T04:45:00Z",
+  "source_name": "AWS IAM User Guide \u2014 Security best practices",
+  "source_recommendation_assessment": "The IAM guidance recommends temporary credentials and role-based access over long-lived access keys where possible. The control asks the implementation to avoid hard-coded long-term credentials and to use the role mechanism already available.",
+  "source_url": "https://docs.aws.amazon.com/IAM/latest/UserGuide/best-practices.html",
+  "source_version_or_section": "Use temporary credentials and roles for workloads"
+}

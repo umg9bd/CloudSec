@@ -1,0 +1,13 @@
+{
+  "capture_limitations": "This is a concise review record, not a raw HTML/PDF capture. content_hash hashes these exact review-record bytes. Running source_sync sync will store raw response bytes and replace this baseline hash only for sections it can verify.",
+  "capture_type": "official-page-section-review",
+  "control_id": "APP-LOGGING-008",
+  "decision": "supported",
+  "record_type": "curated_source_section_review",
+  "record_version": 1,
+  "reviewed_at": "2026-10-21T04:45:00Z",
+  "source_name": "OWASP Cheat Sheet Series \u2014 Logging",
+  "source_recommendation_assessment": "OWASP\u2019s logging guidance cautions against recording passwords, access tokens, connection strings, encryption keys, and sensitive personal data. The control asks logs to retain security-relevant context while excluding those values.",
+  "source_url": "https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html",
+  "source_version_or_section": "Data to exclude or mask: passwords, tokens, connection strings, and sensitive data"
+}

@@ -1,0 +1,132 @@
+{
+  "request_id": "req-demo-s3-001",
+  "status": "HARDENED",
+  "original_prompt": "Create a private S3 bucket for application audit logs. Block public access, restrict access to the application's IAM role and the security team's IAM role, enforce HTTPS, enable SSE-S3 encryption and versioning, and provide least-privilege IAM policies and security verification steps. Do not deploy any resources.",
+  "revised_prompt": "Create a private S3 bucket for application audit logs. Block public access, restrict access to the application's IAM role and the security team's IAM role, enforce HTTPS, enable SSE-S3 encryption and versioning, and provide least-privilege IAM policies and security verification steps. Do not deploy any resources.\n\n--- SECURITY HARDENING (Stage 2, catalogue 0.2.3) ---\nThe request above is unchanged. Apply the following in addition; they do not change its objective.\n\nSecurity requirements:\n1. [IAM-TRUST-003] For the IAM policy and the IAM role, list the exact principal(s) allowed to assume the role in its trust policy (no wildcard principal), add conditions for cross-account or external principals, and do not widen who can assume it beyond what the request names.\n2. [VPC-SGROUP-001] Restrict inbound rules for the network resources in this request to the specific ports and source ranges the request needs; never open administrative (SSH/RDP) or database ports to 0.0.0.0/0 or ::/0, and prefer security-group references over broad CIDR ranges.\n\nOpen items (not specified in the request - do not guess; ask or leave as a parameter):\n- Which principal(s) (service, role or account) should be allowed to assume this role?\n- Which source IP ranges or security groups should be allowed to reach this resource?\n\nVerification expectations:\n- [IAM-TRUST-003] Read the trust policy: the Principal element names specific accounts, roles or services, never \"*\", and cross-account trust carries a condition. Report any principal the request did not name.\n- [VPC-SGROUP-001] Review every ingress rule produced: each has a stated port and a specific source, and none opens SSH, RDP or a database port to 0.0.0.0/0 or ::/0.\n\nThese requirements reduce, but do not eliminate, the risk of insecure configuration. Report any requirement you could not meet and any unresolved security risk explicitly.\n--- END SECURITY HARDENING ---",
+  "security_gaps": [
+    {
+      "control_id": "IAM-TRUST-003",
+      "severity": "high",
+      "description": "Constrain role trust policies - not stated in the request"
+    },
+    {
+      "control_id": "VPC-SGROUP-001",
+      "severity": "high",
+      "description": "Restrict security-group ingress to what is needed - not stated in the request"
+    }
+  ],
+  "added_controls": [
+    {
+      "control_id": "IAM-TRUST-003",
+      "control_name": "Constrain role trust policies",
+      "reason": "Applies because the request says: “Block public access, restrict access to the application's IAM role and the security team's IAM role, enforce HTTPS, enable SSE-…”; “Create a private S3 bucket for application audit logs.” [resource_kinds=iam_role, action_classes=create]",
+      "source_references": [
+        {
+          "source_name": "AWS IAM User Guide — Security best practices",
+          "source_url": "https://docs.aws.amazon.com/IAM/latest/UserGuide/best-practices.html",
+          "source_version_or_section": "IAM Access Analyzer and resource access review",
+          "retrieved_at": "2026-10-21T04:45:00Z",
+          "content_hash": null,
+          "provenance_status": "section_checked",
+          "derived": true,
+          "supporting_references": [
+            {
+              "source_name": "AWS IAM User Guide - Security best practices in IAM",
+              "source_url": "https://docs.aws.amazon.com/IAM/latest/UserGuide/best-practices.html",
+              "source_version_or_section": "Apply least-privilege permissions"
+            }
+          ]
+        }
+      ],
+      "verification_expectation": "Read the trust policy: the Principal element names specific accounts, roles or services, never \"*\", and cross-account trust carries a condition. Report any principal the request did not name.",
+      "clause": "For the IAM policy and the IAM role, list the exact principal(s) allowed to assume the role in its trust policy (no wildcard principal), add conditions for cross-account or external principals, and do not widen who can assume it beyond what the request names.",
+      "enforcement": "recommended",
+      "severity": "high"
+    },
+    {
+      "control_id": "VPC-SGROUP-001",
+      "control_name": "Restrict security-group ingress to what is needed",
+      "reason": "Applies because the request says: “Block public access, restrict access to the application's IAM role and the security team's IAM role, enforce HTTPS, enable SSE-…” [exposure=public_internet]",
+      "source_references": [
+        {
+          "source_name": "Amazon VPC User Guide — Security best practices",
+          "source_url": "https://docs.aws.amazon.com/vpc/latest/userguide/vpc-security-best-practices.html",
+          "source_version_or_section": "Security groups: limit permitted network traffic",
+          "retrieved_at": "2026-10-21T04:45:00Z",
+          "content_hash": null,
+          "provenance_status": "section_checked",
+          "derived": false,
+          "supporting_references": []
+        }
+      ],
+      "verification_expectation": "Review every ingress rule produced: each has a stated port and a specific source, and none opens SSH, RDP or a database port to 0.0.0.0/0 or ::/0.",
+      "clause": "Restrict inbound rules for the network resources in this request to the specific ports and source ranges the request needs; never open administrative (SSH/RDP) or database ports to 0.0.0.0/0 or ::/0, and prefer security-group references over broad CIDR ranges.",
+      "enforcement": "recommended",
+      "severity": "high"
+    }
+  ],
+  "satisfied_controls": [
+    {
+      "control_id": "IAM-LEASTPRIV-001",
+      "evidence": "Block public access, restrict access to the application's IAM role and the security team's IAM role, enforce HTTPS, enable SSE-S3 encryption and versioning,...",
+      "verification_expectation": "Inspect the resulting policy: no \"*\" in Action or Resource unless justified in writing, and every action maps to a stated need. Run policy validation or an access-analysis check if one is available and report its findings."
+    },
+    {
+      "control_id": "S3-PUBLIC-001",
+      "evidence": "Block public access, restrict access to the application's IAM role and the security team's IAM role, enforce HTTPS, enable SSE-S3 encryption and versioning,...",
+      "verification_expectation": "Confirm Block Public Access is enabled on the bucket, no policy statement uses a wildcard principal without a restricting condition, and no public ACL is set; report any intentional public content."
+    },
+    {
+      "control_id": "S3-ENCRYPT-002",
+      "evidence": "Block public access, restrict access to the application's IAM role and the security team's IAM role, enforce HTTPS, enable SSE-S3 encryption and versioning,...",
+      "verification_expectation": "Confirm default encryption is enabled on the bucket and the bucket policy denies requests where secure transport is false."
+    }
+  ],
+  "deferred_controls": [],
+  "conflicts": [],
+  "assumptions": [],
+  "clarification_questions": [
+    {
+      "question": "Which principal(s) (service, role or account) should be allowed to assume this role?",
+      "why_it_matters": "The trust policy must name who may assume the role, and nothing in the request says who that is.",
+      "blocking": false,
+      "control_id": "IAM-TRUST-003"
+    },
+    {
+      "question": "Which source IP ranges or security groups should be allowed to reach this resource?",
+      "why_it_matters": "An inbound rule needs a specific source; \"users\" or \"the team\" does not identify one.",
+      "blocking": false,
+      "control_id": "VPC-SGROUP-001"
+    }
+  ],
+  "scope_findings": {
+    "approved_services": [
+      "iam",
+      "s3"
+    ],
+    "excluded_services": [],
+    "out_of_scope_services": [],
+    "recognised_services": []
+  },
+  "warnings": [],
+  "errors": [],
+  "source_catalogue_version": "0.2.3",
+  "catalogue_sha256": "4e0194db98f101fd04ca841d11347a9bd587d44a53476043e7ec1e5cb3af1ba4",
+  "catalogue_freshness": {
+    "catalogue_version": "0.2.3",
+    "last_sync_status": "never_synced",
+    "last_sync_attempt": null,
+    "last_known_good_version": "0.2.3",
+    "active_controls": 24,
+    "provenance_counts": {
+      "unverified": 0,
+      "section_checked": 24,
+      "snapshot_verified": 0
+    },
+    "unavailable_sources": [],
+    "note": "No source synchronisation has run for this catalogue; see provenance_counts for what has been verified.",
+    "analysis_config_sha256": "617cc8db37190684ab1fd4aa8d3b49eda23babc42e8fa070e61b46143ee87cda"
+  },
+  "requires_user_review": true,
+  "schema_version": "1"
+}

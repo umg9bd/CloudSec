@@ -1,0 +1,13 @@
+{
+  "capture_limitations": "This is a concise review record, not a raw HTML/PDF capture. content_hash hashes these exact review-record bytes. Running source_sync sync will store raw response bytes and replace this baseline hash only for sections it can verify.",
+  "capture_type": "official-page-section-review",
+  "control_id": "APP-CMDI-002",
+  "decision": "supported",
+  "record_type": "curated_source_section_review",
+  "record_version": 1,
+  "reviewed_at": "2026-10-21T04:45:00Z",
+  "source_name": "OWASP Cheat Sheet Series \u2014 OS Command Injection Defense",
+  "source_recommendation_assessment": "OWASP recommends avoiding direct OS command execution when possible. Where execution is necessary, the defence includes separating arguments from shell syntax and validating values against an allow-list.",
+  "source_url": "https://cheatsheetseries.owasp.org/cheatsheets/OS_Command_Injection_Defense_Cheat_Sheet.html",
+  "source_version_or_section": "Primary defense: avoid OS commands; otherwise parameterize and validate"
+}

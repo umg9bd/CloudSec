@@ -1,0 +1,13 @@
+{
+  "capture_limitations": "This is a concise review record, not a raw HTML/PDF capture. content_hash hashes these exact review-record bytes. Running source_sync sync will store raw response bytes and replace this baseline hash only for sections it can verify.",
+  "capture_type": "official-page-section-review",
+  "control_id": "VPC-SGROUP-001",
+  "decision": "supported",
+  "record_type": "curated_source_section_review",
+  "record_version": 1,
+  "reviewed_at": "2026-10-21T04:45:00Z",
+  "source_name": "Amazon VPC User Guide \u2014 Security best practices",
+  "source_recommendation_assessment": "The VPC guidance identifies security groups as controls for permitted network traffic. The control asks for minimal source ranges/ports and deliberately asks a follow-up instead of inventing a CIDR.",
+  "source_url": "https://docs.aws.amazon.com/vpc/latest/userguide/vpc-security-best-practices.html",
+  "source_version_or_section": "Security groups: limit permitted network traffic"
+}

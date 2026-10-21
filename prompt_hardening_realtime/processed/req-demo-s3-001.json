@@ -1,0 +1,5 @@
+{
+  "request_id": "req-demo-s3-001",
+  "screening_status": "SAFE",
+  "original_prompt": "Create a private S3 bucket for application audit logs. Block public access, restrict access to the application's IAM role and the security team's IAM role, enforce HTTPS, enable SSE-S3 encryption and versioning, and provide least-privilege IAM policies and security verification steps. Do not deploy any resources."
+}

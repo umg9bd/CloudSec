@@ -1,0 +1,691 @@
+# Detection lexicon for the Stage 2 task analyser (security_hardening/task_analyzer.py).
+#
+# WHY THIS IS DATA: which phrases mean "this prompt asks for a public bucket" is a tunable
+# judgement, exactly like the control catalogue. Keeping it here means it can be tuned and
+# reviewed without a code change, and task_analyzer.load_lexicon() rejects typos at load time
+# (every fact name and every value must exist in models.FACT_VOCABULARY, every regex must
+# compile, every vocabulary value must have a pattern or be declared "derived").
+#
+# NOT HERE: "stated_requirements" cue patterns live in the control catalogue
+# (catalogue/security_controls.yaml :: requirement_cues) because the catalogue's `satisfied_by`
+# rules depend on them; the analyser reads them from there instead of duplicating them.
+#
+# QUOTING: every regex is a YAML SINGLE-quoted string, so backslashes are literal. Apostrophes
+# are avoided on purpose: contractions are written `don.?t`.
+#
+# NEGATION: sections with `negation_guard: true` drop a match when the clause negates it
+# ("do NOT make the bucket public"). A match that itself starts with a negator ("no
+# authentication", "without encryption") is a request, not a negation of one, so only the text
+# BEFORE it is checked. See `negation` below and task_analyzer._is_negated().
+#
+# HEURISTIC, NOT A PARSER: these are regular expressions over English. They are tested against
+# hand-written prompts only (tests/test_security_hardening_analyzer.py); no corpus of real
+# prompts exists in this repository, so recall on unseen phrasing is NOT measured.
+
+lexicon_version: "1"
+
+negation:
+  clause_boundary: '[.;:!?\n]|\s(?:but|however|although|though|except|then)\s'
+  pre_window_words: 6
+  # a negator in the words just before the match (same clause)
+  pre:
+    - '\b(?:do|does|did|must|should|shall|can|could|would|will|are|is|was|were|have|has)\s+not\b'
+    - '\b(?:do|does|did|is|are|was|were|can|could|should|would|must|has|have|had|won|ai)n?\W?t\b'
+    - '\bcannot\b'
+    - '\bnever\b'
+    - '\bavoid(?:s|ed|ing)?\b'
+    - '\bprevent(?:s|ed|ing)?\b'
+    - '\bprohibit(?:s|ed|ing)?\b'
+    - '\bforbid(?:s|den|ding)?\b'
+    - '\bnot\s+to\b'
+    - '\bwithout\b'
+    - '\binstead\s+of\b'
+    - '\brather\s+than\b'
+    - '\bno\s+need\s+to\b'
+    - '\b(?:ensure|make\s+sure|verify|check|confirm)\s+(?:that\s+)?(?:no|nothing|not)\b'
+    - '\bunless\b'
+    - '\bno\s+(?:\w+\s+)?$'
+  # a negator INSIDE the matched text ("bucket must not be public")
+  inside:
+    - '\bnot\b'
+    - '\b(?:do|does|did|is|are|was|were|can|could|should|would|must|has|have|had|won|ai)n?\W?t\b'
+    - '\bnever\b'
+    - '\bavoid'
+    - '\bprevent'
+    - '\bprohibit'
+    - '\bforbid'
+  start_negator: '^(?:no|not|never|without|avoid|don.?t|do\s+not|cannot|can.?t)\b'
+  # for "stated requirements": a requirement that is being switched OFF is not a requirement
+  stated_disabling: '\b(?:disable[ds]?|disabling|turn(?:ed|ing|s)?\s+off|switch(?:ed|ing)?\s+off|skip(?:ped|ping)?|drop|no\s+need\s+(?:for|to)|not\s+(?:need|want|use|enable))\b'
+
+# Signals that the prompt is about AWS. Patterns flagged `requires_aws_context` (for example
+# the bare phrase "lambda function", which is also a Python anonymous function) only count
+# when one of these is present.
+aws_context:
+  - '\baws\b'
+  - '\bamazon\b'
+  - '\bboto3?\b'
+  - 'arn:aws'
+  - '\.amazonaws\.com'
+  - '\b(?:iam|s3|ec2|vpc|sts|rds|ssm|cloudtrail|cloudformation|cdk|terraform|kms|dynamodb|secretsmanager|sns|sqs|lambda)\b'
+  - '\badministratoraccess\b'
+
+# ── services ─────────────────────────────────────────────────────────────────
+# Keys are short service names. Whether a key is approved / recognised / excluded / out of scope
+# is decided by config/scope.yaml at run time (ScopeConfig.classify), never here: this file only
+# says how to SPOT a service. A key that scope.yaml does not know is "out_of_scope". Listing a
+# name here is a detection aid and never grants support for that service.
+services:
+  iam:
+    patterns:
+      - '\biam\b'
+      - '\bassume[- ]?role\b'
+      - '\binstance\s+profiles?\b'
+      - '\b(?:service|execution|task|instance|cross[- ]account|assumable|admin)\s+roles?\b'
+      - '\bpermissions?\s+boundar'
+      - '\b(?:managed|inline)\s+polic(?:y|ies)\b'
+      - '\badministratoraccess\b'
+      - '\baccess\s+keys?\b'
+  sts:
+    patterns:
+      - '\bsts\b'
+      - '\bassume[- ]?role\b'
+      - '\bget[- ]?caller[- ]?identity\b'
+      - '\btemporary\s+(?:security\s+)?credentials?\b'
+      - '\bsession\s+token\b'
+  s3:
+    patterns:
+      - '\bs3\b'
+      - '\bs3://'
+      - '\bamazon\s+s3\b'
+      - '\bsimple\s+storage\s+service\b'
+      - '(?<!hash )(?<!token )(?<!leaky )(?<!time )(?<!rate )\bbuckets?\b(?!\s*(?:sort|algorithm|hashing))'
+      - '\bpre-?signed\s+urls?\b'
+  ec2:
+    patterns:
+      - '\bec2\b'
+      - '\bvpcs?\b'
+      - '\bsecurity[- ]groups?\b'
+      - '\bsg-[0-9a-f]{4,}\b'
+      - '\bsubnets?\b'
+      - '\bnetwork\s+acls?\b'
+      - '\b(?:internet|nat)\s+gateways?\b'
+      - '\bbastion\b'
+      - '\bamis?\b'
+  ssm:
+    patterns:
+      - '\bssm\b'
+      - '\bsystems\s+manager\b'
+      - '\bparameter\s+store\b'
+      - '\bsession\s+manager\b'
+  cloudtrail:
+    patterns:
+      - '\bcloudtrail\b'
+      - '\bstop-?logging\b'
+      - '\bdelete-?trail\b'
+      - '\bevent\s+selectors?\b'
+  rds:
+    patterns:
+      - '\brds\b'
+      - '\baurora\b'
+      - '\bdb\s+(?:instances?|clusters?|subnet\s+groups?|snapshots?)\b'
+      - '\bread\s+replicas?\b'
+  elasticloadbalancing:
+    patterns:
+      - '\bload\s+balancers?\b'
+      - '\b(?:elb|alb|nlb)\b'
+      - '\btarget\s+groups?\b'
+  # recognised: in the pipeline vocabulary but no service-specific controls
+  account:
+    patterns: ['\baws\s+account\s+(?:contact|settings|information)\b']
+  notifications:
+    patterns: ['\buser\s+notifications\b']
+  ce:
+    patterns: ['\bcost\s+explorer\b']
+  budgets:
+    patterns: ['\baws\s+budgets?\b']
+  freetier:
+    patterns: ['\bfree\s+tier\b']
+  # excluded by project decision (see scope.yaml): detected ONLY so the module can say it will not
+  # handle them. Nothing about these services is ever added to a prompt.
+  lambda:
+    patterns:
+      - '\baws\s+lambda\b'
+      - 'lambda\.amazonaws'
+      - 'arn:aws[a-z-]*:lambda'
+      - '\blambda[_ -]handler\b'
+      - '\blambda\s+(?:execution\s+|service\s+)?roles?\b'
+      - '\blambda\s+(?:layers?|authorizers?|invocations?|permissions?|triggers?)\b'
+    patterns_requiring_aws_context:
+      - '\blambda\s+(?:functions?|handlers?)\b'
+      - '\blambdas\b'
+  kms:
+    patterns:
+      - '\bkms\b'
+      - '\bkey\s+management\s+service\b'
+      - '\bcustomer[- ]managed\s+(?:kms\s+)?keys?\b'
+      - '\bcmks?\b'
+      - '\benvelope\s+encryption\b'
+  secretsmanager:
+    patterns:
+      - '\bsecrets?\s*manager\b'
+      - '\bsecretsmanager\b'
+  # not in the pipeline vocabulary -> out_of_scope (names only; the dataset's own out-of-vocabulary
+  # event sources include several of these, e.g. dynamodb, sns, eks, cloudfront, logs)
+  dynamodb: {patterns: ['\bdynamo\s?db\b']}
+  sns: {patterns: ['\bamazon\s+sns\b', '\bsns\s+(?:topics?|subscriptions?|notifications?|messages?)\b', '\bsimple\s+notification\s+service\b']}
+  sqs: {patterns: ['\bsqs\b', '\bsimple\s+queue\s+service\b']}
+  eks: {patterns: ['\beks\b', '\bkubernetes\s+service\b']}
+  ecs: {patterns: ['\becs\b', '\bfargate\b']}
+  cloudfront: {patterns: ['\bcloudfront\b']}
+  route53: {patterns: ['\broute\s?53\b']}
+  apigateway: {patterns: ['\bapi\s+gateway\b']}
+  cognito: {patterns: ['\bcognito\b']}
+  kinesis: {patterns: ['\bkinesis\b']}
+  redshift: {patterns: ['\bredshift\b']}
+  athena: {patterns: ['\bathena\b']}
+  glue: {patterns: ['\baws\s+glue\b']}
+  sagemaker: {patterns: ['\bsagemaker\b']}
+  eventbridge: {patterns: ['\beventbridge\b']}
+  stepfunctions: {patterns: ['\bstep\s+functions\b']}
+  elasticache: {patterns: ['\belasticache\b']}
+  opensearch: {patterns: ['\bopensearch\b', '\belasticsearch\b']}
+  efs: {patterns: ['\bamazon\s+efs\b', '\belastic\s+file\s+system\b']}
+  ecr: {patterns: ['\becr\b']}
+  cloudwatch: {patterns: ['\bcloudwatch\b']}
+  ses: {patterns: ['\bamazon\s+ses\b', '\bsimple\s+email\s+service\b']}
+  guardduty: {patterns: ['\bguardduty\b']}
+  wafv2: {patterns: ['\baws\s+waf\b']}
+  organizations: {patterns: ['\baws\s+organizations\b']}
+
+# Only these ARN / endpoint forms synthesise an unknown service key, because they name a service
+# explicitly. (Free-text such as "aws security group" never does, which would be a false alarm.)
+arn_pattern: 'arn:aws[a-z-]*:([a-z0-9-]+):'
+endpoint_pattern: '(?<![\w.-])([a-z0-9-]+)\.amazonaws\.com\b'
+
+# A resource kind that can only exist in one approved service implies that service. The analyser
+# records such services under TaskProfile.inferred (they were not named in the prompt).
+implied_services:
+  bucket: s3
+  object: s3
+  iam_role: iam
+  iam_policy: iam
+  iam_user: iam
+  iam_group: iam
+  access_key: iam
+  trust_policy: iam
+  security_group: ec2
+  vpc_network: ec2
+  ec2_instance: ec2
+  load_balancer: elasticloadbalancing
+  db_instance: rds
+  parameter: ssm
+  trail: cloudtrail
+
+# ── facts ────────────────────────────────────────────────────────────────────
+# Each fact: negation_guard (default for its values), values: {value: [pattern, ...]}.
+# A pattern is a regex string, or {regex: ..., negation_guard: bool}.
+facts:
+
+  resource_kinds:
+    negation_guard: false
+    values:
+      bucket:
+        - '(?<!hash )(?<!token )(?<!leaky )(?<!time )(?<!rate )\bbuckets?\b(?!\s*(?:sort|algorithm|hashing))'
+        - '\bs3://'
+      object:
+        - '\bs3\s+objects?\b'
+        - '\bobjects?\s+(?:in|from|to)\s+(?:the\s+|a\s+)?(?:bucket|s3)\b'
+        - '\b(?:put|get)-?object\b'
+      iam_role:
+        - '\biam\s+roles?\b'
+        - '\broles?\b(?=[^.]{0,55}\btrust\s+polic(?:y|ies)\b)'
+        - '\b(?:service|execution|task|instance|cross[- ]account|assumable|admin|ec2)\s+roles?\b'
+        - '\broles?\s+(?:named|called)\b'
+        - 'arn:aws[a-z-]*:iam::\d*:role/'
+        - '\bassume[- ]?role\b'
+        - '\binstance\s+profiles?\b'
+      iam_policy:
+        - '\biam\s+polic(?:y|ies)\b'
+        - '\b(?:managed|inline|bucket|permissions?|resource|identity)[- ](?:based\s+)?polic(?:y|ies)\b'
+        - '\bpolicy\s+(?:document|json|statements?)\b'
+        - '\bpermissions?\s+boundar'
+        - '\badministratoraccess\b'
+      iam_user:
+        - '\biam\s+users?\b'
+        - '\b(?:programmatic|cli|ci|service)\s+users?\b'
+        - 'arn:aws[a-z-]*:iam::\d*:user/'
+      iam_group:
+        - '\biam\s+groups?\b'
+      access_key:
+        - '\baccess\s+keys?\b'
+        - '\bsecret\s+access\s+keys?\b'
+        - '\bakia[0-9a-z]{16}\b'
+      trust_policy:
+        - '\btrust\s+(?:policy|relationship)s?\b'
+        - '\bassume[- ]role\s+polic(?:y|ies)\b'
+        - '\bassumerolepolicydocument\b'
+        - '\bwho\s+can\s+assume\b'
+      security_group:
+        - '\bsecurity[- ]groups?\b'
+        - '\bsg-[0-9a-f]{4,}\b'
+      ingress_rule:
+        - '\bingress\b'
+        - '\binbound\s+(?:rules?|traffic|access|connections?)\b'
+        - '\bcidr\b'
+        - '\ballow\s+(?:traffic|connections?)\s+from\b'
+        - '\bopen\s+(?:up\s+)?(?:a\s+)?ports?\b'
+        - '\bport\s+\d{2,5}\b'
+      vpc_network:
+        - '\bvpcs?\b'
+        - '\bsubnets?\b'
+        - '\broute\s+tables?\b'
+        - '\bnetwork\s+acls?\b'
+        - '\b(?:internet|nat)\s+gateways?\b'
+      ec2_instance:
+        - '\bec2\b'
+        - '\bamis?\b'
+        - '\blaunch\s+(?:an?\s+)?(?:ec2\s+)?(?:instance|server)\b'
+        - '\bbastion\b'
+      load_balancer:
+        - '\bload\s+balancers?\b'
+        - '\b(?:elb|alb|nlb)\b'
+        - '\btarget\s+groups?\b'
+      db_instance:
+        - '\brds\b'
+        - '\bdb\s+(?:instances?|clusters?|subnet\s+groups?|snapshots?)\b'
+        - '\baurora\b'
+        - '\bread\s+replicas?\b'
+      parameter:
+        - '\bparameter\s+store\b'
+        - '\bssm\s+parameters?\b'
+        - '\bsecurestring\b'
+      trail:
+        - '\bcloudtrail\b'
+        - '\bevent\s+selectors?\b'
+        - '\bflow\s+logs?\b'
+        - '\b(?:create|delete|stop|start|update)\s+(?:an?\s+|the\s+)?(?:\w+\s+)?trail\b'
+
+  resource_actions:
+    negation_guard: true
+    values:
+      create_bucket:
+        - '\b(?:create|provision|set\s*up|build|deploy)\b[^.]{0,35}\b(?:s3\s+)?buckets?\b'
+      modify_bucket:
+        - '\b(?:modify|update|configure|reconfigure|change|edit)\b[^.]{0,35}\b(?:s3\s+)?buckets?\b'
+      grant_bucket_access:
+        - '\b(?:upload|read|write|access|grant|allow|provide)\b[^.]{0,90}\b(?:existing\s+)?(?:s3\s+)?buckets?\b'
+      create_role:
+        - '\b(?:create|provision|set\s*up|build)\b[^.]{0,70}\b(?:iam\s+)?roles?\b'
+
+  action_classes:
+    negation_guard: true
+    values:
+      create:
+        - '\b(?:create|provision|set\s*up|build|deploy|launch|spin\s+up|stand\s+up|generate|define|implement|register|write|add)\b'
+      modify:
+        - '\b(?:modify|update|change|edit|alter|adjust|reconfigure|rotate|extend|replace|tighten|loosen|relax|patch|migrate|refactor|rename)\b'
+      grant:
+        - '\b(?:grant|give|allow|permit|authori[sz]e|share|attach|assign|delegate|entitle|whitelist|allowlist)\b'
+        - '\b(?:let|enable)\s+\S+(?:\s+\S+){0,3}\s+(?:read|write|access|upload|download|assume)\b'
+        - '\b(?:provide|add)\s+(?:\w+\s+)?(?:access|permissions?)\b'
+      expose:
+        - '\b(?:expose|publish|make\s+(?:it\s+|them\s+|the\s+\S+\s+)?public|open\s+(?:up\s+)?to|share\s+publicly)\b'
+        - '\bpublic(?:ly)?[- ](?:accessible|available|facing|read|readable)\b'
+        - '\binternet[- ]facing\b'
+        - '\bhost(?:ing)?\s+(?:a\s+)?(?:static\s+)?website\b'
+      delete:
+        - '\b(?:delete|destroy|terminate|purge|wipe|drop|truncate|tear\s*down|decommission|deprovision|erase)\b'
+        - '\bremove\s+(?:\w+\s+){0,3}(?:bucket|objects?|instances?|database|tables?|volumes?|snapshots?|users?|roles?|polic(?:y|ies)|trails?|groups?|clusters?|records?|backups?|keys?)s?\b'
+      read:
+        - '\b(?:read|get|fetch|list|describe|view|retrieve|download|inspect|audit|scan|enumerate|look\s*up|show|display|export)\b'
+      write:
+        - '\b(?:write|upload|put|store|save|persist|insert|append|push|record)\b'
+      query:
+        - '\b(?:query|queries|select|look\s*up|search|filter|sql)\b'
+      disable:
+        - '\b(?:disable|turn\s+off|switch\s+off|suspend|deactivate|bypass|opt\s+out\s+of)\b'
+        - '\bstop(?:ping)?\s+(?:the\s+|all\s+)?(?:logging|trail|cloudtrail|flow\s+logs?|monitoring|encryption)\b'
+
+  exposure:
+    negation_guard: true
+    values:
+      public_internet:
+        - '\b0\.0\.0\.0/0\b'
+        - '::/0'
+        - '\b(?:from|to)\s+(?:the\s+)?(?:whole\s+)?(?:internet|world)\b'
+        - '\banywhere\b'
+        - '\bpublic(?:ly)?[- ](?:accessible|available|facing|read|readable|bucket|endpoint|subnet|ip)\b'
+        - '\bmake\s+(?:it\s+|them\s+|the\s+\S+\s+)?public\b'
+        - '\binternet[- ]facing\b'
+        - '\bopen\s+to\s+(?:the\s+)?(?:world|internet|everyone|public)\b'
+        - '\bworld[- ]readable\b'
+        - '\bpublic\s+(?:bucket|website|api|access|read)\b'
+        - '\bpublic\b[^.]{0,30}\b(?:s3\s+)?(?:bucket|website|api|endpoint|subnet)\b'
+      public_principal:
+        - '"?principal"?\s*[:=]\s*"?\*'
+        - '\banyone\s+(?:can|to|may)\b'
+        - '\beveryone\s+(?:can|to|may)\b'
+        - '\ball\s+users\b'
+        - '\bany\s+aws\s+account\b'
+        - '\bpublic-read\b'
+      admin_port_open:
+        - '\b(?:ssh|rdp)\b[^.]{0,60}(?:0\.0\.0\.0/0|anywhere|the\s+world|everyone|any\s+ip|internet)'
+        - '\bports?\s+(?:22|3389)\b[^.]{0,60}(?:0\.0\.0\.0/0|anywhere|the\s+world|everyone|any\s+ip|internet|public)'
+        - '(?:0\.0\.0\.0/0|anywhere|any\s+ip)[^.]{0,60}\b(?:ssh|rdp|ports?\s+(?:22|3389))\b'
+      db_port_open:
+        - '\b(?:mysql|postgres(?:ql)?|mariadb|mssql|sql\s+server|oracle|mongo(?:db)?|redis|database)\b[^.]{0,60}(?:0\.0\.0\.0/0|anywhere|the\s+world|everyone|any\s+ip|publicly\s+accessible)'
+        - '\bports?\s+(?:3306|5432|1433|1521|27017|6379)\b[^.]{0,60}(?:0\.0\.0\.0/0|anywhere|the\s+world|everyone|any\s+ip|internet|public)'
+        - '(?:0\.0\.0\.0/0|anywhere|any\s+ip)[^.]{0,60}\bports?\s+(?:3306|5432|1433|1521|27017|6379)\b'
+        - '\bpublicly[_ ]accessible\s*[:=]?\s*(?:true|yes)\b'
+      unauthenticated:
+        - '\bunauthenticated\b'
+        - '\banonymous(?:ly)?\b'
+        - '\bno\s+(?:auth(?:entication|orization)?|login|password|credentials)\b'
+        - '\bwithout\s+(?:any\s+)?(?:auth(?:entication|orization)?|logging\s+in|login|credentials)\b'
+      cross_account:
+        - '\bcross[- ]account\b'
+        - '\b(?:another|other|external|partner|third[- ]party|different)\s+(?:aws\s+)?accounts?\b'
+        - '\baccount\s+(?:id\s+)?\d{12}\b'
+        - '\b\d{12}\b[^.]{0,30}\baccount\b'
+
+  permission_shapes:
+    negation_guard: true
+    values:
+      wildcard_action:
+        - '"?action"?\s*[:=]\s*(?:\[\s*)?"\*"?'
+        - '"?action"?\s*[:=]\s*\*'
+        - '"\*:\*"'
+        - '\b(?:s3|iam|ec2|sts|ssm|rds|cloudtrail|elasticloadbalancing):\*'
+        - '\ball\s+(?:actions|permissions)\b'
+        - '\bwildcard\s+actions?\b'
+      wildcard_resource:
+        - '"?resource"?\s*[:=]\s*(?:\[\s*)?"\*"?'
+        - '"?resource"?\s*[:=]\s*\*'
+        - '\ball\s+resources\b'
+        - '\bany\s+resource\b'
+        - '\bwildcard\s+resources?\b'
+      admin_policy:
+        - '\badministratoraccess\b'
+        - '\badmin(?:istrator)?\s+(?:access|polic(?:y|ies)|rights|privileges|permissions)\b'
+        - '\bfull\s+(?:admin|access|control)\b'
+        - '\bpowerusers?access\b'
+        - '\b[a-z0-9]+fullaccess\b'
+      passrole:
+        - '\biam:passrole\b'
+        - '\bpass[- ]?role\b'
+      iam_write:
+        - '\biam:(?:create|put|attach|update|delete|detach|add|set|tag|untag|remove)\w*'
+        - '\b(?:create|attach|detach|modify|update|delete)\s+(?:an?\s+|the\s+|new\s+)?(?:iam\s+)?(?:users?|roles?|polic(?:y|ies)|groups?|access\s+keys?)\b(?=[^.]{0,40}\biam\b|[^.]{0,40}\baws\b|[^.]{0,40}\bpolic)'
+        - '\b(?:attach|detach)\s+(?:\w+\s+){0,3}polic(?:y|ies)\b'
+      trust_wildcard:
+        - '"?principal"?\s*[:=]\s*(?:\{\s*"?aws"?\s*:\s*)?"?\*'
+        - '\bany(?:one|\s+principal|\s+aws\s+account|\s+account)\s+(?:can|to|may)\s+assume\b'
+        - '\b(?:allow|let)\s+(?:anyone|everyone|any\s+account)\s+(?:to\s+)?assume\b'
+      policy_authoring:
+        - '\b(?:write|create|generate|draft|author|define|build|produce)\b[^.]{0,80}\bpolic(?:y|ies)\b'
+        - '\bpolicy\s+(?:document|json|statements?)\b'
+        - '\bassumerolepolicydocument\b'
+
+  sensitive_data:
+    negation_guard: false
+    values:
+      credentials:
+        - '\b(?:passwords?|passphrase|api[- ]?keys?|secret\s+keys?|secret\s+access\s+keys?|access\s+keys?|private\s+keys?|tokens?|credentials?|connection\s+strings?)\b'
+        - '\bakia[0-9a-z]{16}\b'
+      personal_data:
+        - '\b(?:pii|personal(?:ly)?\s+(?:identifiable\s+)?(?:data|information)|ssn|social\s+security|date\s+of\s+birth|passport|home\s+address|phone\s+numbers?|email\s+addresses|customer\s+(?:records?|data|information)|user\s+(?:records?|profiles?|data)|gdpr)\b'
+      financial:
+        - '\b(?:credit\s+cards?|card\s+numbers?|payment\s+(?:data|details|information)|bank\s+accounts?|iban|invoices?|payroll|salar(?:y|ies)|financial\s+(?:data|records?))\b'
+      health:
+        - '\b(?:medical|patients?|phi|hipaa|health\s+(?:records?|data|information)|diagnos(?:is|es))\b'
+      confidential:
+        - '\b(?:confidential|proprietary|trade\s+secrets?|internal[- ]only|classified|restricted\s+data|sensitive\s+(?:data|information|files?))\b'
+
+  input_flows:
+    derived: true     # computed from input_sources + sinks below; no direct patterns per value
+    negation_guard: false
+    values: {}
+
+  app_context:
+    negation_guard: false
+    values:
+      api_endpoint:
+        - '\b(?:rest(?:ful)?|http|json|web|public|internal)\s+apis?\b'
+        - '\b(?:build|create|write|implement|design|develop|add|expose)\w*\s+(?:an?\s+|the\s+|new\s+)?(?:\w+\s+){0,2}apis?\b'
+        - '(?<!vpc )(?<!service )(?<!interface )(?<!gateway )\bendpoints?\b'
+        - '\b(?:get|post|put|patch|delete)\s+/\w'
+        - '\bgraphql\b'
+        - '\b(?:flask|fastapi|express\.?js|django\s+rest|spring\s+boot|asp\.net|rails)\b'
+        - '\bexpress\s+(?:app|server|route|router|middleware)\b'
+        - '\bweb\s*hooks?\b'
+        - '\broutes?\b(?=[^.]{0,30}\b(?:handler|returns?|accepts?|takes?)\b)'
+      web_app:
+        - '\bweb\s*(?:app|application|site|page|server)s?\b'
+        - '\bfront-?end\b'
+        - '\blogin\s+(?:page|form)\b'
+        - '\b(?:flask|django|express\.?js|rails|react|vue|angular|next\.?js)\b'
+        - '\bhtml\s+(?:form|page)\b'
+      authentication:
+        - '\b(?:log\s?in|sign[- ]?(?:in|up)|auth(?:entication)?|password\s+reset|jwt|oauth2?|sessions?|sso|saml|openid)\b'
+      file_upload:
+        # Do not treat ordinary S3 object uploads by an IAM role as an application upload endpoint.
+        - '\bfile\s+(?:upload|submission)s?\b'
+        - '\bmultipart\b'
+        - '\b(?:upload|submit|receive|accept)\s+(?:\w+\s+){0,2}(?:files?|documents?|images?|photos?)\s+(?:from|provided\s+by|sent\s+by)\s+(?:the\s+)?(?:user|client|request)\b'
+        - '\b(?:upload|uploading)\s+(?:endpoint|form|handler|route)\b'
+      code_task:
+        - '\b(?:function|script|class|method|module|program|library|cli|snippet|code|handler|service|app(?:lication)?)\b'
+        - '\b(?:python|java(?:script)?|typescript|golang|c#|\.net|ruby|php|bash)\b'
+        - '\bimplement\b'
+      database_access:
+        - '\b(?:database|db|sql|sqlite|postgres(?:ql)?|mysql|mariadb|mongo(?:db)?|redis|orm|sqlalchemy|psycopg2?)\b'
+        - '\b(?:users?|orders?|customers?|accounts?|products?)\s+table\b'
+        - '\bstored\s+in\s+(?:a\s+|the\s+)?(?:\w+\s+)?(?:table|database)\b'
+      dependency_change:
+        - '\b(?:pip|npm|yarn|poetry|cargo|gem|composer|go)\s+(?:install|add|get|update|upgrade)\b'
+        - '\b(?:requirements\.txt|package\.json|pyproject\.toml|go\.mod|pom\.xml)\b'
+        - '\b(?:add|upgrade|bump|update|install|pin)\s+(?:the\s+|a\s+)?(?:\w+\s+){0,2}(?:dependenc(?:y|ies)|librar(?:y|ies)|packages?)\b'
+      iac:
+        - '\b(?:terraform|cloudformation|pulumi|ansible|bicep|cdk)\b'
+        - '\binfrastructure[- ]as[- ]code\b'
+        - '\biac\b'
+        - '\.tf\b'
+      user_data_endpoint:
+        - '\b(?:user|customer|account|profile|order|patient)s?\s+(?:record|profile|detail|data|info|information)s?\b'
+        - '/(?:users?|customers?|accounts?|profiles?|orders?)(?:/\{?\w+\}?)?'
+        - '\b(?:get|fetch|return|retrieve|show|update|delete)\s+(?:a\s+|the\s+|an\s+)?(?:user|customer|account|profile|order)(?:\x27s)?\s+(?:by\s+id|record|profile|data|details)\b'
+      logging_task:
+        - '\b(?:logger|logging|log\s+(?:messages?|entries|events?|files?|output)|audit\s+log)\b'
+
+  high_impact:
+    negation_guard: true
+    values:
+      destructive:
+        - '\b(?:delete|drop|destroy|terminate|purge|wipe|truncate|tear\s*down|decommission|deprovision|erase)\w*\s+(?:\w+\s+){0,3}(?:bucket|object|instance|database|db|table|volume|snapshot|user|role|polic(?:y|ies)|trail|group|cluster|records?|data|files?|accounts?|environments?|stacks?|resources?|backups?|logs?|keys?|secrets?)s?\b'
+      production_target:
+        - '\bproduction\b'
+        - '\bprod\b'
+        - '\blive\s+(?:environment|system|servers?|traffic)\b'
+      irreversible:
+        - '\bpermanent(?:ly)?\b'
+        - '\birreversib(?:le|ly)\b'
+        - '\bcannot\s+be\s+(?:undone|recovered|restored)\b'
+        - '\bforce(?:d)?\s+(?:delete|deletion|removal)\b'
+        - '\bno\s+backups?\b'
+      bulk_change:
+        - '\b(?:all|every|each)\s+(?:of\s+the\s+)?(?:buckets?|instances?|users?|roles?|policies|accounts?|objects?|security\s+groups?|resources?|databases?|regions?)\b'
+        - '\b(?:bulk|mass|batch)\s+(?:delete|update|change|modif|remov)'
+        - '\bacross\s+(?:all|every)\s+(?:accounts?|regions?|environments?)\b'
+      security_control_change:
+        - '\b(?:modify|change|update|disable|remove|delete|loosen|relax|open|turn\s+off|tighten|edit|replace)\w*\s+(?:\w+\s+){0,4}(?:security[- ]groups?|firewall|iam\s+polic(?:y|ies)|bucket\s+polic(?:y|ies)|trust\s+polic(?:y|ies)|cloudtrail|audit\s+logging|mfa|encryption\s+settings?|block\s+public\s+access|flow\s+logs?|network\s+acls?)\b'
+
+  credential_handling:
+    negation_guard: true
+    values:
+      create_access_key:
+        - '\b(?:create|generate|issue|make|mint|provision)\s+(?:an?\s+|the\s+|new\s+)?(?:\w+\s+){0,2}access\s+keys?\b'
+        - '\bcreate-?access-?key\b'
+      long_term_credentials:
+        - '\blong[- ]term\s+(?:credentials?|keys?|access\s+keys?)\b'
+        - '\bstatic\s+(?:credentials?|keys?|access\s+keys?)\b'
+        - '\baccess\s+key\s+(?:id\s+)?and\s+(?:the\s+)?secret\b'
+        - '\bakia[0-9a-z]{16}\b'
+      use_root:
+        - '\broot\s+(?:user|account|credentials?|access[- ]keys?|login|principal)\b'
+        - '\b(?:log|sign)\s?(?:in|into)\s+as\s+(?:the\s+)?root\b'
+      handles_secrets:
+        - '\b(?:passwords?|passphrase|api[- ]?keys?|secret(?:\s+keys?)?|private\s+keys?|access\s+keys?|tokens?|credentials?|connection\s+strings?)\b'
+
+  requested_configurations:
+    negation_guard: true
+    values:
+      attach_admin_policy:
+        - '\b(?:attach|give|grant|assign|add)\w*\s+[^.]{0,40}\badministratoraccess\b'
+        - '\badministratoraccess\b'
+        - '\b(?:give|grant|assign)\w*\s+[^.]{0,40}\b(?:full\s+)?admin(?:istrator)?\s+(?:access|rights|privileges|permissions)\b'
+        - '\b(?:full|complete)\s+admin(?:istrator)?\s+(?:access|rights|privileges|permissions)\b'
+      wildcard_permissions:
+        - '"?action"?\s*[:=]\s*(?:\[\s*)?"\*"?'
+        - '"?action"?\s*[:=]\s*\*'
+        - '"\*:\*"'
+        - '\b(?:s3|iam|ec2|sts|ssm|rds|cloudtrail|elasticloadbalancing):\*'
+        - '\ball\s+(?:actions|permissions)\b'
+        - '\bwildcard\s+(?:actions?|permissions?|resources?)\b'
+        - '"?resource"?\s*[:=]\s*(?:\[\s*)?"\*"?'
+        - '\ball\s+resources\b'
+        - '\b(?:allow|permit)\s+(?:everything|\*)\b'
+      wildcard_trust_principal:
+        - '"?principal"?\s*[:=]\s*(?:\{\s*"?aws"?\s*:\s*)?"?\*'
+        - '\bany(?:one|\s+principal|\s+aws\s+account|\s+account)\s+(?:can|to|may)\s+assume\b'
+        - '\b(?:allow|let)\s+(?:anyone|everyone|any\s+account)\s+(?:to\s+)?assume\b'
+      public_bucket_access:
+        - '\bpublic\b[^.]{0,40}\b(?:bucket|objects?|s3)\b'
+        - '\bpublic(?:ly)?[- ](?:read|readable|accessible)\b[^.]{0,40}\b(?:bucket|objects?|s3)\b'
+        - '\b(?:bucket|objects?|s3)\b[^.]{0,60}\b(?:public(?:ly)?(?:[- ]read(?:able)?|[- ]accessible)?|world[- ]readable|open\s+to\s+(?:the\s+)?(?:world|internet|everyone|public)|anyone\s+(?:can|to)\s+(?:read|download|access|view)|accessible\s+(?:by|to)\s+(?:anyone|everyone|the\s+public))\b'
+        - '\bmake\s+(?:it\s+|them\s+|the\s+\S+\s+)?public\b'
+        - '\bpublic[- ]read\b'
+      public_bucket_write:
+        - '\bpublic(?:ly)?[- ]writ(?:e|able)\b'
+        - '\bpublic-read-write\b'
+        - '\banyone\s+(?:can|to|may)\s+(?:upload|write|put)\b'
+        - '\b(?:allow|let|permit)\s+(?:anonymous|public|everyone|anyone)\s+(?:\w+\s+){0,2}(?:upload|write|put)'
+      disable_public_access_block:
+        - '\b(?:disable|turn\s+off|remove|delete|drop|bypass|switch\s+off)\w*\s+[^.]{0,40}\bblock\s+public\s+access\b'
+        - '\bblock\s+public\s+access\b[^.]{0,30}\b(?:off|disabled|false)\b'
+        - '\bblockpublic(?:acls|policy)\s*[:=]\s*false\b'
+        - '\bpublic\s+access\s+block\b[^.]{0,20}\b(?:off|disabled)\b'
+      open_admin_port_to_world:
+        - '\b(?:ssh|rdp)\b[^.]{0,60}(?:0\.0\.0\.0/0|anywhere|the\s+world|everyone|any\s+ip|publicly|from\s+the\s+internet)'
+        - '\bports?\s+(?:22|3389)\b[^.]{0,60}(?:0\.0\.0\.0/0|anywhere|the\s+world|everyone|any\s+ip|publicly|internet)'
+        - '(?:0\.0\.0\.0/0|anywhere|any\s+ip)[^.]{0,60}\b(?:ssh|rdp|ports?\s+(?:22|3389))\b'
+      open_db_port_to_world:
+        - '\b(?:mysql|postgres(?:ql)?|mariadb|mssql|sql\s+server|oracle|mongo(?:db)?|redis|database)\b[^.]{0,60}(?:0\.0\.0\.0/0|anywhere|the\s+world|everyone|any\s+ip|publicly\s+accessible)'
+        - '\bports?\s+(?:3306|5432|1433|1521|27017|6379)\b[^.]{0,60}(?:0\.0\.0\.0/0|anywhere|the\s+world|everyone|any\s+ip|internet|publicly)'
+        - '(?:0\.0\.0\.0/0|anywhere|any\s+ip)[^.]{0,60}\bports?\s+(?:3306|5432|1433|1521|27017|6379)\b'
+        - '\bpublicly[_ ]accessible\s*[:=]?\s*(?:true|yes)\b'
+      open_all_ports_to_world:
+        - '\b(?:all|every|any)\s+ports?\b[^.]{0,60}(?:0\.0\.0\.0/0|anywhere|the\s+world|everyone|any\s+ip|internet)'
+        - '(?:0\.0\.0\.0/0|anywhere|the\s+world|any\s+ip)[^.]{0,60}\b(?:all|every|any)\s+(?:ports?|traffic|protocols?)\b'
+        - '\ballow\s+all\s+(?:inbound\s+)?traffic\s+from\s+(?:anywhere|everywhere|0\.0\.0\.0/0)\b'
+        - '\bports?\s+0\s*-\s*65535\b[^.]{0,60}(?:0\.0\.0\.0/0|anywhere|the\s+world)'
+      disable_audit_logging:
+        - '\b(?:disable|turn\s+off|stop|delete|remove|suspend|pause|shut\s+off)\w*\s+(?:\w+\s+){0,3}(?:cloudtrail|audit\s+(?:logs?|logging|trails?)|(?:the\s+|a\s+|an\s+)?trails?|flow\s+logs?)\b'
+        - '\b(?:stop-?logging|delete-?trail|delete-?flow-?logs)\b'
+        - '\bwithout\s+(?:any\s+)?(?:audit\s+logging|cloudtrail)\b'
+      embed_credentials:
+        - '\bhard[- ]?cod(?:e|ed|ing)\s+(?:\w+\s+){0,3}(?:credentials?|secrets?|passwords?|keys?|tokens?)\b'
+        - '\b(?:embed|include|put|store|bake|paste|write|commit|inline)\w*\s+(?:\w+\s+){0,3}(?:credentials?|secrets?|passwords?|api[- ]?keys?|access\s+keys?|tokens?)\s+(?:\w+\s+){0,3}(?:in|into|inside|within|directly\s+in)\s+(?:the\s+)?(?:\w+\s+)?(?:source|code|script|file|repo(?:sitory)?|config|dockerfile|image|template|git)\b'
+        - '\b(?:password|passwd|api[_-]?key|secret|token)\s*[:=]\s*["\x27][^"\x27\s]{4,}["\x27]'
+        - '\bakia[0-9a-z]{16}\b'
+      use_root_credentials:
+        - '\b(?:use|using|with|via|as|under)\s+(?:the\s+)?(?:aws\s+)?(?:account\s+)?root\s+(?:user|account|credentials?|access[- ]keys?|login)\b'
+        - '\b(?:log|sign)\s?(?:in|into)\s+as\s+(?:the\s+)?(?:aws\s+)?root\b'
+        - '\broot\s+access[- ]keys?\b'
+      string_built_sql:
+        - '\b(?:f-?strings?|string\s+(?:concatenation|concat|formatting|interpolation)|concatenat(?:e|ing|ion)|string\s+format)\b[^.]{0,50}\b(?:sql|quer(?:y|ies)|statements?)\b'
+        - '\b(?:sql|quer(?:y|ies))\b[^.]{0,50}\b(?:f-?strings?|concatenat(?:e|ed|ing|ion)|string\s+(?:formatting|interpolation|concatenation)|interpolat(?:e|ed|ing|ion))\b'
+        - '\b(?:build|construct|assemble|create|compose)\w*\s+(?:the\s+|a\s+)?(?:sql|quer(?:y|ies))\s+(?:string\s+)?(?:by|using|with|from)\s+(?:string\s+)?(?:concatenat|formatting|f-?string|interpolat|joining|adding)'
+        - '\braw\s+sql\s+(?:with|from|using)\s+(?:user|input|request)'
+        - '\bdynamic\s+sql\s+(?:from|with|using)\s+(?:user|input|request)'
+      shell_with_user_input:
+        - '\bshell\s*=\s*true\b'
+        - '\bos\.(?:system|popen)\b'
+        - '\b(?:eval|exec)\s*\('
+        - '\b(?:run|execute|invoke|pass|call)\w*\s+[^.]{0,40}\b(?:user|input|request|param(?:eter)?s?|argument)s?\b[^.]{0,40}\b(?:shell|command\s+line|terminal|bash|cmd)\b'
+        - '\b(?:shell|bash|command)\b[^.]{0,40}\b(?:user[- ](?:supplied|provided|entered|controlled)|from\s+(?:the\s+)?user|user\s+input|request\s+param\w*)\b'
+        - '\bbuild\w*\s+(?:a\s+)?(?:shell\s+)?command\s+(?:string\s+)?(?:from|using|with)\s+(?:the\s+)?(?:user|input|request)'
+      disable_authentication:
+        - '\b(?:no|without|skip|remove|disable|turn\s+off|bypass|drop|don.?t\s+(?:need|require)|doesn.?t\s+need|not\s+require|no\s+need\s+for)\s+(?:any\s+|the\s+|an\s+)?(?:auth(?:entication|orization)?|log\s?in|sign[- ]?in|credentials|password|api[- ]?key|token|access\s+control)\b'
+        - '\b(?:anonymous|unauthenticated)\s+(?:access|users?|requests?|endpoint|api)\b'
+      disable_encryption:
+        - '\b(?:no|without|skip|disable|turn\s+off|remove|don.?t\s+(?:use|need|enable)|not\s+(?:use|need|enable))\s+(?:\w+\s+){0,2}(?:encrypt(?:ion|ed)?|tls|ssl|https)\b'
+        - '\bunencrypted\b'
+        - '\bplain[- ]?text\s+(?:storage|bucket|http|traffic|transport)\b'
+        - '\bhttp\s+only\b'
+
+  languages:
+    negation_guard: false
+    values:
+      python: ['\bpython3?\b', '\b(?:flask|django|fastapi|pytest|pip|boto3)\b', '\bpy\b']
+      javascript: ['\bjavascript\b', '\bnode(?:\.?js)?\b', '\bnpm\b', '\bexpress\.?js\b']
+      typescript: ['\btypescript\b', '\btsc\b']
+      java: ['\bjava\b(?!script)', '\bspring(?:\s+boot)?\b', '\bmaven\b', '\bgradle\b']
+      go: ['\bgolang\b', '\bin\s+go\b', '\bgo\s+(?:module|service|program|code)\b']
+      csharp: ['\bc#', '\.net\b', '\bcsharp\b', '\basp\.net\b']
+      ruby: ['\bruby\b', '\brails\b']
+      php: ['\bphp\b', '\blaravel\b']
+      bash: ['\bbash\b', '\bshell\s+script\b', '\bsh\s+script\b']
+      sql: ['\bsql\b', '\bpostgres(?:ql)?\b', '\bmysql\b', '\bsqlite\b']
+
+# ── source -> sink (the "relationship" part of input_flows) ─────────────────
+input_flows:
+  # an untrusted source: data that arrives from outside the program
+  sources:
+    - '\buser[- ](?:input|supplied|provided|entered|controlled|submitted|specified)\b'
+    - '\b(?:input|data|value|string|text|name|username|email|id|url|path|filename|file\s*name|hostname|host|query|search\s+term|parameter|param|comment|message)s?\s+(?:from|supplied\s+by|provided\s+by|entered\s+by|submitted\s+by|sent\s+by)\s+(?:the\s+|a\s+)?(?:user|client|caller|visitor|customer|request)\b'
+    - '\b(?:from|in)\s+(?:the\s+)?(?:query\s+(?:string|param\w*)|request(?:\s+(?:body|param\w*|headers?))?|form(?:\s+fields?)?|url\s+param\w*|http\s+request|post\s+body|json\s+body|payload)\b'
+    - '\b(?:query|request|form|url|path)\s+param(?:eter)?s?\b'
+    - '\b(?:accepts?|takes?|receives?|reads?|gets?|expects?)\s+(?:an?\s+|the\s+)?(?:\w+\s+){0,2}(?:from\s+(?:the\s+)?(?:user|client|request)|as\s+(?:a\s+)?(?:parameter|argument|input))\b'
+    - '\buploaded\s+(?:file|data|content|image|document)s?\b'
+    - '\b(?:arbitrary|untrusted|external)\s+(?:input|data|urls?|files?)\b'
+    - '\b(?:takes?|accepts?|receives?|expects?)\s+(?:an?\s+|the\s+)?(?:user(?:name)?|email|id|url|path|filename|hostname|search\s+term|query)\b'
+  # app contexts whose very nature is to receive client-controlled input (a relationship, not a keyword)
+  implicit_source_contexts: [api_endpoint, web_app, user_data_endpoint, file_upload, authentication]
+  sinks:
+    untrusted_input_to_sql:
+      - '\b(?:sql|sqlite|postgres(?:ql)?|mysql|mariadb|psycopg2?|sqlalchemy)\b'
+      - '\b(?:database|db)\s+(?:quer(?:y|ies)|lookups?|calls?)\b'
+      - '\bquer(?:y|ies)\s+(?:the\s+)?(?:\w+\s+)?(?:database|db|table)\b'
+      - '\b(?:look\s*s?\s*up|lookup|find|fetch|search|filter|select|read)s?\b[^.]{0,50}\b(?:in|from)\s+(?:the\s+|a\s+)?(?:\w+\s+)?(?:database|db|table)\b'
+      - '\b(?:users?|orders?|customers?|accounts?|products?)\s+table\b'
+      - '\bwhere\s+clause\b'
+      - '\b(?:insert|update|delete)\s+(?:into|from)\b'
+      - '\bstores?\b[^.]{0,50}\b(?:in|into)\s+(?:a\s+|the\s+)?(?:\w+\s+)?(?:database|db|table|postgres|mysql|sqlite)\b'
+    untrusted_input_to_shell:
+      - '\bsubprocess\b'
+      - '\bos\.(?:system|popen)\b'
+      - '\bshell\s+(?:command|script|call|out)s?\b'
+      - '\b(?:run|runs|running|execute|executes|executing|invoke|invokes)\s+(?:a\s+|the\s+)?(?:\w+\s+){0,2}(?:shell|system|bash|terminal|command[- ]line)\s*(?:command)?\b'
+      - '\b(?:ping|nslookup|traceroute|curl|wget|ffmpeg|imagemagick)\b'
+    untrusted_input_to_path:
+      - '\bfile\s*paths?\b'
+      - '\b(?:read|open|serve|load|download|save|write|delete)s?\s+(?:a\s+|the\s+)?(?:\w+\s+)?files?\s+(?:named|called|from|at|by)\b'
+      - '\b(?:filename|file\s+name|directory|folder)\b'
+      - '\b(?:serve|serves|serving)\s+(?:static\s+)?files?\b'
+      - '\b(?:save|saves|write|writes|store|stores)\s+(?:the\s+)?upload'
+      - '\bdownload\s+endpoint\b'
+    untrusted_input_to_url_fetch:
+      - '\b(?:fetch|fetches|download|downloads|retrieve|retrieves|scrape|scrapes|crawl|crawls|request|requests)\s+(?:a\s+|the\s+|an\s+)?(?:\w+\s+){0,2}(?:url|link|webpage|web\s+page|page|image|feed|site|website)\b'
+      - '\b(?:url|link)s?\s+(?:provided|supplied|given|submitted|entered|sent)\s+by\b'
+      - '\bwebhook\s+(?:url|callback|target)\b'
+      - '\bcallback\s+url\b'
+      - '\bproxy\b'
+      - '\bhttp\s+(?:get|request)\s+to\s+(?:the\s+|a\s+)?(?:user|given|provided)'
+    untrusted_input_to_html:
+      - '\brender(?:s|ing)?\b[^.]{0,40}\b(?:html|template|page)\b'
+      - '\b(?:display|displays|show|shows|echo|echoes|reflect|reflects)\s+(?:back\s+)?(?:the\s+)?(?:user.?s?\s+)?(?:comments?|messages?|names?|input|content|text)\b'
+      - '\binnerhtml\b'
+      - '\bjinja2?\b'
+      - '\bhtml\s+(?:page|output|response)\b'
+      - '\bweb\s+page\b'

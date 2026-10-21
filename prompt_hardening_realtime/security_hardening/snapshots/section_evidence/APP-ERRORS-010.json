@@ -1,0 +1,13 @@
+{
+  "capture_limitations": "This record summarizes the reviewed official page; it is not a raw HTML capture. The catalogue content_hash remains null until source_sync stores and hashes exact upstream response bytes.",
+  "capture_type": "official-page-section-review",
+  "control_id": "APP-ERRORS-010",
+  "decision": "supported",
+  "record_type": "curated_source_section_review",
+  "record_version": 1,
+  "reviewed_at": "2026-10-21T05:13:34Z",
+  "source_name": "OWASP Error Handling Cheat Sheet",
+  "source_recommendation_assessment": "The official OWASP Error Handling Cheat Sheet explains how unhandled exceptions can expose implementation details and recommends returning generic responses while logging details server-side for investigation.",
+  "source_url": "https://cheatsheetseries.owasp.org/cheatsheets/Error_Handling_Cheat_Sheet.html",
+  "source_version_or_section": "Objective \u2014 return generic responses to users while retaining technical error details server-side"
+}
