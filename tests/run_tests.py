@@ -94,16 +94,41 @@ SLOW_SUITES = [
     "test_incremental_updater",   # batch vs. streaming equivalence (~10 min)
 ]
 
+# The 2026-10-22 test-coverage audit (opt-in: --coverage). They pin open defects as
+# expectedFailure ("KNOWN DEFECT:" in the docstring), so a run stays green until one is fixed --
+# then the test reports "unexpected success" and the marker should be removed.
+COVERAGE_SUITES = [
+    "test_full_pipeline_integration",  # CloudTrail -> graph/LSTM -> ensemble -> alert; Stage 1 -> 2 -> 3
+    "test_system_e2e",                 # one watch-folder system run; malformed input; rejected prompts never planned
+    "test_security_cross_component",   # no screening bypass, fail-closed, no forged approval, no secrets in logs
+    "test_ensemble_evasion",           # padding / UA / timing / region perturbations vs the alert threshold
+    "test_prompt_dataset_split",       # no exact/near-duplicate prompts or shared templates across splits
+]
+
+# --prompt: the Stage 1/2/3 packages keep their own runners (pytest from inside the tests dir,
+# the hardening package's run_tests.py), so they run as subprocesses here, one report each.
+PROMPT_RUNS = [
+    ("prompt_injection_gate", [sys.executable, "-m", "pytest", "-q"], os.path.join(ROOT, "prompt_injection_gate", "tests")),
+    ("prompt_hardening_realtime", [sys.executable, os.path.join("tests", "run_tests.py")],
+     os.path.join(ROOT, "prompt_hardening_realtime")),
+    ("log-generation", [sys.executable, "-m", "pytest", "-q", os.path.join("tests", "test_stage3.py")],
+     os.path.join(ROOT, "log-generation")),
+]
+
 
 def main() -> int:
     p = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--all", action="store_true",
                    help="also run the slow Neo4j/CSV-dependent equivalence suite")
+    p.add_argument("--coverage", action="store_true", help="also run the audit coverage suites (~5 min)")
+    p.add_argument("--prompt", action="store_true",
+                   help="also run the prompt-injection gate, prompt-hardening and log-generation suites")
     p.add_argument("-v", "--verbose", action="store_true", help="per-test output")
     args = p.parse_args()
 
     names = list(FAST_SUITES) + (list(SLOW_SUITES) if args.all else [])
+    names += list(COVERAGE_SUITES) if args.coverage else []
     if not args.all:
         print("Running fast suites only. Add --all for the batch/streaming "
               "equivalence suite (~10 min, 3 known failures -- see section 6.9).\n")
@@ -112,7 +137,15 @@ def main() -> int:
         unittest.defaultTestLoader.loadTestsFromNames(names)
     )
     result = unittest.TextTestRunner(verbosity=2 if args.verbose else 1).run(suite)
-    return 0 if result.wasSuccessful() else 1
+    ok = result.wasSuccessful()
+    if args.prompt:
+        import subprocess
+        for name, cmd, cwd in PROMPT_RUNS:
+            print(f"\n=== {name} ===", flush=True)
+            rc = subprocess.run(cmd, cwd=cwd).returncode
+            print(f"=== {name}: {'OK' if rc == 0 else f'FAILED (exit {rc})'} ===", flush=True)
+            ok = ok and rc == 0
+    return 0 if ok else 1
 
 
 if __name__ == "__main__":
