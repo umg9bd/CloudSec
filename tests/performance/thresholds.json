@@ -1,0 +1,87 @@
+{
+  "_comment": "Generous regression limits: ~3x the baseline_results.json values measured 2026-10-22 (max for times/latency/memory/CPU, min = baseline/3 for throughputs). Re-baseline after intentional performance changes.",
+  "alert_file_with_explanations_p50_s": {
+    "max": 10.153
+  },
+  "concurrent_arrival_to_scored_p50_s": {
+    "max": 39.996
+  },
+  "concurrent_arrival_to_scored_p95_s": {
+    "max": 81.519
+  },
+  "concurrent_arrivals_throughput_events_per_s": {
+    "min": 6.749
+  },
+  "cpu_ms_per_event": {
+    "max": 113.125
+  },
+  "e2e_event_latency_p50_ms": {
+    "max": 152.391
+  },
+  "e2e_file_latency_p50_s": {
+    "max": 7.62
+  },
+  "e2e_file_latency_p95_s": {
+    "max": 9.414
+  },
+  "e2e_throughput_events_per_s": {
+    "min": 6.503
+  },
+  "ensemble_score_1000_edges_s": {
+    "max": 9.568
+  },
+  "ensemble_score_100_edges_s": {
+    "max": 6.642
+  },
+  "ensemble_score_300_edges_s": {
+    "max": 8.472
+  },
+  "graph_build_1000_edges_s": {
+    "max": 2.52
+  },
+  "graph_build_100_edges_s": {
+    "max": 1.953
+  },
+  "graph_build_300_edges_s": {
+    "max": 1.976
+  },
+  "hgt_forward_1000_edges_s": {
+    "max": 0.376
+  },
+  "hgt_forward_100_edges_s": {
+    "max": 0.202
+  },
+  "hgt_forward_300_edges_s": {
+    "max": 0.252
+  },
+  "load_hgt_per_seed_s": {
+    "min": 0.07
+  },
+  "load_lstm_s": {
+    "max": 0.049
+  },
+  "pipeline_cold_start_process_s": {
+    "max": 40.491
+  },
+  "pipeline_init_in_process_s": {
+    "max": 1.734
+  },
+  "rss_peak_mb": {
+    "max": 2669.438
+  },
+  "rss_with_models_mb": {
+    "max": 2365.84
+  },
+  "scoring_python_heap_peak_mb": {
+    "max": 159.773
+  },
+  "watch_throughput_1w_events_per_s": {
+    "min": 6.41
+  },
+  "watch_throughput_2w_events_per_s": {
+    "min": 7.99
+  },
+  "watch_throughput_4w_events_per_s": {
+    "min": 8.943
+  }
+}

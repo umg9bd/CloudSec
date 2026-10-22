@@ -92,16 +92,39 @@ SLOW_SUITES = [
     "test_incremental_updater",   # batch vs. streaming equivalence (~10 min)
 ]
 
+# The 2026-10-22 test-coverage audit (opt-in: --coverage). They pin open defects as
+# expectedFailure ("KNOWN DEFECT:" in the docstring), so a run stays green until one is fixed --
+# then the test reports "unexpected success" and the marker should be removed.
+COVERAGE_SUITES = [
+    "test_blast_radius",          # isolated principals, depth limits, path changes, cache invalidation
+    "test_gnn_scorer",            # scorer input/output contract, seed-ensemble mean, bad checkpoints
+    "test_build_graph",           # graph-build inputs, provenance stamp, invalid/empty graphs
+    "test_infer_features",        # streaming (infer.py) feature schema vs the training schema
+    "test_dashboard",             # dashboard scores/alerts/explanations equal pipeline output
+    "test_data_validation",       # synthetic-vs-real validator expectations, malformed/duplicate data
+    "test_leakage_extra",         # train-only fitting, causality, split boundaries, test-reuse disclosure
+    "test_reliability_e2e",       # Neo4j/checkpoint failures, restart/replay, duplicate alerts
+    "test_explanation_fidelity",  # explanations vs known attack events; deletion test; no invented actions
+]
+
+PERF_SUITES = ["performance.test_benchmarks"]  # --perf: latency/throughput/memory vs tests/performance/thresholds.json
+
 
 def main() -> int:
     p = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--all", action="store_true",
                    help="also run the slow Neo4j/CSV-dependent equivalence suite")
+    p.add_argument("--coverage", action="store_true", help="also run the audit coverage suites (~5 min)")
+    p.add_argument("--perf", action="store_true", help="also run the performance benchmarks (~5 min)")
     p.add_argument("-v", "--verbose", action="store_true", help="per-test output")
     args = p.parse_args()
 
     names = list(FAST_SUITES) + (list(SLOW_SUITES) if args.all else [])
+    names += list(COVERAGE_SUITES) if args.coverage else []
+    if args.perf:
+        os.environ["RUN_PERF"] = "1"
+        names += PERF_SUITES
     if not args.all:
         print("Running fast suites only. Add --all for the batch/streaming "
               "equivalence suite (~10 min, 3 known failures -- see section 6.9).\n")
