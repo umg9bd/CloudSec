@@ -1,0 +1,13 @@
+{
+  "capture_limitations": "This is a concise review record, not a raw HTML/PDF capture. content_hash hashes these exact review-record bytes. Running source_sync sync will store raw response bytes and replace this baseline hash only for sections it can verify.",
+  "capture_type": "official-page-section-review",
+  "control_id": "IAM-WILDCARD-002",
+  "decision": "supported",
+  "record_type": "curated_source_section_review",
+  "record_version": 1,
+  "reviewed_at": "2026-10-21T04:45:00Z",
+  "source_name": "AWS IAM User Guide \u2014 Security best practices",
+  "source_recommendation_assessment": "The official IAM guidance recommends least privilege. Broad wildcard actions/resources are a common way to over-grant access, so this control constrains them and requires a documented, bounded exception when needed.",
+  "source_url": "https://docs.aws.amazon.com/IAM/latest/UserGuide/best-practices.html",
+  "source_version_or_section": "Apply least-privilege permissions; avoid broad policies"
+}

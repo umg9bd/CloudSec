@@ -1,0 +1,316 @@
+{
+  "status": "GENERATED",
+  "request_id": "gen-kms_key_with_rotation",
+  "parsed_intent": {
+    "task_category": "kms_create_key",
+    "desired_outcome": "Create a KMS customer managed key for encrypting production RDS database tables",
+    "explicit_requirements": [
+      "Create KMS customer managed key"
+    ],
+    "provided_parameters": {
+      "description": "Create a KMS customer managed key for encrypting production RDS database tables",
+      "keyUsage": "ENCRYPT_DECRYPT"
+    },
+    "parameter_provenance": {
+      "description": "USER_PROMPT",
+      "keyUsage": "DEFAULT"
+    },
+    "missing_parameters": [],
+    "ambiguities": [],
+    "needs_clarification": false,
+    "clarification_questions": []
+  },
+  "security_constraints": [
+    {
+      "constraint_id": "SEC-001",
+      "description": "Require server-side encryption at rest",
+      "triggered_action_ids": [
+        "act-s3-put-bucket-encryption"
+      ],
+      "source": "STAGE_2_HARDENING"
+    },
+    {
+      "constraint_id": "SEC-004",
+      "description": "Require KMS customer managed key rotation enabled",
+      "triggered_action_ids": [
+        "act-kms-enable-key-rotation"
+      ],
+      "source": "STAGE_2_HARDENING"
+    }
+  ],
+  "proposed_actions": [
+    {
+      "step": 1,
+      "action_id": "act-kms-create-key",
+      "service": "kms",
+      "operation": "CreateKey",
+      "iam_permission": "kms:CreateKey",
+      "status": "SUPPORTED",
+      "mapping_rule_id": "MAP-KMS-001",
+      "requirement_type": "REQUIRED",
+      "depends_on": [],
+      "rationale": "Primary action required to fulfill user's functional request"
+    },
+    {
+      "step": 2,
+      "action_id": "act-kms-enable-key-rotation",
+      "service": "kms",
+      "operation": "EnableKeyRotation",
+      "iam_permission": "kms:EnableKeyRotation",
+      "status": "SUPPORTED",
+      "mapping_rule_id": "MAP-KMS-002",
+      "requirement_type": "CONDITIONAL",
+      "depends_on": [
+        "act-kms-create-key"
+      ],
+      "rationale": "Triggered by security constraint: Require KMS customer managed key rotation enabled"
+    }
+  ],
+  "expected_direct_events": [
+    {
+      "prediction_id": "pred-0001",
+      "step": 1,
+      "action_id": "act-kms-create-key",
+      "service": "kms",
+      "api_operation": "CreateKey",
+      "record_type": "PREDICTED_CLOUDTRAIL_EVENT",
+      "eventSource": "kms.amazonaws.com",
+      "eventName": "CreateKey",
+      "requestParameters": {
+        "description": "Create a KMS customer managed key for encrypting production RDS database tables",
+        "keyUsage": "ENCRYPT_DECRYPT"
+      },
+      "parameter_provenance": {
+        "description": "USER_PROMPT",
+        "keyUsage": "DEFAULT"
+      },
+      "depends_on_predictions": [],
+      "requirement_type": "REQUIRED",
+      "mapping_rule_id": "MAP-KMS-001",
+      "source_refs": [
+        "https://docs.aws.amazon.com/kms/latest/APIReference/API_CreateKey.html"
+      ],
+      "fixture_ref": "fixtures/kms_create_key.json",
+      "unknown_fields": [
+        "eventID",
+        "requestID",
+        "eventTime",
+        "responseElements",
+        "recipientAccountId",
+        "awsRegion",
+        "sourceIPAddress",
+        "userAgent"
+      ],
+      "support_status": "VERIFIED",
+      "recording_scope_assumption": "KMS Management events enabled on CloudTrail trail"
+    },
+    {
+      "prediction_id": "pred-0002",
+      "step": 2,
+      "action_id": "act-kms-enable-key-rotation",
+      "service": "kms",
+      "api_operation": "EnableKeyRotation",
+      "record_type": "PREDICTED_CLOUDTRAIL_EVENT",
+      "eventSource": "kms.amazonaws.com",
+      "eventName": "EnableKeyRotation",
+      "requestParameters": {
+        "keyId": "<PROPOSED_RESOURCE_ID_FROM_STEP_1>"
+      },
+      "parameter_provenance": {
+        "keyId": "DERIVED_FROM_PREDECESSOR_STEP"
+      },
+      "depends_on_predictions": [
+        "pred-0001"
+      ],
+      "requirement_type": "CONDITIONAL",
+      "mapping_rule_id": "MAP-KMS-002",
+      "source_refs": [
+        "https://docs.aws.amazon.com/kms/latest/APIReference/API_EnableKeyRotation.html"
+      ],
+      "fixture_ref": "fixtures/kms_enable_key_rotation.json",
+      "unknown_fields": [
+        "eventID",
+        "requestID",
+        "eventTime",
+        "responseElements",
+        "recipientAccountId",
+        "awsRegion",
+        "sourceIPAddress",
+        "userAgent"
+      ],
+      "support_status": "VERIFIED",
+      "recording_scope_assumption": "KMS Management events enabled on CloudTrail trail"
+    }
+  ],
+  "conditional_events": [],
+  "action_dependency_graph": {
+    "nodes": [
+      {
+        "id": "task:gen-kms_key_with_rotation",
+        "type": "Task",
+        "label": "Task: kms_create_key",
+        "state": "PROPOSED",
+        "properties": {
+          "task_category": "kms_create_key",
+          "desired_outcome": "Create a KMS customer managed key for encrypting production RDS database tables"
+        }
+      },
+      {
+        "id": "action:act-kms-create-key",
+        "type": "ProposedAction",
+        "label": "Action: CreateKey",
+        "state": "PROPOSED",
+        "properties": {
+          "step": 1,
+          "action_id": "act-kms-create-key",
+          "service": "kms",
+          "operation": "CreateKey",
+          "iam_permission": "kms:CreateKey",
+          "mapping_rule_id": "MAP-KMS-001"
+        }
+      },
+      {
+        "id": "service:kms",
+        "type": "Service",
+        "label": "Service: kms.amazonaws.com",
+        "state": "PROPOSED",
+        "properties": {
+          "service_name": "kms"
+        }
+      },
+      {
+        "id": "resource:arn:aws:kms:::key/<PROPOSED_KEY_ID>",
+        "type": "Resource",
+        "label": "Resource: arn:aws:kms:::key/<PROPOSED_KEY_ID>",
+        "state": "PROPOSED",
+        "properties": {
+          "resource_identifier": "arn:aws:kms:::key/<PROPOSED_KEY_ID>"
+        }
+      },
+      {
+        "id": "event:pred-0001",
+        "type": "PredictedEvent",
+        "label": "PredictedEvent: CreateKey",
+        "state": "PREDICTED",
+        "properties": {
+          "prediction_id": "pred-0001",
+          "eventSource": "kms.amazonaws.com",
+          "eventName": "CreateKey",
+          "step": 1,
+          "mapping_rule_id": "MAP-KMS-001"
+        }
+      },
+      {
+        "id": "action:act-kms-enable-key-rotation",
+        "type": "ProposedAction",
+        "label": "Action: EnableKeyRotation",
+        "state": "PROPOSED",
+        "properties": {
+          "step": 2,
+          "action_id": "act-kms-enable-key-rotation",
+          "service": "kms",
+          "operation": "EnableKeyRotation",
+          "iam_permission": "kms:EnableKeyRotation",
+          "mapping_rule_id": "MAP-KMS-002"
+        }
+      },
+      {
+        "id": "event:pred-0002",
+        "type": "PredictedEvent",
+        "label": "PredictedEvent: EnableKeyRotation",
+        "state": "PREDICTED",
+        "properties": {
+          "prediction_id": "pred-0002",
+          "eventSource": "kms.amazonaws.com",
+          "eventName": "EnableKeyRotation",
+          "step": 2,
+          "mapping_rule_id": "MAP-KMS-002"
+        }
+      }
+    ],
+    "edges": [
+      {
+        "source": "task:gen-kms_key_with_rotation",
+        "target": "action:act-kms-create-key",
+        "relation": "PROPOSES",
+        "state": "PROPOSED",
+        "properties": {
+          "step": 1
+        }
+      },
+      {
+        "source": "action:act-kms-create-key",
+        "target": "service:kms",
+        "relation": "INVOKES",
+        "state": "PROPOSED",
+        "properties": {}
+      },
+      {
+        "source": "action:act-kms-create-key",
+        "target": "resource:arn:aws:kms:::key/<PROPOSED_KEY_ID>",
+        "relation": "TARGETS",
+        "state": "PROPOSED",
+        "properties": {}
+      },
+      {
+        "source": "action:act-kms-create-key",
+        "target": "event:pred-0001",
+        "relation": "MAPS_TO_EVENT",
+        "state": "PROPOSED",
+        "properties": {}
+      },
+      {
+        "source": "task:gen-kms_key_with_rotation",
+        "target": "action:act-kms-enable-key-rotation",
+        "relation": "PROPOSES",
+        "state": "PROPOSED",
+        "properties": {
+          "step": 2
+        }
+      },
+      {
+        "source": "action:act-kms-enable-key-rotation",
+        "target": "service:kms",
+        "relation": "INVOKES",
+        "state": "PROPOSED",
+        "properties": {}
+      },
+      {
+        "source": "action:act-kms-enable-key-rotation",
+        "target": "resource:arn:aws:kms:::key/<PROPOSED_KEY_ID>",
+        "relation": "TARGETS",
+        "state": "PROPOSED",
+        "properties": {}
+      },
+      {
+        "source": "action:act-kms-enable-key-rotation",
+        "target": "event:pred-0002",
+        "relation": "MAPS_TO_EVENT",
+        "state": "PROPOSED",
+        "properties": {}
+      },
+      {
+        "source": "action:act-kms-enable-key-rotation",
+        "target": "action:act-kms-create-key",
+        "relation": "DEPENDS_ON",
+        "state": "PROPOSED",
+        "properties": {}
+      }
+    ]
+  },
+  "unmodelled_effects": [],
+  "prediction_coverage": {
+    "scope": "validated_catalogue",
+    "complete_within_scope": true,
+    "limitations": []
+  },
+  "missing_parameters": [],
+  "clarification_questions": [],
+  "assumptions": [],
+  "source_provenance": [
+    "https://docs.aws.amazon.com/kms/latest/APIReference/API_CreateKey.html",
+    "https://docs.aws.amazon.com/kms/latest/APIReference/API_EnableKeyRotation.html"
+  ],
+  "catalogue_version": "1.2.0",
+  "intent_model_version": "fast-path-regex-v1"
+}

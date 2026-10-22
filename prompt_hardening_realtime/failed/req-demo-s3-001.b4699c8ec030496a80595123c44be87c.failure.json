@@ -1,0 +1,7 @@
+{
+  "source_filename": "req-demo-s3-001.json",
+  "archived_filename": "req-demo-s3-001.b4699c8ec030496a80595123c44be87c.failed.json",
+  "error_code": "DUPLICATE_INPUT_FILENAME",
+  "message": "response req-demo-s3-001.response.json already exists; request filenames must be unique and a response is never overwritten",
+  "occurred_at": "2026-10-21T07:08:53+00:00"
+}

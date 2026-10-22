@@ -1,0 +1,4875 @@
+{
+ "generated_at": "2026-10-17T18:04:36Z",
+ "generated_by": "security_hardening/scope_inspector.py (read-only)",
+ "dataset_dir": "datasets/privilege-escalation",
+ "pipeline_vocabulary": {
+  "file": "feature_engine9.py",
+  "symbol": "FIXED_EVENT_SOURCES",
+  "unk_token": "<UNK>",
+  "event_sources": [
+   "iam.amazonaws.com",
+   "sts.amazonaws.com",
+   "ec2.amazonaws.com",
+   "s3.amazonaws.com",
+   "secretsmanager.amazonaws.com",
+   "ssm.amazonaws.com",
+   "cloudtrail.amazonaws.com",
+   "lambda.amazonaws.com",
+   "kms.amazonaws.com",
+   "rds.amazonaws.com",
+   "elasticloadbalancing.amazonaws.com",
+   "account.amazonaws.com",
+   "notifications.amazonaws.com",
+   "ce.amazonaws.com",
+   "budgets.amazonaws.com",
+   "freetier.amazonaws.com"
+  ],
+  "fast_lane_actions": {
+   "StopLogging": "CloudTrail logging disabled",
+   "DeleteTrail": "CloudTrail trail deleted",
+   "UpdateDetector": "GuardDuty detector reconfigured/disabled",
+   "DeleteFlowLogs": "VPC flow logs deleted"
+  },
+  "note": "Event sources outside this list are mapped to the <UNK> token by the feature engine."
+ },
+ "datasets": [
+  {
+   "path": "datasets/privilege-escalation/real_dataset_combined.csv",
+   "format": "csv (utf-8, header row, one CloudTrail event per row)",
+   "bytes": 28202702,
+   "sha256": "f57095247ebf8ee7e0751f5e82e59933d5dc777cd4b24e793ad7518ccaca258d",
+   "rows": 53033,
+   "columns": [
+    "timestamp",
+    "event_name",
+    "event_source",
+    "aws_region",
+    "source_ip",
+    "error_code",
+    "label",
+    "attack_technique",
+    "read_only",
+    "user_agent",
+    "access_key_id",
+    "mfa_authenticated",
+    "target_resource",
+    "request_params_raw",
+    "principal_type",
+    "principal_arn",
+    "username",
+    "session_label",
+    "data_source",
+    "session_id"
+   ],
+   "label_counts": {
+    "0": 46827,
+    "1": 6206
+   },
+   "attack_tactic_counts_for_label_1": {
+    "credential-access": 5803,
+    "persistence": 223,
+    "privilege-escalation": 114,
+    "defense-evasion": 62,
+    "exfiltration": 4
+   },
+   "principal_type_counts": {
+    "IAMUser": 31868,
+    "AWSService": 11179,
+    "AssumedRole": 7955,
+    "Root": 1252,
+    "unknown": 779
+   },
+   "collector_counts": {
+    "stratus_udita2": 17475,
+    "stratus_vansh": 16975,
+    "stratus_nandan": 8480,
+    "stratus_akshaya": 7445,
+    "invictus_2023": 2658
+   },
+   "region_counts": {
+    "us-east-1": 43439,
+    "ap-south-1": 6315,
+    "eu-north-1": 3274,
+    "us-west-2": 5
+   },
+   "distinct_event_sources": 176,
+   "distinct_event_names": 701,
+   "event_sources": {
+    "ssm.amazonaws.com": {
+     "rows": 13420,
+     "attack_labelled_rows": 3997,
+     "distinct_event_names": 20,
+     "in_pipeline_vocabulary": true,
+     "event_names": {
+      "DescribeParameters": 2829,
+      "GetParameters": 2233,
+      "GetParameter": 2182,
+      "ListTagsForResource": 2182,
+      "DeleteParameter": 2033,
+      "PutParameter": 1863,
+      "DescribeInstanceInformation": 31,
+      "DescribeMaintenanceWindows": 15,
+      "ListResourceDataSync": 12,
+      "UpdateInstanceAssociationStatus": 7,
+      "UpdateInstanceInformation": 7,
+      "ListDocuments": 6,
+      "DescribeSessions": 5,
+      "ListAssociations": 4,
+      "GetCommandInvocation": 2,
+      "ListInstanceAssociations": 2,
+      "PutComplianceItems": 2,
+      "PutInventory": 2,
+      "SendCommand": 2,
+      "GetDocument": 1
+     }
+    },
+    "sts.amazonaws.com": {
+     "rows": 7436,
+     "attack_labelled_rows": 189,
+     "distinct_event_names": 2,
+     "in_pipeline_vocabulary": true,
+     "event_names": {
+      "AssumeRole": 7187,
+      "GetCallerIdentity": 249
+     }
+    },
+    "s3.amazonaws.com": {
+     "rows": 6395,
+     "attack_labelled_rows": 4,
+     "distinct_event_names": 31,
+     "in_pipeline_vocabulary": true,
+     "event_names": {
+      "GetBucketAcl": 4210,
+      "GetBucketTagging": 201,
+      "GetBucketLogging": 191,
+      "GetBucketEncryption": 162,
+      "GetBucketPolicy": 138,
+      "GetAccelerateConfiguration": 134,
+      "GetBucketCors": 134,
+      "GetBucketLifecycle": 134,
+      "GetBucketObjectLockConfiguration": 134,
+      "GetBucketRequestPayment": 134,
+      "GetBucketVersioning": 134,
+      "GetBucketWebsite": 134,
+      "GetBucketReplication": 133,
+      "DeleteBucket": 113,
+      "CreateBucket": 67,
+      "PutBucketTagging": 67,
+      "PutBucketPolicy": 44,
+      "ListBuckets": 25,
+      "ListAccessPoints": 21,
+      "ListStorageLensConfigurations": 19,
+      "GetBucketPolicyStatus": 16,
+      "GetBucketPublicAccessBlock": 16,
+      "GetBucketLocation": 8,
+      "ListStorageLensGroups": 8,
+      "ListMultiRegionAccessPoints": 5,
+      "GetStorageLensConfiguration": 4,
+      "GetStorageLensDashboardDataInternal": 4,
+      "GetAccountPublicAccessBlock": 2,
+      "DeleteBucketLifecycle": 1,
+      "DeleteBucketPolicy": 1,
+      "PutBucketLifecycle": 1
+     }
+    },
+    "kms.amazonaws.com": {
+     "rows": 5949,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 4,
+     "in_pipeline_vocabulary": true,
+     "event_names": {
+      "Decrypt": 4460,
+      "Encrypt": 1092,
+      "GenerateDataKey": 392,
+      "ListKeys": 5
+     }
+    },
+    "secretsmanager.amazonaws.com": {
+     "rows": 5270,
+     "attack_labelled_rows": 1098,
+     "distinct_event_names": 9,
+     "in_pipeline_vocabulary": true,
+     "event_names": {
+      "DescribeSecret": 1332,
+      "GetSecretValue": 1178,
+      "GetResourcePolicy": 784,
+      "PutSecretValue": 395,
+      "DeleteSecret": 392,
+      "CreateSecret": 391,
+      "StartSecretVersionDelete": 387,
+      "EndSecretVersionDelete": 386,
+      "ListSecrets": 25
+     }
+    },
+    "iam.amazonaws.com": {
+     "rows": 4010,
+     "attack_labelled_rows": 270,
+     "distinct_event_names": 59,
+     "in_pipeline_vocabulary": true,
+     "event_names": {
+      "GetUser": 1139,
+      "GetRole": 342,
+      "ListRolePolicies": 260,
+      "ListAttachedRolePolicies": 244,
+      "ListAccessKeys": 147,
+      "CreateUser": 118,
+      "DeleteUser": 118,
+      "CreateRole": 106,
+      "DeleteRole": 106,
+      "DeleteLoginProfile": 105,
+      "DetachUserPolicy": 90,
+      "ListServiceSpecificCredentials": 79,
+      "ListVirtualMFADevices": 79,
+      "ListMFADevices": 77,
+      "ListGroupsForUser": 76,
+      "ListSigningCertificates": 72,
+      "GetRolePolicy": 71,
+      "ListSSHPublicKeys": 70,
+      "GetAccessKeyLastUsed": 61,
+      "PutRolePolicy": 57,
+      "AttachUserPolicy": 56,
+      "DeleteRolePolicy": 56,
+      "ListInstanceProfilesForRole": 52,
+      "DeleteAccessKey": 46,
+      "CreateAccessKey": 45,
+      "CreateLoginProfile": 43,
+      "ListAttachedUserPolicies": 41,
+      "GetLoginProfile": 29,
+      "AttachRolePolicy": 26,
+      "DetachRolePolicy": 25,
+      "ListUsers": 23,
+      "UpdateLoginProfile": 20,
+      "ListRoles": 18,
+      "ListPolicies": 13,
+      "ListUserTags": 13,
+      "GetAccountSummary": 9,
+      "ListAccountAliases": 8,
+      "GetInstanceProfile": 7,
+      "GetPolicy": 7,
+      "ListUserPolicies": 7,
+      "UpdateAccessKey": 6,
+      "ListSAMLProviders": 5,
+      "GetPolicyVersion": 4,
+      "ListEntitiesForPolicy": 4,
+      "AddRoleToInstanceProfile": 3,
+      "CreateInstanceProfile": 3,
+      "DeleteInstanceProfile": 3,
+      "RemoveRoleFromInstanceProfile": 3,
+      "TagInstanceProfile": 3,
+      "CreatePolicy": 2,
+      "DeletePolicy": 2,
+      "ListPolicyVersions": 2,
+      "TagUser": 2,
+      "UpdateAssumeRolePolicy": 2,
+      "GetAccountAuthorizationDetails": 1,
+      "ListGroups": 1,
+      "ListInstanceProfiles": 1,
+      "ListOpenIDConnectProviders": 1,
+      "ListServerCertificates": 1
+     }
+    },
+    "ec2.amazonaws.com": {
+     "rows": 2716,
+     "attack_labelled_rows": 569,
+     "distinct_event_names": 122,
+     "in_pipeline_vocabulary": true,
+     "event_names": {
+      "DescribeAccountAttributes": 734,
+      "GetPasswordData": 569,
+      "DescribeSecurityGroupRules": 205,
+      "DescribeRouteTables": 138,
+      "DescribeSubnets": 55,
+      "DescribeNatGateways": 53,
+      "DescribeSecurityGroups": 50,
+      "DescribeNetworkAcls": 49,
+      "DescribeVpcs": 49,
+      "DescribeInternetGateways": 30,
+      "DescribeVpcAttribute": 30,
+      "DescribeDhcpOptions": 26,
+      "DescribeInstanceAttribute": 25,
+      "DescribeInstances": 25,
+      "DescribeAvailabilityZones": 24,
+      "DescribeImages": 24,
+      "DescribeAddresses": 23,
+      "DescribeNetworkInterfaces": 23,
+      "DescribeVolumes": 22,
+      "DescribeVpcClassicLink": 20,
+      "DescribeVpcClassicLinkDnsSupport": 20,
+      "DescribeRegions": 18,
+      "DescribeKeyPairs": 17,
+      "GetSubnetCidrReservations": 15,
+      "DescribeSnapshots": 14,
+      "DescribeFpgaImages": 12,
+      "AssociateRouteTable": 10,
+      "CreateRouteTable": 10,
+      "CreateSubnet": 10,
+      "CreateVpc": 10,
+      "DeleteRouteTable": 10,
+      "DescribeTrafficMirrorFilters": 10,
+      "DescribeHostReservations": 9,
+      "DescribeTransitGatewayRouteTableAnnouncements": 9,
+      "DescribeVpcPeeringConnections": 9,
+      "DescribeVpnGateways": 9,
+      "DisassociateRouteTable": 9,
+      "DeleteSubnet": 8,
+      "DescribeHosts": 8,
+      "DescribeIpamResourceDiscoveryAssociations": 8,
+      "DescribeIpamScopes": 8,
+      "DescribePublicIpv4Pools": 8,
+      "DescribeReservedInstances": 8,
+      "DescribeTransitGatewayConnectPeers": 8,
+      "DescribeVerifiedAccessEndpoints": 8,
+      "RunInstances": 8,
+      "DescribeCapacityReservationFleets": 7,
+      "DescribeEgressOnlyInternetGateways": 7,
+      "DescribeNetworkInsightsAccessScopes": 7,
+      "CreateRoute": 6,
+      "DeleteVpc": 6,
+      "DescribeClientVpnEndpoints": 6,
+      "DescribeCustomerGateways": 6,
+      "DescribeFlowLogs": 6,
+      "DescribeInstanceEventWindows": 6,
+      "DescribePlacementGroups": 6,
+      "DescribeVerifiedAccessGroups": 6,
+      "DescribeVpcEndpoints": 6,
+      "DescribeVpnConnections": 6,
+      "DeleteRoute": 5,
+      "DescribeFleets": 5,
+      "DescribeLaunchTemplates": 5,
+      "DescribeNetworkInsightsAccessScopeAnalyses": 5,
+      "DescribeNetworkInsightsAnalyses": 5,
+      "DescribeNetworkInsightsPaths": 5,
+      "DescribeSpotFleetRequests": 5,
+      "DescribeSpotInstanceRequests": 5,
+      "DescribeTags": 5,
+      "DescribeTrafficMirrorTargets": 5,
+      "DescribeTransitGatewayAttachments": 5,
+      "DescribeVerifiedAccessTrustProviders": 5,
+      "AttachInternetGateway": 4,
+      "CreateInternetGateway": 4,
+      "DeleteInternetGateway": 4,
+      "DescribeCapacityReservations": 4,
+      "DescribeCarrierGateways": 4,
+      "DescribeInstanceCreditSpecifications": 4,
+      "DescribeIpamPools": 4,
+      "DescribeIpamResourceDiscoveries": 4,
+      "DescribeIpams": 4,
+      "DescribeManagedPrefixLists": 4,
+      "DescribeTrafficMirrorSessions": 4,
+      "DescribeTransitGatewayMulticastDomains": 4,
+      "DescribeTransitGatewayPolicyTables": 4,
+      "DescribeTransitGatewayRouteTables": 4,
+      "DescribeTransitGateways": 4,
+      "DescribeVerifiedAccessInstances": 4,
+      "AllocateAddress": 3,
+      "CreateNetworkInterface": 3,
+      "DeleteNetworkInterface": 3,
+      "DescribeAddressTransfers": 3,
+      "DescribeAddressesAttribute": 3,
+      "DetachInternetGateway": 3,
+      "ReleaseAddress": 3,
+      "AuthorizeSecurityGroupIngress": 2,
+      "AutomatedDefaultVpcCreation": 2,
+      "CreateDefaultVpcResourceCreation": 2,
+      "CreateNatGateway": 2,
+      "CreateSnapshot": 2,
+      "CreateVolume": 2,
+      "DeleteNatGateway": 2,
+      "DeleteSnapshot": 2,
+      "DeleteVolume": 2,
+      "ModifyImageAttribute": 2,
+      "ModifyInstanceAttribute": 2,
+      "ModifySnapshotAttribute": 2,
+      "RevokeSecurityGroupEgress": 2,
+      "SharedSnapshotVolumeCreated": 2,
+      "TerminateInstances": 2,
+      "AuthorizeSecurityGroupEgress": 1,
+      "CreateFlowLogs": 1,
+      "CreateSecurityGroup": 1,
+      "CreateTags": 1,
+      "DeleteFlowLogs": 1,
+      "DeleteSecurityGroup": 1,
+      "DeregisterImage": 1,
+      "DescribeInstanceStatus": 1,
+      "DescribeVolumeStatus": 1,
+      "DescribeVpcEndpointServiceConfigurations": 1,
+      "DetachNetworkInterface": 1,
+      "RegisterImage": 1,
+      "RevokeSecurityGroupIngress": 1
+     }
+    },
+    "cloudcontrolapi.amazonaws.com": {
+     "rows": 1021,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 2,
+     "in_pipeline_vocabulary": false
+    },
+    "cloudtrail.amazonaws.com": {
+     "rows": 718,
+     "attack_labelled_rows": 62,
+     "distinct_event_names": 15,
+     "in_pipeline_vocabulary": true,
+     "event_names": {
+      "DescribeTrails": 149,
+      "GetTrailStatus": 102,
+      "GetEventSelectors": 89,
+      "ListTags": 87,
+      "StartLogging": 68,
+      "DeleteTrail": 44,
+      "CreateTrail": 43,
+      "PutEventSelectors": 40,
+      "ListTrails": 26,
+      "StopLogging": 24,
+      "LookupEvents": 16,
+      "ListEventDataStores": 13,
+      "ListChannels": 8,
+      "ListDashboards": 8,
+      "GetInsightSelectors": 1
+     }
+    },
+    "notifications.amazonaws.com": {
+     "rows": 369,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 2,
+     "in_pipeline_vocabulary": true,
+     "event_names": {
+      "ListManagedNotificationEvents": 346,
+      "ListNotificationHubs": 23
+     }
+    },
+    "rds.amazonaws.com": {
+     "rows": 354,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 32,
+     "in_pipeline_vocabulary": true,
+     "event_names": {
+      "DescribeDBInstances": 46,
+      "DescribeOrderableDBInstanceOptions": 45,
+      "DescribeDBEngineVersions": 29,
+      "DescribeDBClusterSnapshots": 27,
+      "DescribeDBClusters": 25,
+      "DescribeEventSubscriptions": 23,
+      "DescribeDBSnapshots": 22,
+      "DescribeDBClusterParameterGroups": 18,
+      "DescribeDBSubnetGroups": 17,
+      "DescribeDBParameterGroups": 11,
+      "DescribeGlobalClusters": 11,
+      "DescribeBlueGreenDeployments": 9,
+      "DescribeOptionGroups": 9,
+      "DescribeDBClusterEndpoints": 8,
+      "DescribeDBInstanceAutomatedBackups": 8,
+      "DescribeReservedDBInstances": 7,
+      "DescribeDBSecurityGroups": 6,
+      "ListTagsForResource": 6,
+      "DescribeDBProxyEndpoints": 5,
+      "DescribeDBProxies": 4,
+      "DescribeRecommendations": 4,
+      "DeleteDBInstance": 2,
+      "DescribeRecommendationGroups": 2,
+      "ModifyDBSnapshotAttribute": 2,
+      "CreateDBInstance": 1,
+      "CreateDBSnapshot": 1,
+      "CreateDBSubnetGroup": 1,
+      "DeleteDBSnapshot": 1,
+      "DescribeAccountAttributes": 1,
+      "DescribeCertificates": 1,
+      "DescribeEvents": 1,
+      "DescribePendingMaintenanceActions": 1
+     }
+    },
+    "lambda.amazonaws.com": {
+     "rows": 350,
+     "attack_labelled_rows": 17,
+     "distinct_event_names": 16,
+     "in_pipeline_vocabulary": true,
+     "event_names": {
+      "GetFunction20150331v2": 94,
+      "GetFunctionCodeSigningConfig": 47,
+      "ListVersionsByFunction20150331": 44,
+      "CreateFunction20150331": 31,
+      "GetFunctionConfiguration20150331v2": 28,
+      "DeleteFunction20150331": 22,
+      "AddPermission20150331v2": 20,
+      "RemovePermission20150331v2": 20,
+      "ListFunctions20150331": 16,
+      "ListLayers20181031": 8,
+      "ListEventSourceMappings20150331": 5,
+      "ListCodeSigningConfigs": 4,
+      "GetAccountSettings20160819": 3,
+      "GetFunctionRecursionConfig": 3,
+      "GetRuntimeManagementConfig": 3,
+      "UpdateFunctionCode20150331v2": 2
+     }
+    },
+    "sagemaker.amazonaws.com": {
+     "rows": 251,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 37,
+     "in_pipeline_vocabulary": false
+    },
+    "glue.amazonaws.com": {
+     "rows": 236,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 7,
+     "in_pipeline_vocabulary": false
+    },
+    "guardduty.amazonaws.com": {
+     "rows": 224,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 5,
+     "in_pipeline_vocabulary": false
+    },
+    "ce.amazonaws.com": {
+     "rows": 197,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 13,
+     "in_pipeline_vocabulary": true,
+     "event_names": {
+      "GetCostAndUsage": 49,
+      "GetAnomalyMonitors": 29,
+      "GetAnomalySubscriptions": 18,
+      "GetAnomalies": 17,
+      "GetReservationUtilization": 16,
+      "GetSavingsPlansUtilizationDetails": 16,
+      "GetCostForecast": 11,
+      "GetConsoleActionSetEnforced": 10,
+      "GetCostCategories": 10,
+      "GetTags": 10,
+      "GetCostAndUsageComparisons": 5,
+      "GetPreferences": 5,
+      "GetDimensionValues": 1
+     }
+    },
+    "eks.amazonaws.com": {
+     "rows": 190,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 2,
+     "in_pipeline_vocabulary": false
+    },
+    "emr-containers.amazonaws.com": {
+     "rows": 147,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 3,
+     "in_pipeline_vocabulary": false
+    },
+    "mediatailor.amazonaws.com": {
+     "rows": 146,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 3,
+     "in_pipeline_vocabulary": false
+    },
+    "refactor-spaces.amazonaws.com": {
+     "rows": 137,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "kendra.amazonaws.com": {
+     "rows": 109,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "iot.amazonaws.com": {
+     "rows": 94,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 18,
+     "in_pipeline_vocabulary": false
+    },
+    "cloudformation.amazonaws.com": {
+     "rows": 83,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 3,
+     "in_pipeline_vocabulary": false
+    },
+    "elasticache.amazonaws.com": {
+     "rows": 77,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 9,
+     "in_pipeline_vocabulary": false
+    },
+    "mediaconnect.amazonaws.com": {
+     "rows": 76,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 2,
+     "in_pipeline_vocabulary": false
+    },
+    "resource-explorer-2.amazonaws.com": {
+     "rows": 75,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 7,
+     "in_pipeline_vocabulary": false
+    },
+    "kafka.amazonaws.com": {
+     "rows": 72,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 2,
+     "in_pipeline_vocabulary": false
+    },
+    "groundstation.amazonaws.com": {
+     "rows": 69,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 3,
+     "in_pipeline_vocabulary": false
+    },
+    "resiliencehub.amazonaws.com": {
+     "rows": 69,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 2,
+     "in_pipeline_vocabulary": false
+    },
+    "codeartifact.amazonaws.com": {
+     "rows": 69,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 2,
+     "in_pipeline_vocabulary": false
+    },
+    "budgets.amazonaws.com": {
+     "rows": 68,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 4,
+     "in_pipeline_vocabulary": true,
+     "event_names": {
+      "DescribeBudgets": 48,
+      "DescribeBudgetNotificationsForAccount": 14,
+      "CreateBudget": 3,
+      "DescribeBudgetActionsForAccount": 3
+     }
+    },
+    "health.amazonaws.com": {
+     "rows": 66,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "fis.amazonaws.com": {
+     "rows": 65,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 2,
+     "in_pipeline_vocabulary": false
+    },
+    "elasticloadbalancing.amazonaws.com": {
+     "rows": 62,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 2,
+     "in_pipeline_vocabulary": true,
+     "event_names": {
+      "DescribeLoadBalancers": 57,
+      "DescribeTargetGroups": 5
+     }
+    },
+    "apigateway.amazonaws.com": {
+     "rows": 62,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 3,
+     "in_pipeline_vocabulary": false
+    },
+    "bedrock.amazonaws.com": {
+     "rows": 61,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 8,
+     "in_pipeline_vocabulary": false
+    },
+    "memorydb.amazonaws.com": {
+     "rows": 56,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 5,
+     "in_pipeline_vocabulary": false
+    },
+    "freetier.amazonaws.com": {
+     "rows": 54,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 2,
+     "in_pipeline_vocabulary": true,
+     "event_names": {
+      "GetAccountPlanState": 43,
+      "GetFreeTierUsage": 11
+     }
+    },
+    "events.amazonaws.com": {
+     "rows": 52,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 6,
+     "in_pipeline_vocabulary": false
+    },
+    "transfer.amazonaws.com": {
+     "rows": 52,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 5,
+     "in_pipeline_vocabulary": false
+    },
+    "wafv2.amazonaws.com": {
+     "rows": 50,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 4,
+     "in_pipeline_vocabulary": false
+    },
+    "athena.amazonaws.com": {
+     "rows": 42,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 2,
+     "in_pipeline_vocabulary": false
+    },
+    "organizations.amazonaws.com": {
+     "rows": 41,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 4,
+     "in_pipeline_vocabulary": false
+    },
+    "forecast.amazonaws.com": {
+     "rows": 41,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 7,
+     "in_pipeline_vocabulary": false
+    },
+    "vpc-lattice.amazonaws.com": {
+     "rows": 41,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 3,
+     "in_pipeline_vocabulary": false
+    },
+    "appmesh.amazonaws.com": {
+     "rows": 40,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "ivs.amazonaws.com": {
+     "rows": 40,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 7,
+     "in_pipeline_vocabulary": false
+    },
+    "verifiedpermissions.amazonaws.com": {
+     "rows": 38,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "route53resolver.amazonaws.com": {
+     "rows": 36,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 6,
+     "in_pipeline_vocabulary": false
+    },
+    "imagebuilder.amazonaws.com": {
+     "rows": 35,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 7,
+     "in_pipeline_vocabulary": false
+    },
+    "dms.amazonaws.com": {
+     "rows": 34,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 6,
+     "in_pipeline_vocabulary": false
+    },
+    "detective.amazonaws.com": {
+     "rows": 34,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "inspector2.amazonaws.com": {
+     "rows": 34,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "cost-optimization-hub.amazonaws.com": {
+     "rows": 33,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "databrew.amazonaws.com": {
+     "rows": 33,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 6,
+     "in_pipeline_vocabulary": false
+    },
+    "outposts.amazonaws.com": {
+     "rows": 33,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "emr-serverless.amazonaws.com": {
+     "rows": 33,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "iotfleetwise.amazonaws.com": {
+     "rows": 33,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 4,
+     "in_pipeline_vocabulary": false
+    },
+    "airflow.amazonaws.com": {
+     "rows": 31,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "m2.amazonaws.com": {
+     "rows": 31,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "profile.amazonaws.com": {
+     "rows": 31,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "payments.amazonaws.com": {
+     "rows": 30,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 3,
+     "in_pipeline_vocabulary": false
+    },
+    "mediapackage.amazonaws.com": {
+     "rows": 30,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 5,
+     "in_pipeline_vocabulary": false
+    },
+    "cloudfront.amazonaws.com": {
+     "rows": 30,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 11,
+     "in_pipeline_vocabulary": false
+    },
+    "ecs.amazonaws.com": {
+     "rows": 29,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 3,
+     "in_pipeline_vocabulary": false
+    },
+    "bcm-recommended-actions.amazonaws.com": {
+     "rows": 28,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "iotsitewise.amazonaws.com": {
+     "rows": 28,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 3,
+     "in_pipeline_vocabulary": false
+    },
+    "greengrass.amazonaws.com": {
+     "rows": 28,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 9,
+     "in_pipeline_vocabulary": false
+    },
+    "connect.amazonaws.com": {
+     "rows": 27,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 2,
+     "in_pipeline_vocabulary": false
+    },
+    "appconfig.amazonaws.com": {
+     "rows": 25,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 3,
+     "in_pipeline_vocabulary": false
+    },
+    "quicksight.amazonaws.com": {
+     "rows": 25,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "iotwireless.amazonaws.com": {
+     "rows": 25,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 9,
+     "in_pipeline_vocabulary": false
+    },
+    "uxc.amazonaws.com": {
+     "rows": 24,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "batch.amazonaws.com": {
+     "rows": 24,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 4,
+     "in_pipeline_vocabulary": false
+    },
+    "ses.amazonaws.com": {
+     "rows": 24,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 4,
+     "in_pipeline_vocabulary": false
+    },
+    "auditmanager.amazonaws.com": {
+     "rows": 23,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "amplify.amazonaws.com": {
+     "rows": 23,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "cleanrooms.amazonaws.com": {
+     "rows": 23,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "access-analyzer.amazonaws.com": {
+     "rows": 22,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 2,
+     "in_pipeline_vocabulary": false
+    },
+    "apprunner.amazonaws.com": {
+     "rows": 22,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 3,
+     "in_pipeline_vocabulary": false
+    },
+    "xray.amazonaws.com": {
+     "rows": 21,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "account.amazonaws.com": {
+     "rows": 20,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 3,
+     "in_pipeline_vocabulary": true,
+     "event_names": {
+      "GetAlternateContact": 11,
+      "GetAccountInformation": 6,
+      "GetRegionOptStatus": 3
+     }
+    },
+    "iottwinmaker.amazonaws.com": {
+     "rows": 20,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "dataexchange.amazonaws.com": {
+     "rows": 20,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "codeguru-reviewer.amazonaws.com": {
+     "rows": 20,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "autoscaling.amazonaws.com": {
+     "rows": 19,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "elasticbeanstalk.amazonaws.com": {
+     "rows": 19,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 3,
+     "in_pipeline_vocabulary": false
+    },
+    "monitoring.amazonaws.com": {
+     "rows": 18,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 4,
+     "in_pipeline_vocabulary": false
+    },
+    "personalize.amazonaws.com": {
+     "rows": 18,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 4,
+     "in_pipeline_vocabulary": false
+    },
+    "amazonmq.amazonaws.com": {
+     "rows": 18,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 2,
+     "in_pipeline_vocabulary": false
+    },
+    "config.amazonaws.com": {
+     "rows": 18,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 3,
+     "in_pipeline_vocabulary": false
+    },
+    "billingconsole.amazonaws.com": {
+     "rows": 17,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 6,
+     "in_pipeline_vocabulary": false
+    },
+    "logs.amazonaws.com": {
+     "rows": 16,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 5,
+     "in_pipeline_vocabulary": false
+    },
+    "codestar-connections.amazonaws.com": {
+     "rows": 16,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 2,
+     "in_pipeline_vocabulary": false
+    },
+    "proton.amazonaws.com": {
+     "rows": 16,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 3,
+     "in_pipeline_vocabulary": false
+    },
+    "ram.amazonaws.com": {
+     "rows": 15,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 3,
+     "in_pipeline_vocabulary": false
+    },
+    "billing.amazonaws.com": {
+     "rows": 14,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 3,
+     "in_pipeline_vocabulary": false
+    },
+    "synthetics.amazonaws.com": {
+     "rows": 14,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 2,
+     "in_pipeline_vocabulary": false
+    },
+    "ds.amazonaws.com": {
+     "rows": 14,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "network-firewall.amazonaws.com": {
+     "rows": 14,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 3,
+     "in_pipeline_vocabulary": false
+    },
+    "servicecatalog-appregistry.amazonaws.com": {
+     "rows": 13,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 2,
+     "in_pipeline_vocabulary": false
+    },
+    "signin.amazonaws.com": {
+     "rows": 12,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 2,
+     "in_pipeline_vocabulary": false
+    },
+    "pinpoint.amazonaws.com": {
+     "rows": 12,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 2,
+     "in_pipeline_vocabulary": false
+    },
+    "backup.amazonaws.com": {
+     "rows": 12,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 3,
+     "in_pipeline_vocabulary": false
+    },
+    "partnercentral-selling.amazonaws.com": {
+     "rows": 12,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 4,
+     "in_pipeline_vocabulary": false
+    },
+    "redshift.amazonaws.com": {
+     "rows": 12,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 4,
+     "in_pipeline_vocabulary": false
+    },
+    "datasync.amazonaws.com": {
+     "rows": 11,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 2,
+     "in_pipeline_vocabulary": false
+    },
+    "grafana.amazonaws.com": {
+     "rows": 11,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "qconnect.amazonaws.com": {
+     "rows": 11,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 2,
+     "in_pipeline_vocabulary": false
+    },
+    "tax.amazonaws.com": {
+     "rows": 10,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 2,
+     "in_pipeline_vocabulary": false
+    },
+    "aps.amazonaws.com": {
+     "rows": 10,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "states.amazonaws.com": {
+     "rows": 10,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 2,
+     "in_pipeline_vocabulary": false
+    },
+    "chime-sdk-media-pipelines.amazonaws.com": {
+     "rows": 10,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 2,
+     "in_pipeline_vocabulary": false
+    },
+    "resource-groups.amazonaws.com": {
+     "rows": 10,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "app-integrations.amazonaws.com": {
+     "rows": 10,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 2,
+     "in_pipeline_vocabulary": false
+    },
+    "gamelift.amazonaws.com": {
+     "rows": 10,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 3,
+     "in_pipeline_vocabulary": false
+    },
+    "bedrock-agentcore.amazonaws.com": {
+     "rows": 9,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "s3express.amazonaws.com": {
+     "rows": 9,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "wellarchitected.amazonaws.com": {
+     "rows": 9,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "ivschat.amazonaws.com": {
+     "rows": 9,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 2,
+     "in_pipeline_vocabulary": false
+    },
+    "omics.amazonaws.com": {
+     "rows": 9,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 3,
+     "in_pipeline_vocabulary": false
+    },
+    "sso.amazonaws.com": {
+     "rows": 8,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "oam.amazonaws.com": {
+     "rows": 8,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "schemas.amazonaws.com": {
+     "rows": 8,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "codepipeline.amazonaws.com": {
+     "rows": 8,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 2,
+     "in_pipeline_vocabulary": false
+    },
+    "macie2.amazonaws.com": {
+     "rows": 8,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "dlm.amazonaws.com": {
+     "rows": 8,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "backup-gateway.amazonaws.com": {
+     "rows": 8,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "aoss.amazonaws.com": {
+     "rows": 8,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "acm-pca.amazonaws.com": {
+     "rows": 8,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "elasticfilesystem.amazonaws.com": {
+     "rows": 8,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 2,
+     "in_pipeline_vocabulary": false
+    },
+    "managedblockchain.amazonaws.com": {
+     "rows": 8,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "lex.amazonaws.com": {
+     "rows": 8,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "comprehend.amazonaws.com": {
+     "rows": 8,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 2,
+     "in_pipeline_vocabulary": false
+    },
+    "healthlake.amazonaws.com": {
+     "rows": 7,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "chime.amazonaws.com": {
+     "rows": 7,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "ssm-incidents.amazonaws.com": {
+     "rows": 7,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "rolesanywhere.amazonaws.com": {
+     "rows": 6,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 6,
+     "in_pipeline_vocabulary": false
+    },
+    "appsync.amazonaws.com": {
+     "rows": 6,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "es.amazonaws.com": {
+     "rows": 6,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "codeconnections.amazonaws.com": {
+     "rows": 6,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "signer.amazonaws.com": {
+     "rows": 6,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "codecommit.amazonaws.com": {
+     "rows": 6,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "workspaces-web.amazonaws.com": {
+     "rows": 6,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "sns.amazonaws.com": {
+     "rows": 5,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "dynamodb.amazonaws.com": {
+     "rows": 5,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "rum.amazonaws.com": {
+     "rows": 5,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "acm.amazonaws.com": {
+     "rows": 5,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "codebuild.amazonaws.com": {
+     "rows": 5,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "pipes.amazonaws.com": {
+     "rows": 5,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "servicediscovery.amazonaws.com": {
+     "rows": 5,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "cloud9.amazonaws.com": {
+     "rows": 5,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "cloudshell.amazonaws.com": {
+     "rows": 5,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 3,
+     "in_pipeline_vocabulary": false
+    },
+    "iotdeviceadvisor.amazonaws.com": {
+     "rows": 5,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "workspaces.amazonaws.com": {
+     "rows": 5,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 2,
+     "in_pipeline_vocabulary": false
+    },
+    "route53.amazonaws.com": {
+     "rows": 4,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 2,
+     "in_pipeline_vocabulary": false
+    },
+    "devops-guru.amazonaws.com": {
+     "rows": 4,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 2,
+     "in_pipeline_vocabulary": false
+    },
+    "directconnect.amazonaws.com": {
+     "rows": 4,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "fsx.amazonaws.com": {
+     "rows": 4,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "cognito-idp.amazonaws.com": {
+     "rows": 4,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "cognito-identity.amazonaws.com": {
+     "rows": 4,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "scheduler.amazonaws.com": {
+     "rows": 4,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "ecr.amazonaws.com": {
+     "rows": 4,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "route53domains.amazonaws.com": {
+     "rows": 4,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "finspace.amazonaws.com": {
+     "rows": 4,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "codeguru-profiler.amazonaws.com": {
+     "rows": 3,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "mediastore.amazonaws.com": {
+     "rows": 3,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "kendra-ranking.amazonaws.com": {
+     "rows": 3,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "storagegateway.amazonaws.com": {
+     "rows": 3,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "chime-sdk-voice.amazonaws.com": {
+     "rows": 2,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 2,
+     "in_pipeline_vocabulary": false
+    },
+    "appflow.amazonaws.com": {
+     "rows": 2,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "rekognition.amazonaws.com": {
+     "rows": 2,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "securityhub.amazonaws.com": {
+     "rows": 1,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "datapipeline.amazonaws.com": {
+     "rows": 1,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "ecr-public.amazonaws.com": {
+     "rows": 1,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "mapcredits.amazonaws.com": {
+     "rows": 1,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    }
+   },
+   "role": "real labelled CloudTrail (Stratus Red Team detonations + Invictus 2023), dev + test combined"
+  },
+  {
+   "path": "datasets/privilege-escalation/real_dataset_dev.csv",
+   "format": "csv (utf-8, header row, one CloudTrail event per row)",
+   "bytes": 11260839,
+   "sha256": "f590828aa325d04560b7e89462371029fc76463455ef511c1b029e7aa6436e40",
+   "rows": 21165,
+   "columns": [
+    "timestamp",
+    "event_name",
+    "event_source",
+    "aws_region",
+    "source_ip",
+    "error_code",
+    "label",
+    "attack_technique",
+    "read_only",
+    "user_agent",
+    "access_key_id",
+    "mfa_authenticated",
+    "target_resource",
+    "request_params_raw",
+    "principal_type",
+    "principal_arn",
+    "username",
+    "session_label",
+    "data_source",
+    "session_id"
+   ],
+   "label_counts": {
+    "1": 2754,
+    "0": 18411
+   },
+   "attack_tactic_counts_for_label_1": {
+    "credential-access": 2657,
+    "persistence": 72,
+    "defense-evasion": 17,
+    "privilege-escalation": 8
+   },
+   "principal_type_counts": {
+    "IAMUser": 12545,
+    "AWSService": 4701,
+    "AssumedRole": 2854,
+    "Root": 743,
+    "unknown": 322
+   },
+   "collector_counts": {
+    "stratus_vansh": 8434,
+    "stratus_udita2": 8025,
+    "stratus_nandan": 2721,
+    "stratus_akshaya": 1920,
+    "invictus_2023": 65
+   },
+   "region_counts": {
+    "us-east-1": 16347,
+    "ap-south-1": 4282,
+    "eu-north-1": 534,
+    "us-west-2": 2
+   },
+   "distinct_event_sources": 164,
+   "distinct_event_names": 555,
+   "event_sources": {
+    "ssm.amazonaws.com": {
+     "rows": 5704,
+     "attack_labelled_rows": 1791,
+     "distinct_event_names": 18,
+     "in_pipeline_vocabulary": true,
+     "event_names": {
+      "DescribeParameters": 1157,
+      "GetParameters": 932,
+      "GetParameter": 924,
+      "ListTagsForResource": 924,
+      "DeleteParameter": 904,
+      "PutParameter": 823,
+      "UpdateInstanceAssociationStatus": 7,
+      "UpdateInstanceInformation": 7,
+      "ListResourceDataSync": 6,
+      "ListDocuments": 4,
+      "DescribeMaintenanceWindows": 3,
+      "DescribeInstanceInformation": 2,
+      "DescribeSessions": 2,
+      "ListAssociations": 2,
+      "ListInstanceAssociations": 2,
+      "PutComplianceItems": 2,
+      "PutInventory": 2,
+      "GetDocument": 1
+     }
+    },
+    "s3.amazonaws.com": {
+     "rows": 2986,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 22,
+     "in_pipeline_vocabulary": true,
+     "event_names": {
+      "GetBucketAcl": 2317,
+      "GetBucketTagging": 65,
+      "GetBucketLogging": 61,
+      "GetBucketEncryption": 53,
+      "GetBucketLifecycle": 42,
+      "GetBucketObjectLockConfiguration": 42,
+      "GetBucketReplication": 42,
+      "GetBucketRequestPayment": 42,
+      "GetAccelerateConfiguration": 41,
+      "GetBucketCors": 41,
+      "GetBucketPolicy": 41,
+      "GetBucketVersioning": 41,
+      "GetBucketWebsite": 41,
+      "DeleteBucket": 33,
+      "CreateBucket": 22,
+      "PutBucketTagging": 22,
+      "PutBucketPolicy": 17,
+      "ListBuckets": 9,
+      "ListStorageLensConfigurations": 8,
+      "ListAccessPoints": 2,
+      "ListMultiRegionAccessPoints": 2,
+      "ListStorageLensGroups": 2
+     }
+    },
+    "kms.amazonaws.com": {
+     "rows": 2591,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 4,
+     "in_pipeline_vocabulary": true,
+     "event_names": {
+      "Decrypt": 1927,
+      "Encrypt": 462,
+      "GenerateDataKey": 200,
+      "ListKeys": 2
+     }
+    },
+    "sts.amazonaws.com": {
+     "rows": 2556,
+     "attack_labelled_rows": 61,
+     "distinct_event_names": 2,
+     "in_pipeline_vocabulary": true,
+     "event_names": {
+      "AssumeRole": 2445,
+      "GetCallerIdentity": 111
+     }
+    },
+    "secretsmanager.amazonaws.com": {
+     "rows": 2377,
+     "attack_labelled_rows": 508,
+     "distinct_event_names": 9,
+     "in_pipeline_vocabulary": true,
+     "event_names": {
+      "DescribeSecret": 601,
+      "GetSecretValue": 500,
+      "GetResourcePolicy": 381,
+      "CreateSecret": 201,
+      "PutSecretValue": 201,
+      "DeleteSecret": 161,
+      "EndSecretVersionDelete": 161,
+      "StartSecretVersionDelete": 161,
+      "ListSecrets": 10
+     }
+    },
+    "iam.amazonaws.com": {
+     "rows": 1395,
+     "attack_labelled_rows": 69,
+     "distinct_event_names": 41,
+     "in_pipeline_vocabulary": true,
+     "event_names": {
+      "GetUser": 407,
+      "GetRole": 119,
+      "ListRolePolicies": 101,
+      "ListAttachedRolePolicies": 91,
+      "ListAccessKeys": 60,
+      "GetAccessKeyLastUsed": 41,
+      "DeleteLoginProfile": 40,
+      "ListServiceSpecificCredentials": 37,
+      "DeleteUser": 32,
+      "ListMFADevices": 32,
+      "ListGroupsForUser": 31,
+      "GetRolePolicy": 29,
+      "ListSigningCertificates": 29,
+      "ListVirtualMFADevices": 28,
+      "ListSSHPublicKeys": 27,
+      "CreateUser": 26,
+      "DeleteRole": 26,
+      "CreateLoginProfile": 21,
+      "CreateRole": 21,
+      "CreateAccessKey": 20,
+      "GetLoginProfile": 15,
+      "PutRolePolicy": 15,
+      "DeleteRolePolicy": 14,
+      "ListInstanceProfilesForRole": 14,
+      "DetachUserPolicy": 13,
+      "DeleteAccessKey": 10,
+      "AttachUserPolicy": 9,
+      "ListAttachedUserPolicies": 9,
+      "ListRoles": 9,
+      "ListUserTags": 9,
+      "ListUsers": 9,
+      "ListPolicies": 8,
+      "DetachRolePolicy": 7,
+      "GetAccountSummary": 7,
+      "ListAccountAliases": 7,
+      "AttachRolePolicy": 5,
+      "ListUserPolicies": 5,
+      "UpdateLoginProfile": 5,
+      "UpdateAccessKey": 4,
+      "TagUser": 2,
+      "ListSAMLProviders": 1
+     }
+    },
+    "ec2.amazonaws.com": {
+     "rows": 799,
+     "attack_labelled_rows": 299,
+     "distinct_event_names": 66,
+     "in_pipeline_vocabulary": true,
+     "event_names": {
+      "GetPasswordData": 299,
+      "DescribeAccountAttributes": 262,
+      "DescribeSecurityGroupRules": 75,
+      "DescribeRegions": 9,
+      "DescribeSecurityGroups": 8,
+      "DescribeDhcpOptions": 7,
+      "DescribeKeyPairs": 7,
+      "DescribeNetworkAcls": 7,
+      "DescribeSubnets": 6,
+      "DescribeInternetGateways": 5,
+      "DescribeVpcs": 5,
+      "DescribeCapacityReservationFleets": 4,
+      "DescribeReservedInstances": 4,
+      "DescribeClientVpnEndpoints": 3,
+      "DescribeFpgaImages": 3,
+      "DescribeHostReservations": 3,
+      "DescribeImages": 3,
+      "DescribeInstanceEventWindows": 3,
+      "DescribeInstances": 3,
+      "DescribeIpamResourceDiscoveryAssociations": 3,
+      "DescribeSpotFleetRequests": 3,
+      "DescribeTrafficMirrorFilters": 3,
+      "DescribeTransitGatewayConnectPeers": 3,
+      "DescribeTransitGatewayRouteTableAnnouncements": 3,
+      "DescribeVerifiedAccessEndpoints": 3,
+      "DescribeVpnGateways": 3,
+      "GetSubnetCidrReservations": 3,
+      "DescribeCapacityReservations": 2,
+      "DescribeCarrierGateways": 2,
+      "DescribeEgressOnlyInternetGateways": 2,
+      "DescribeFleets": 2,
+      "DescribeHosts": 2,
+      "DescribeIpamScopes": 2,
+      "DescribeLaunchTemplates": 2,
+      "DescribeNetworkInsightsAnalyses": 2,
+      "DescribeNetworkInsightsPaths": 2,
+      "DescribeNetworkInterfaces": 2,
+      "DescribePlacementGroups": 2,
+      "DescribePublicIpv4Pools": 2,
+      "DescribeRouteTables": 2,
+      "DescribeSpotInstanceRequests": 2,
+      "DescribeVerifiedAccessGroups": 2,
+      "DescribeVerifiedAccessInstances": 2,
+      "DescribeVerifiedAccessTrustProviders": 2,
+      "DescribeVolumes": 2,
+      "DescribeVpcPeeringConnections": 2,
+      "DescribeVpnConnections": 2,
+      "DescribeAddresses": 1,
+      "DescribeCustomerGateways": 1,
+      "DescribeFlowLogs": 1,
+      "DescribeIpamPools": 1,
+      "DescribeIpamResourceDiscoveries": 1,
+      "DescribeIpams": 1,
+      "DescribeManagedPrefixLists": 1,
+      "DescribeNatGateways": 1,
+      "DescribeNetworkInsightsAccessScopeAnalyses": 1,
+      "DescribeNetworkInsightsAccessScopes": 1,
+      "DescribeSnapshots": 1,
+      "DescribeTrafficMirrorSessions": 1,
+      "DescribeTrafficMirrorTargets": 1,
+      "DescribeTransitGatewayAttachments": 1,
+      "DescribeTransitGatewayMulticastDomains": 1,
+      "DescribeTransitGatewayPolicyTables": 1,
+      "DescribeTransitGatewayRouteTables": 1,
+      "DescribeTransitGateways": 1,
+      "DescribeVpcEndpoints": 1
+     }
+    },
+    "cloudcontrolapi.amazonaws.com": {
+     "rows": 329,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 2,
+     "in_pipeline_vocabulary": false
+    },
+    "cloudtrail.amazonaws.com": {
+     "rows": 313,
+     "attack_labelled_rows": 17,
+     "distinct_event_names": 15,
+     "in_pipeline_vocabulary": true,
+     "event_names": {
+      "DescribeTrails": 72,
+      "GetTrailStatus": 48,
+      "GetEventSelectors": 37,
+      "ListTags": 35,
+      "StartLogging": 26,
+      "CreateTrail": 18,
+      "ListTrails": 17,
+      "DeleteTrail": 14,
+      "LookupEvents": 14,
+      "PutEventSelectors": 12,
+      "ListEventDataStores": 8,
+      "StopLogging": 5,
+      "ListChannels": 3,
+      "ListDashboards": 3,
+      "GetInsightSelectors": 1
+     }
+    },
+    "notifications.amazonaws.com": {
+     "rows": 173,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 2,
+     "in_pipeline_vocabulary": true,
+     "event_names": {
+      "ListManagedNotificationEvents": 163,
+      "ListNotificationHubs": 10
+     }
+    },
+    "glue.amazonaws.com": {
+     "rows": 95,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 7,
+     "in_pipeline_vocabulary": false
+    },
+    "sagemaker.amazonaws.com": {
+     "rows": 88,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 37,
+     "in_pipeline_vocabulary": false
+    },
+    "ce.amazonaws.com": {
+     "rows": 85,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 12,
+     "in_pipeline_vocabulary": true,
+     "event_names": {
+      "GetCostAndUsage": 22,
+      "GetAnomalyMonitors": 11,
+      "GetAnomalies": 8,
+      "GetAnomalySubscriptions": 8,
+      "GetReservationUtilization": 7,
+      "GetSavingsPlansUtilizationDetails": 7,
+      "GetCostForecast": 6,
+      "GetConsoleActionSetEnforced": 4,
+      "GetCostCategories": 4,
+      "GetTags": 4,
+      "GetCostAndUsageComparisons": 2,
+      "GetPreferences": 2
+     }
+    },
+    "rds.amazonaws.com": {
+     "rows": 83,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 18,
+     "in_pipeline_vocabulary": true,
+     "event_names": {
+      "DescribeDBClusterSnapshots": 15,
+      "DescribeEventSubscriptions": 9,
+      "DescribeDBClusters": 8,
+      "DescribeDBClusterParameterGroups": 7,
+      "DescribeDBSubnetGroups": 6,
+      "DescribeGlobalClusters": 6,
+      "DescribeDBParameterGroups": 5,
+      "DescribeBlueGreenDeployments": 4,
+      "DescribeDBInstanceAutomatedBackups": 4,
+      "DescribeDBInstances": 3,
+      "DescribeDBSecurityGroups": 3,
+      "DescribeOptionGroups": 3,
+      "DescribeDBClusterEndpoints": 2,
+      "DescribeDBEngineVersions": 2,
+      "DescribeDBSnapshots": 2,
+      "DescribeReservedDBInstances": 2,
+      "DescribeDBProxies": 1,
+      "DescribeDBProxyEndpoints": 1
+     }
+    },
+    "lambda.amazonaws.com": {
+     "rows": 71,
+     "attack_labelled_rows": 9,
+     "distinct_event_names": 12,
+     "in_pipeline_vocabulary": true,
+     "event_names": {
+      "GetFunction20150331v2": 19,
+      "AddPermission20150331v2": 9,
+      "GetFunctionCodeSigningConfig": 9,
+      "ListVersionsByFunction20150331": 8,
+      "DeleteFunction20150331": 5,
+      "CreateFunction20150331": 4,
+      "ListFunctions20150331": 4,
+      "RemovePermission20150331v2": 4,
+      "GetFunctionConfiguration20150331v2": 3,
+      "ListEventSourceMappings20150331": 3,
+      "ListLayers20181031": 2,
+      "ListCodeSigningConfigs": 1
+     }
+    },
+    "guardduty.amazonaws.com": {
+     "rows": 68,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 2,
+     "in_pipeline_vocabulary": false
+    },
+    "eks.amazonaws.com": {
+     "rows": 68,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 2,
+     "in_pipeline_vocabulary": false
+    },
+    "mediatailor.amazonaws.com": {
+     "rows": 48,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 3,
+     "in_pipeline_vocabulary": false
+    },
+    "emr-containers.amazonaws.com": {
+     "rows": 47,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 3,
+     "in_pipeline_vocabulary": false
+    },
+    "refactor-spaces.amazonaws.com": {
+     "rows": 41,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "resource-explorer-2.amazonaws.com": {
+     "rows": 41,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 7,
+     "in_pipeline_vocabulary": false
+    },
+    "kendra.amazonaws.com": {
+     "rows": 35,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "cloudformation.amazonaws.com": {
+     "rows": 34,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 3,
+     "in_pipeline_vocabulary": false
+    },
+    "freetier.amazonaws.com": {
+     "rows": 33,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 2,
+     "in_pipeline_vocabulary": true,
+     "event_names": {
+      "GetAccountPlanState": 28,
+      "GetFreeTierUsage": 5
+     }
+    },
+    "elasticache.amazonaws.com": {
+     "rows": 29,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 9,
+     "in_pipeline_vocabulary": false
+    },
+    "iot.amazonaws.com": {
+     "rows": 29,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 18,
+     "in_pipeline_vocabulary": false
+    },
+    "organizations.amazonaws.com": {
+     "rows": 28,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 4,
+     "in_pipeline_vocabulary": false
+    },
+    "mediaconnect.amazonaws.com": {
+     "rows": 26,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 2,
+     "in_pipeline_vocabulary": false
+    },
+    "kafka.amazonaws.com": {
+     "rows": 25,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 2,
+     "in_pipeline_vocabulary": false
+    },
+    "budgets.amazonaws.com": {
+     "rows": 25,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 4,
+     "in_pipeline_vocabulary": true,
+     "event_names": {
+      "DescribeBudgets": 17,
+      "DescribeBudgetNotificationsForAccount": 6,
+      "CreateBudget": 1,
+      "DescribeBudgetActionsForAccount": 1
+     }
+    },
+    "memorydb.amazonaws.com": {
+     "rows": 24,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 5,
+     "in_pipeline_vocabulary": false
+    },
+    "codeartifact.amazonaws.com": {
+     "rows": 23,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 2,
+     "in_pipeline_vocabulary": false
+    },
+    "fis.amazonaws.com": {
+     "rows": 23,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 2,
+     "in_pipeline_vocabulary": false
+    },
+    "bedrock.amazonaws.com": {
+     "rows": 23,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 8,
+     "in_pipeline_vocabulary": false
+    },
+    "resiliencehub.amazonaws.com": {
+     "rows": 23,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 2,
+     "in_pipeline_vocabulary": false
+    },
+    "elasticloadbalancing.amazonaws.com": {
+     "rows": 22,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 2,
+     "in_pipeline_vocabulary": true,
+     "event_names": {
+      "DescribeLoadBalancers": 20,
+      "DescribeTargetGroups": 2
+     }
+    },
+    "apigateway.amazonaws.com": {
+     "rows": 22,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 3,
+     "in_pipeline_vocabulary": false
+    },
+    "wafv2.amazonaws.com": {
+     "rows": 20,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 4,
+     "in_pipeline_vocabulary": false
+    },
+    "vpc-lattice.amazonaws.com": {
+     "rows": 19,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 3,
+     "in_pipeline_vocabulary": false
+    },
+    "athena.amazonaws.com": {
+     "rows": 19,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 2,
+     "in_pipeline_vocabulary": false
+    },
+    "uxc.amazonaws.com": {
+     "rows": 18,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "cost-optimization-hub.amazonaws.com": {
+     "rows": 17,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "ivs.amazonaws.com": {
+     "rows": 17,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 7,
+     "in_pipeline_vocabulary": false
+    },
+    "events.amazonaws.com": {
+     "rows": 17,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 6,
+     "in_pipeline_vocabulary": false
+    },
+    "appmesh.amazonaws.com": {
+     "rows": 16,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "bcm-recommended-actions.amazonaws.com": {
+     "rows": 16,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "health.amazonaws.com": {
+     "rows": 15,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "route53resolver.amazonaws.com": {
+     "rows": 15,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 6,
+     "in_pipeline_vocabulary": false
+    },
+    "dms.amazonaws.com": {
+     "rows": 14,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 6,
+     "in_pipeline_vocabulary": false
+    },
+    "forecast.amazonaws.com": {
+     "rows": 14,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 7,
+     "in_pipeline_vocabulary": false
+    },
+    "billingconsole.amazonaws.com": {
+     "rows": 14,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 6,
+     "in_pipeline_vocabulary": false
+    },
+    "mediapackage.amazonaws.com": {
+     "rows": 12,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 5,
+     "in_pipeline_vocabulary": false
+    },
+    "detective.amazonaws.com": {
+     "rows": 12,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "databrew.amazonaws.com": {
+     "rows": 12,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 6,
+     "in_pipeline_vocabulary": false
+    },
+    "transfer.amazonaws.com": {
+     "rows": 12,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 5,
+     "in_pipeline_vocabulary": false
+    },
+    "payments.amazonaws.com": {
+     "rows": 12,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 3,
+     "in_pipeline_vocabulary": false
+    },
+    "airflow.amazonaws.com": {
+     "rows": 11,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "auditmanager.amazonaws.com": {
+     "rows": 11,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "imagebuilder.amazonaws.com": {
+     "rows": 11,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 7,
+     "in_pipeline_vocabulary": false
+    },
+    "verifiedpermissions.amazonaws.com": {
+     "rows": 11,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "greengrass.amazonaws.com": {
+     "rows": 11,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 9,
+     "in_pipeline_vocabulary": false
+    },
+    "account.amazonaws.com": {
+     "rows": 11,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 2,
+     "in_pipeline_vocabulary": true,
+     "event_names": {
+      "GetAccountInformation": 6,
+      "GetAlternateContact": 5
+     }
+    },
+    "ecs.amazonaws.com": {
+     "rows": 10,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 3,
+     "in_pipeline_vocabulary": false
+    },
+    "access-analyzer.amazonaws.com": {
+     "rows": 10,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 2,
+     "in_pipeline_vocabulary": false
+    },
+    "emr-serverless.amazonaws.com": {
+     "rows": 10,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "inspector2.amazonaws.com": {
+     "rows": 10,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "cloudfront.amazonaws.com": {
+     "rows": 10,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 6,
+     "in_pipeline_vocabulary": false
+    },
+    "amplify.amazonaws.com": {
+     "rows": 9,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "appconfig.amazonaws.com": {
+     "rows": 9,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 3,
+     "in_pipeline_vocabulary": false
+    },
+    "quicksight.amazonaws.com": {
+     "rows": 9,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "iotsitewise.amazonaws.com": {
+     "rows": 9,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 2,
+     "in_pipeline_vocabulary": false
+    },
+    "m2.amazonaws.com": {
+     "rows": 9,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "iottwinmaker.amazonaws.com": {
+     "rows": 9,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "codestar-connections.amazonaws.com": {
+     "rows": 8,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 2,
+     "in_pipeline_vocabulary": false
+    },
+    "config.amazonaws.com": {
+     "rows": 8,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 3,
+     "in_pipeline_vocabulary": false
+    },
+    "outposts.amazonaws.com": {
+     "rows": 8,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "amazonmq.amazonaws.com": {
+     "rows": 8,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 2,
+     "in_pipeline_vocabulary": false
+    },
+    "groundstation.amazonaws.com": {
+     "rows": 8,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 3,
+     "in_pipeline_vocabulary": false
+    },
+    "signin.amazonaws.com": {
+     "rows": 8,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "sso.amazonaws.com": {
+     "rows": 7,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "ses.amazonaws.com": {
+     "rows": 7,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 4,
+     "in_pipeline_vocabulary": false
+    },
+    "connect.amazonaws.com": {
+     "rows": 7,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 2,
+     "in_pipeline_vocabulary": false
+    },
+    "batch.amazonaws.com": {
+     "rows": 7,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 4,
+     "in_pipeline_vocabulary": false
+    },
+    "ds.amazonaws.com": {
+     "rows": 7,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "personalize.amazonaws.com": {
+     "rows": 7,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 4,
+     "in_pipeline_vocabulary": false
+    },
+    "apprunner.amazonaws.com": {
+     "rows": 7,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 2,
+     "in_pipeline_vocabulary": false
+    },
+    "billing.amazonaws.com": {
+     "rows": 7,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 3,
+     "in_pipeline_vocabulary": false
+    },
+    "datasync.amazonaws.com": {
+     "rows": 6,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 2,
+     "in_pipeline_vocabulary": false
+    },
+    "autoscaling.amazonaws.com": {
+     "rows": 6,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "backup-gateway.amazonaws.com": {
+     "rows": 6,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "pinpoint.amazonaws.com": {
+     "rows": 6,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 2,
+     "in_pipeline_vocabulary": false
+    },
+    "elasticbeanstalk.amazonaws.com": {
+     "rows": 6,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 3,
+     "in_pipeline_vocabulary": false
+    },
+    "proton.amazonaws.com": {
+     "rows": 6,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 3,
+     "in_pipeline_vocabulary": false
+    },
+    "servicecatalog-appregistry.amazonaws.com": {
+     "rows": 5,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 2,
+     "in_pipeline_vocabulary": false
+    },
+    "synthetics.amazonaws.com": {
+     "rows": 5,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 2,
+     "in_pipeline_vocabulary": false
+    },
+    "ivschat.amazonaws.com": {
+     "rows": 5,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 2,
+     "in_pipeline_vocabulary": false
+    },
+    "monitoring.amazonaws.com": {
+     "rows": 5,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 4,
+     "in_pipeline_vocabulary": false
+    },
+    "ram.amazonaws.com": {
+     "rows": 5,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 2,
+     "in_pipeline_vocabulary": false
+    },
+    "s3express.amazonaws.com": {
+     "rows": 5,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "cloudshell.amazonaws.com": {
+     "rows": 5,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 3,
+     "in_pipeline_vocabulary": false
+    },
+    "network-firewall.amazonaws.com": {
+     "rows": 5,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 3,
+     "in_pipeline_vocabulary": false
+    },
+    "xray.amazonaws.com": {
+     "rows": 5,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "bedrock-agentcore.amazonaws.com": {
+     "rows": 4,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "states.amazonaws.com": {
+     "rows": 4,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 2,
+     "in_pipeline_vocabulary": false
+    },
+    "logs.amazonaws.com": {
+     "rows": 4,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 2,
+     "in_pipeline_vocabulary": false
+    },
+    "resource-groups.amazonaws.com": {
+     "rows": 4,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "codeconnections.amazonaws.com": {
+     "rows": 4,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "tax.amazonaws.com": {
+     "rows": 4,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 2,
+     "in_pipeline_vocabulary": false
+    },
+    "backup.amazonaws.com": {
+     "rows": 4,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 3,
+     "in_pipeline_vocabulary": false
+    },
+    "chime-sdk-media-pipelines.amazonaws.com": {
+     "rows": 4,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 2,
+     "in_pipeline_vocabulary": false
+    },
+    "redshift.amazonaws.com": {
+     "rows": 4,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 4,
+     "in_pipeline_vocabulary": false
+    },
+    "es.amazonaws.com": {
+     "rows": 3,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "wellarchitected.amazonaws.com": {
+     "rows": 3,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "aoss.amazonaws.com": {
+     "rows": 3,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "signer.amazonaws.com": {
+     "rows": 3,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "acm-pca.amazonaws.com": {
+     "rows": 3,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "aps.amazonaws.com": {
+     "rows": 3,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "app-integrations.amazonaws.com": {
+     "rows": 3,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "iotdeviceadvisor.amazonaws.com": {
+     "rows": 3,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "gamelift.amazonaws.com": {
+     "rows": 3,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 3,
+     "in_pipeline_vocabulary": false
+    },
+    "workspaces-web.amazonaws.com": {
+     "rows": 3,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "iotwireless.amazonaws.com": {
+     "rows": 3,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 2,
+     "in_pipeline_vocabulary": false
+    },
+    "omics.amazonaws.com": {
+     "rows": 3,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 2,
+     "in_pipeline_vocabulary": false
+    },
+    "mediastore.amazonaws.com": {
+     "rows": 3,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "profile.amazonaws.com": {
+     "rows": 3,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "lex.amazonaws.com": {
+     "rows": 3,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "healthlake.amazonaws.com": {
+     "rows": 2,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "directconnect.amazonaws.com": {
+     "rows": 2,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "dlm.amazonaws.com": {
+     "rows": 2,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "acm.amazonaws.com": {
+     "rows": 2,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "ssm-incidents.amazonaws.com": {
+     "rows": 2,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "codebuild.amazonaws.com": {
+     "rows": 2,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "pipes.amazonaws.com": {
+     "rows": 2,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "servicediscovery.amazonaws.com": {
+     "rows": 2,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "appsync.amazonaws.com": {
+     "rows": 2,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "codecommit.amazonaws.com": {
+     "rows": 2,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "cloud9.amazonaws.com": {
+     "rows": 2,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "elasticfilesystem.amazonaws.com": {
+     "rows": 2,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 2,
+     "in_pipeline_vocabulary": false
+    },
+    "codeguru-reviewer.amazonaws.com": {
+     "rows": 2,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "codepipeline.amazonaws.com": {
+     "rows": 2,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 2,
+     "in_pipeline_vocabulary": false
+    },
+    "scheduler.amazonaws.com": {
+     "rows": 2,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "macie2.amazonaws.com": {
+     "rows": 2,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "fsx.amazonaws.com": {
+     "rows": 2,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "comprehend.amazonaws.com": {
+     "rows": 2,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 2,
+     "in_pipeline_vocabulary": false
+    },
+    "oam.amazonaws.com": {
+     "rows": 1,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "ecr.amazonaws.com": {
+     "rows": 1,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "cleanrooms.amazonaws.com": {
+     "rows": 1,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "cognito-identity.amazonaws.com": {
+     "rows": 1,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "appflow.amazonaws.com": {
+     "rows": 1,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "cognito-idp.amazonaws.com": {
+     "rows": 1,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "rekognition.amazonaws.com": {
+     "rows": 1,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "sns.amazonaws.com": {
+     "rows": 1,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "schemas.amazonaws.com": {
+     "rows": 1,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "dynamodb.amazonaws.com": {
+     "rows": 1,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "rum.amazonaws.com": {
+     "rows": 1,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "mapcredits.amazonaws.com": {
+     "rows": 1,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "chime.amazonaws.com": {
+     "rows": 1,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "dataexchange.amazonaws.com": {
+     "rows": 1,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "finspace.amazonaws.com": {
+     "rows": 1,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "qconnect.amazonaws.com": {
+     "rows": 1,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "route53domains.amazonaws.com": {
+     "rows": 1,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "workspaces.amazonaws.com": {
+     "rows": 1,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "kendra-ranking.amazonaws.com": {
+     "rows": 1,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "storagegateway.amazonaws.com": {
+     "rows": 1,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    }
+   },
+   "role": "real labelled CloudTrail, dev split (thresholds/weights tuned here)"
+  },
+  {
+   "path": "datasets/privilege-escalation/real_dataset_test.csv",
+   "format": "csv (utf-8, header row, one CloudTrail event per row)",
+   "bytes": 16936344,
+   "sha256": "af97fe6c6897dd2c8ce7c1eae645b0ba23b93ae8aaf0d40ac61b155e1d5f25b5",
+   "rows": 31837,
+   "columns": [
+    "timestamp",
+    "event_name",
+    "event_source",
+    "aws_region",
+    "source_ip",
+    "error_code",
+    "label",
+    "attack_technique",
+    "read_only",
+    "user_agent",
+    "access_key_id",
+    "mfa_authenticated",
+    "target_resource",
+    "request_params_raw",
+    "principal_type",
+    "principal_arn",
+    "username",
+    "session_label",
+    "data_source",
+    "session_id"
+   ],
+   "label_counts": {
+    "0": 28385,
+    "1": 3452
+   },
+   "attack_tactic_counts_for_label_1": {
+    "credential-access": 3146,
+    "persistence": 151,
+    "privilege-escalation": 106,
+    "defense-evasion": 45,
+    "exfiltration": 4
+   },
+   "principal_type_counts": {
+    "IAMUser": 19323,
+    "AWSService": 6478,
+    "AssumedRole": 5101,
+    "Root": 509,
+    "unknown": 426
+   },
+   "collector_counts": {
+    "stratus_udita2": 9450,
+    "stratus_vansh": 8541,
+    "stratus_nandan": 5759,
+    "stratus_akshaya": 5525,
+    "invictus_2023": 2562
+   },
+   "region_counts": {
+    "us-east-1": 27061,
+    "eu-north-1": 2740,
+    "ap-south-1": 2033,
+    "us-west-2": 3
+   },
+   "distinct_event_sources": 173,
+   "distinct_event_names": 677,
+   "event_sources": {
+    "ssm.amazonaws.com": {
+     "rows": 7716,
+     "attack_labelled_rows": 2206,
+     "distinct_event_names": 14,
+     "in_pipeline_vocabulary": true,
+     "event_names": {
+      "DescribeParameters": 1672,
+      "GetParameters": 1301,
+      "GetParameter": 1258,
+      "ListTagsForResource": 1258,
+      "DeleteParameter": 1129,
+      "PutParameter": 1040,
+      "DescribeInstanceInformation": 29,
+      "DescribeMaintenanceWindows": 12,
+      "ListResourceDataSync": 6,
+      "DescribeSessions": 3,
+      "GetCommandInvocation": 2,
+      "ListAssociations": 2,
+      "ListDocuments": 2,
+      "SendCommand": 2
+     }
+    },
+    "sts.amazonaws.com": {
+     "rows": 4880,
+     "attack_labelled_rows": 128,
+     "distinct_event_names": 2,
+     "in_pipeline_vocabulary": true,
+     "event_names": {
+      "AssumeRole": 4742,
+      "GetCallerIdentity": 138
+     }
+    },
+    "s3.amazonaws.com": {
+     "rows": 3409,
+     "attack_labelled_rows": 4,
+     "distinct_event_names": 31,
+     "in_pipeline_vocabulary": true,
+     "event_names": {
+      "GetBucketAcl": 1893,
+      "GetBucketTagging": 136,
+      "GetBucketLogging": 130,
+      "GetBucketEncryption": 109,
+      "GetBucketPolicy": 97,
+      "GetAccelerateConfiguration": 93,
+      "GetBucketCors": 93,
+      "GetBucketVersioning": 93,
+      "GetBucketWebsite": 93,
+      "GetBucketLifecycle": 92,
+      "GetBucketObjectLockConfiguration": 92,
+      "GetBucketRequestPayment": 92,
+      "GetBucketReplication": 91,
+      "DeleteBucket": 80,
+      "CreateBucket": 45,
+      "PutBucketTagging": 45,
+      "PutBucketPolicy": 27,
+      "ListAccessPoints": 19,
+      "GetBucketPolicyStatus": 16,
+      "GetBucketPublicAccessBlock": 16,
+      "ListBuckets": 16,
+      "ListStorageLensConfigurations": 11,
+      "GetBucketLocation": 8,
+      "ListStorageLensGroups": 6,
+      "GetStorageLensConfiguration": 4,
+      "GetStorageLensDashboardDataInternal": 4,
+      "ListMultiRegionAccessPoints": 3,
+      "GetAccountPublicAccessBlock": 2,
+      "DeleteBucketLifecycle": 1,
+      "DeleteBucketPolicy": 1,
+      "PutBucketLifecycle": 1
+     }
+    },
+    "kms.amazonaws.com": {
+     "rows": 3358,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 4,
+     "in_pipeline_vocabulary": true,
+     "event_names": {
+      "Decrypt": 2533,
+      "Encrypt": 630,
+      "GenerateDataKey": 192,
+      "ListKeys": 3
+     }
+    },
+    "secretsmanager.amazonaws.com": {
+     "rows": 2864,
+     "attack_labelled_rows": 590,
+     "distinct_event_names": 9,
+     "in_pipeline_vocabulary": true,
+     "event_names": {
+      "DescribeSecret": 731,
+      "GetSecretValue": 678,
+      "GetResourcePolicy": 403,
+      "DeleteSecret": 231,
+      "EndSecretVersionDelete": 211,
+      "StartSecretVersionDelete": 211,
+      "PutSecretValue": 194,
+      "CreateSecret": 190,
+      "ListSecrets": 15
+     }
+    },
+    "iam.amazonaws.com": {
+     "rows": 2615,
+     "attack_labelled_rows": 201,
+     "distinct_event_names": 58,
+     "in_pipeline_vocabulary": true,
+     "event_names": {
+      "GetUser": 732,
+      "GetRole": 223,
+      "ListRolePolicies": 159,
+      "ListAttachedRolePolicies": 153,
+      "CreateUser": 92,
+      "ListAccessKeys": 87,
+      "DeleteUser": 86,
+      "CreateRole": 85,
+      "DeleteRole": 80,
+      "DetachUserPolicy": 77,
+      "DeleteLoginProfile": 65,
+      "ListVirtualMFADevices": 51,
+      "AttachUserPolicy": 47,
+      "ListGroupsForUser": 45,
+      "ListMFADevices": 45,
+      "ListSSHPublicKeys": 43,
+      "ListSigningCertificates": 43,
+      "DeleteRolePolicy": 42,
+      "GetRolePolicy": 42,
+      "ListServiceSpecificCredentials": 42,
+      "PutRolePolicy": 42,
+      "ListInstanceProfilesForRole": 38,
+      "DeleteAccessKey": 36,
+      "ListAttachedUserPolicies": 32,
+      "CreateAccessKey": 25,
+      "CreateLoginProfile": 22,
+      "AttachRolePolicy": 21,
+      "GetAccessKeyLastUsed": 20,
+      "DetachRolePolicy": 18,
+      "UpdateLoginProfile": 15,
+      "GetLoginProfile": 14,
+      "ListUsers": 14,
+      "ListRoles": 9,
+      "GetInstanceProfile": 7,
+      "GetPolicy": 7,
+      "ListPolicies": 5,
+      "GetPolicyVersion": 4,
+      "ListEntitiesForPolicy": 4,
+      "ListSAMLProviders": 4,
+      "ListUserTags": 4,
+      "AddRoleToInstanceProfile": 3,
+      "CreateInstanceProfile": 3,
+      "DeleteInstanceProfile": 3,
+      "RemoveRoleFromInstanceProfile": 3,
+      "TagInstanceProfile": 3,
+      "CreatePolicy": 2,
+      "DeletePolicy": 2,
+      "GetAccountSummary": 2,
+      "ListPolicyVersions": 2,
+      "ListUserPolicies": 2,
+      "UpdateAccessKey": 2,
+      "UpdateAssumeRolePolicy": 2,
+      "GetAccountAuthorizationDetails": 1,
+      "ListAccountAliases": 1,
+      "ListGroups": 1,
+      "ListInstanceProfiles": 1,
+      "ListOpenIDConnectProviders": 1,
+      "ListServerCertificates": 1
+     }
+    },
+    "ec2.amazonaws.com": {
+     "rows": 1915,
+     "attack_labelled_rows": 270,
+     "distinct_event_names": 121,
+     "in_pipeline_vocabulary": true,
+     "event_names": {
+      "DescribeAccountAttributes": 472,
+      "GetPasswordData": 270,
+      "DescribeRouteTables": 136,
+      "DescribeSecurityGroupRules": 130,
+      "DescribeNatGateways": 52,
+      "DescribeSubnets": 49,
+      "DescribeVpcs": 44,
+      "DescribeNetworkAcls": 42,
+      "DescribeSecurityGroups": 42,
+      "DescribeVpcAttribute": 30,
+      "DescribeInstanceAttribute": 25,
+      "DescribeInternetGateways": 25,
+      "DescribeAvailabilityZones": 24,
+      "DescribeAddresses": 22,
+      "DescribeInstances": 22,
+      "DescribeImages": 21,
+      "DescribeNetworkInterfaces": 21,
+      "DescribeVolumes": 20,
+      "DescribeVpcClassicLink": 20,
+      "DescribeVpcClassicLinkDnsSupport": 20,
+      "DescribeDhcpOptions": 19,
+      "DescribeSnapshots": 13,
+      "GetSubnetCidrReservations": 12,
+      "AssociateRouteTable": 10,
+      "CreateRouteTable": 10,
+      "CreateSubnet": 10,
+      "CreateVpc": 10,
+      "DeleteRouteTable": 10,
+      "DescribeKeyPairs": 10,
+      "DescribeFpgaImages": 9,
+      "DescribeRegions": 9,
+      "DisassociateRouteTable": 9,
+      "DeleteSubnet": 8,
+      "RunInstances": 8,
+      "DescribeTrafficMirrorFilters": 7,
+      "DescribeVpcPeeringConnections": 7,
+      "CreateRoute": 6,
+      "DeleteVpc": 6,
+      "DescribeHostReservations": 6,
+      "DescribeHosts": 6,
+      "DescribeIpamScopes": 6,
+      "DescribeNetworkInsightsAccessScopes": 6,
+      "DescribePublicIpv4Pools": 6,
+      "DescribeTransitGatewayRouteTableAnnouncements": 6,
+      "DescribeVpnGateways": 6,
+      "DeleteRoute": 5,
+      "DescribeCustomerGateways": 5,
+      "DescribeEgressOnlyInternetGateways": 5,
+      "DescribeFlowLogs": 5,
+      "DescribeIpamResourceDiscoveryAssociations": 5,
+      "DescribeTags": 5,
+      "DescribeTransitGatewayConnectPeers": 5,
+      "DescribeVerifiedAccessEndpoints": 5,
+      "DescribeVpcEndpoints": 5,
+      "AttachInternetGateway": 4,
+      "CreateInternetGateway": 4,
+      "DeleteInternetGateway": 4,
+      "DescribeInstanceCreditSpecifications": 4,
+      "DescribeNetworkInsightsAccessScopeAnalyses": 4,
+      "DescribePlacementGroups": 4,
+      "DescribeReservedInstances": 4,
+      "DescribeTrafficMirrorTargets": 4,
+      "DescribeTransitGatewayAttachments": 4,
+      "DescribeVerifiedAccessGroups": 4,
+      "DescribeVpnConnections": 4,
+      "AllocateAddress": 3,
+      "CreateNetworkInterface": 3,
+      "DeleteNetworkInterface": 3,
+      "DescribeAddressTransfers": 3,
+      "DescribeAddressesAttribute": 3,
+      "DescribeCapacityReservationFleets": 3,
+      "DescribeClientVpnEndpoints": 3,
+      "DescribeFleets": 3,
+      "DescribeInstanceEventWindows": 3,
+      "DescribeIpamPools": 3,
+      "DescribeIpamResourceDiscoveries": 3,
+      "DescribeIpams": 3,
+      "DescribeLaunchTemplates": 3,
+      "DescribeManagedPrefixLists": 3,
+      "DescribeNetworkInsightsAnalyses": 3,
+      "DescribeNetworkInsightsPaths": 3,
+      "DescribeSpotInstanceRequests": 3,
+      "DescribeTrafficMirrorSessions": 3,
+      "DescribeTransitGatewayMulticastDomains": 3,
+      "DescribeTransitGatewayPolicyTables": 3,
+      "DescribeTransitGatewayRouteTables": 3,
+      "DescribeTransitGateways": 3,
+      "DescribeVerifiedAccessTrustProviders": 3,
+      "DetachInternetGateway": 3,
+      "ReleaseAddress": 3,
+      "AuthorizeSecurityGroupIngress": 2,
+      "AutomatedDefaultVpcCreation": 2,
+      "CreateDefaultVpcResourceCreation": 2,
+      "CreateNatGateway": 2,
+      "CreateSnapshot": 2,
+      "CreateVolume": 2,
+      "DeleteNatGateway": 2,
+      "DeleteSnapshot": 2,
+      "DeleteVolume": 2,
+      "DescribeCapacityReservations": 2,
+      "DescribeCarrierGateways": 2,
+      "DescribeSpotFleetRequests": 2,
+      "DescribeVerifiedAccessInstances": 2,
+      "ModifyImageAttribute": 2,
+      "ModifyInstanceAttribute": 2,
+      "ModifySnapshotAttribute": 2,
+      "RevokeSecurityGroupEgress": 2,
+      "TerminateInstances": 2,
+      "AuthorizeSecurityGroupEgress": 1,
+      "CreateFlowLogs": 1,
+      "CreateSecurityGroup": 1,
+      "CreateTags": 1,
+      "DeleteFlowLogs": 1,
+      "DeleteSecurityGroup": 1,
+      "DeregisterImage": 1,
+      "DescribeInstanceStatus": 1,
+      "DescribeVolumeStatus": 1,
+      "DescribeVpcEndpointServiceConfigurations": 1,
+      "DetachNetworkInterface": 1,
+      "RegisterImage": 1,
+      "RevokeSecurityGroupIngress": 1
+     }
+    },
+    "cloudcontrolapi.amazonaws.com": {
+     "rows": 692,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 2,
+     "in_pipeline_vocabulary": false
+    },
+    "cloudtrail.amazonaws.com": {
+     "rows": 405,
+     "attack_labelled_rows": 45,
+     "distinct_event_names": 14,
+     "in_pipeline_vocabulary": true,
+     "event_names": {
+      "DescribeTrails": 77,
+      "GetTrailStatus": 54,
+      "GetEventSelectors": 52,
+      "ListTags": 52,
+      "StartLogging": 42,
+      "DeleteTrail": 30,
+      "PutEventSelectors": 28,
+      "CreateTrail": 25,
+      "StopLogging": 19,
+      "ListTrails": 9,
+      "ListChannels": 5,
+      "ListDashboards": 5,
+      "ListEventDataStores": 5,
+      "LookupEvents": 2
+     }
+    },
+    "lambda.amazonaws.com": {
+     "rows": 279,
+     "attack_labelled_rows": 8,
+     "distinct_event_names": 16,
+     "in_pipeline_vocabulary": true,
+     "event_names": {
+      "GetFunction20150331v2": 75,
+      "GetFunctionCodeSigningConfig": 38,
+      "ListVersionsByFunction20150331": 36,
+      "CreateFunction20150331": 27,
+      "GetFunctionConfiguration20150331v2": 25,
+      "DeleteFunction20150331": 17,
+      "RemovePermission20150331v2": 16,
+      "ListFunctions20150331": 12,
+      "AddPermission20150331v2": 11,
+      "ListLayers20181031": 6,
+      "GetAccountSettings20160819": 3,
+      "GetFunctionRecursionConfig": 3,
+      "GetRuntimeManagementConfig": 3,
+      "ListCodeSigningConfigs": 3,
+      "ListEventSourceMappings20150331": 2,
+      "UpdateFunctionCode20150331v2": 2
+     }
+    },
+    "rds.amazonaws.com": {
+     "rows": 271,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 32,
+     "in_pipeline_vocabulary": true,
+     "event_names": {
+      "DescribeOrderableDBInstanceOptions": 45,
+      "DescribeDBInstances": 43,
+      "DescribeDBEngineVersions": 27,
+      "DescribeDBSnapshots": 20,
+      "DescribeDBClusters": 17,
+      "DescribeEventSubscriptions": 14,
+      "DescribeDBClusterSnapshots": 12,
+      "DescribeDBClusterParameterGroups": 11,
+      "DescribeDBSubnetGroups": 11,
+      "DescribeDBClusterEndpoints": 6,
+      "DescribeDBParameterGroups": 6,
+      "DescribeOptionGroups": 6,
+      "ListTagsForResource": 6,
+      "DescribeBlueGreenDeployments": 5,
+      "DescribeGlobalClusters": 5,
+      "DescribeReservedDBInstances": 5,
+      "DescribeDBInstanceAutomatedBackups": 4,
+      "DescribeDBProxyEndpoints": 4,
+      "DescribeRecommendations": 4,
+      "DescribeDBProxies": 3,
+      "DescribeDBSecurityGroups": 3,
+      "DeleteDBInstance": 2,
+      "DescribeRecommendationGroups": 2,
+      "ModifyDBSnapshotAttribute": 2,
+      "CreateDBInstance": 1,
+      "CreateDBSnapshot": 1,
+      "CreateDBSubnetGroup": 1,
+      "DeleteDBSnapshot": 1,
+      "DescribeAccountAttributes": 1,
+      "DescribeCertificates": 1,
+      "DescribeEvents": 1,
+      "DescribePendingMaintenanceActions": 1
+     }
+    },
+    "notifications.amazonaws.com": {
+     "rows": 196,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 2,
+     "in_pipeline_vocabulary": true,
+     "event_names": {
+      "ListManagedNotificationEvents": 183,
+      "ListNotificationHubs": 13
+     }
+    },
+    "sagemaker.amazonaws.com": {
+     "rows": 163,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 37,
+     "in_pipeline_vocabulary": false
+    },
+    "guardduty.amazonaws.com": {
+     "rows": 156,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 5,
+     "in_pipeline_vocabulary": false
+    },
+    "glue.amazonaws.com": {
+     "rows": 141,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 7,
+     "in_pipeline_vocabulary": false
+    },
+    "eks.amazonaws.com": {
+     "rows": 122,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 2,
+     "in_pipeline_vocabulary": false
+    },
+    "ce.amazonaws.com": {
+     "rows": 112,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 13,
+     "in_pipeline_vocabulary": true,
+     "event_names": {
+      "GetCostAndUsage": 27,
+      "GetAnomalyMonitors": 18,
+      "GetAnomalySubscriptions": 10,
+      "GetAnomalies": 9,
+      "GetReservationUtilization": 9,
+      "GetSavingsPlansUtilizationDetails": 9,
+      "GetConsoleActionSetEnforced": 6,
+      "GetCostCategories": 6,
+      "GetTags": 6,
+      "GetCostForecast": 5,
+      "GetCostAndUsageComparisons": 3,
+      "GetPreferences": 3,
+      "GetDimensionValues": 1
+     }
+    },
+    "emr-containers.amazonaws.com": {
+     "rows": 100,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 3,
+     "in_pipeline_vocabulary": false
+    },
+    "mediatailor.amazonaws.com": {
+     "rows": 98,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 3,
+     "in_pipeline_vocabulary": false
+    },
+    "refactor-spaces.amazonaws.com": {
+     "rows": 96,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "kendra.amazonaws.com": {
+     "rows": 74,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "iot.amazonaws.com": {
+     "rows": 65,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 18,
+     "in_pipeline_vocabulary": false
+    },
+    "groundstation.amazonaws.com": {
+     "rows": 61,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 3,
+     "in_pipeline_vocabulary": false
+    },
+    "health.amazonaws.com": {
+     "rows": 51,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "mediaconnect.amazonaws.com": {
+     "rows": 50,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 2,
+     "in_pipeline_vocabulary": false
+    },
+    "cloudformation.amazonaws.com": {
+     "rows": 49,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 3,
+     "in_pipeline_vocabulary": false
+    },
+    "elasticache.amazonaws.com": {
+     "rows": 48,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 9,
+     "in_pipeline_vocabulary": false
+    },
+    "kafka.amazonaws.com": {
+     "rows": 47,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 2,
+     "in_pipeline_vocabulary": false
+    },
+    "resiliencehub.amazonaws.com": {
+     "rows": 46,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 2,
+     "in_pipeline_vocabulary": false
+    },
+    "codeartifact.amazonaws.com": {
+     "rows": 46,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 2,
+     "in_pipeline_vocabulary": false
+    },
+    "budgets.amazonaws.com": {
+     "rows": 43,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 4,
+     "in_pipeline_vocabulary": true,
+     "event_names": {
+      "DescribeBudgets": 31,
+      "DescribeBudgetNotificationsForAccount": 8,
+      "CreateBudget": 2,
+      "DescribeBudgetActionsForAccount": 2
+     }
+    },
+    "fis.amazonaws.com": {
+     "rows": 42,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 2,
+     "in_pipeline_vocabulary": false
+    },
+    "elasticloadbalancing.amazonaws.com": {
+     "rows": 40,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 2,
+     "in_pipeline_vocabulary": true,
+     "event_names": {
+      "DescribeLoadBalancers": 37,
+      "DescribeTargetGroups": 3
+     }
+    },
+    "transfer.amazonaws.com": {
+     "rows": 40,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 5,
+     "in_pipeline_vocabulary": false
+    },
+    "apigateway.amazonaws.com": {
+     "rows": 40,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 3,
+     "in_pipeline_vocabulary": false
+    },
+    "bedrock.amazonaws.com": {
+     "rows": 38,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 8,
+     "in_pipeline_vocabulary": false
+    },
+    "events.amazonaws.com": {
+     "rows": 35,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 6,
+     "in_pipeline_vocabulary": false
+    },
+    "resource-explorer-2.amazonaws.com": {
+     "rows": 34,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 5,
+     "in_pipeline_vocabulary": false
+    },
+    "iotfleetwise.amazonaws.com": {
+     "rows": 33,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 4,
+     "in_pipeline_vocabulary": false
+    },
+    "memorydb.amazonaws.com": {
+     "rows": 32,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 5,
+     "in_pipeline_vocabulary": false
+    },
+    "wafv2.amazonaws.com": {
+     "rows": 30,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 4,
+     "in_pipeline_vocabulary": false
+    },
+    "profile.amazonaws.com": {
+     "rows": 28,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "forecast.amazonaws.com": {
+     "rows": 27,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 7,
+     "in_pipeline_vocabulary": false
+    },
+    "verifiedpermissions.amazonaws.com": {
+     "rows": 27,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "outposts.amazonaws.com": {
+     "rows": 25,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "appmesh.amazonaws.com": {
+     "rows": 24,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "imagebuilder.amazonaws.com": {
+     "rows": 24,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 7,
+     "in_pipeline_vocabulary": false
+    },
+    "inspector2.amazonaws.com": {
+     "rows": 24,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "ivs.amazonaws.com": {
+     "rows": 23,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 7,
+     "in_pipeline_vocabulary": false
+    },
+    "emr-serverless.amazonaws.com": {
+     "rows": 23,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "athena.amazonaws.com": {
+     "rows": 23,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 2,
+     "in_pipeline_vocabulary": false
+    },
+    "vpc-lattice.amazonaws.com": {
+     "rows": 22,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 3,
+     "in_pipeline_vocabulary": false
+    },
+    "detective.amazonaws.com": {
+     "rows": 22,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "m2.amazonaws.com": {
+     "rows": 22,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "iotwireless.amazonaws.com": {
+     "rows": 22,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 9,
+     "in_pipeline_vocabulary": false
+    },
+    "cleanrooms.amazonaws.com": {
+     "rows": 22,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "route53resolver.amazonaws.com": {
+     "rows": 21,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 6,
+     "in_pipeline_vocabulary": false
+    },
+    "freetier.amazonaws.com": {
+     "rows": 21,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 2,
+     "in_pipeline_vocabulary": true,
+     "event_names": {
+      "GetAccountPlanState": 15,
+      "GetFreeTierUsage": 6
+     }
+    },
+    "databrew.amazonaws.com": {
+     "rows": 21,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 6,
+     "in_pipeline_vocabulary": false
+    },
+    "connect.amazonaws.com": {
+     "rows": 20,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 2,
+     "in_pipeline_vocabulary": false
+    },
+    "airflow.amazonaws.com": {
+     "rows": 20,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "dms.amazonaws.com": {
+     "rows": 20,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 6,
+     "in_pipeline_vocabulary": false
+    },
+    "cloudfront.amazonaws.com": {
+     "rows": 20,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 11,
+     "in_pipeline_vocabulary": false
+    },
+    "iotsitewise.amazonaws.com": {
+     "rows": 19,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 3,
+     "in_pipeline_vocabulary": false
+    },
+    "ecs.amazonaws.com": {
+     "rows": 19,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 3,
+     "in_pipeline_vocabulary": false
+    },
+    "dataexchange.amazonaws.com": {
+     "rows": 19,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "payments.amazonaws.com": {
+     "rows": 18,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 3,
+     "in_pipeline_vocabulary": false
+    },
+    "mediapackage.amazonaws.com": {
+     "rows": 18,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 5,
+     "in_pipeline_vocabulary": false
+    },
+    "codeguru-reviewer.amazonaws.com": {
+     "rows": 18,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "greengrass.amazonaws.com": {
+     "rows": 17,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 9,
+     "in_pipeline_vocabulary": false
+    },
+    "batch.amazonaws.com": {
+     "rows": 17,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 4,
+     "in_pipeline_vocabulary": false
+    },
+    "ses.amazonaws.com": {
+     "rows": 17,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 4,
+     "in_pipeline_vocabulary": false
+    },
+    "cost-optimization-hub.amazonaws.com": {
+     "rows": 16,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "xray.amazonaws.com": {
+     "rows": 16,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "appconfig.amazonaws.com": {
+     "rows": 16,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 3,
+     "in_pipeline_vocabulary": false
+    },
+    "quicksight.amazonaws.com": {
+     "rows": 16,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "apprunner.amazonaws.com": {
+     "rows": 15,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 3,
+     "in_pipeline_vocabulary": false
+    },
+    "amplify.amazonaws.com": {
+     "rows": 14,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "autoscaling.amazonaws.com": {
+     "rows": 13,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "organizations.amazonaws.com": {
+     "rows": 13,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 3,
+     "in_pipeline_vocabulary": false
+    },
+    "monitoring.amazonaws.com": {
+     "rows": 13,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 4,
+     "in_pipeline_vocabulary": false
+    },
+    "elasticbeanstalk.amazonaws.com": {
+     "rows": 13,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 3,
+     "in_pipeline_vocabulary": false
+    },
+    "logs.amazonaws.com": {
+     "rows": 12,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 5,
+     "in_pipeline_vocabulary": false
+    },
+    "bcm-recommended-actions.amazonaws.com": {
+     "rows": 12,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "access-analyzer.amazonaws.com": {
+     "rows": 12,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 2,
+     "in_pipeline_vocabulary": false
+    },
+    "auditmanager.amazonaws.com": {
+     "rows": 12,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "partnercentral-selling.amazonaws.com": {
+     "rows": 12,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 4,
+     "in_pipeline_vocabulary": false
+    },
+    "iottwinmaker.amazonaws.com": {
+     "rows": 11,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "personalize.amazonaws.com": {
+     "rows": 11,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 4,
+     "in_pipeline_vocabulary": false
+    },
+    "grafana.amazonaws.com": {
+     "rows": 11,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "ram.amazonaws.com": {
+     "rows": 10,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 3,
+     "in_pipeline_vocabulary": false
+    },
+    "amazonmq.amazonaws.com": {
+     "rows": 10,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 2,
+     "in_pipeline_vocabulary": false
+    },
+    "config.amazonaws.com": {
+     "rows": 10,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "qconnect.amazonaws.com": {
+     "rows": 10,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 2,
+     "in_pipeline_vocabulary": false
+    },
+    "proton.amazonaws.com": {
+     "rows": 10,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 3,
+     "in_pipeline_vocabulary": false
+    },
+    "account.amazonaws.com": {
+     "rows": 9,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 2,
+     "in_pipeline_vocabulary": true,
+     "event_names": {
+      "GetAlternateContact": 6,
+      "GetRegionOptStatus": 3
+     }
+    },
+    "synthetics.amazonaws.com": {
+     "rows": 9,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 2,
+     "in_pipeline_vocabulary": false
+    },
+    "network-firewall.amazonaws.com": {
+     "rows": 9,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 3,
+     "in_pipeline_vocabulary": false
+    },
+    "servicecatalog-appregistry.amazonaws.com": {
+     "rows": 8,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 2,
+     "in_pipeline_vocabulary": false
+    },
+    "backup.amazonaws.com": {
+     "rows": 8,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 3,
+     "in_pipeline_vocabulary": false
+    },
+    "codestar-connections.amazonaws.com": {
+     "rows": 8,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 2,
+     "in_pipeline_vocabulary": false
+    },
+    "managedblockchain.amazonaws.com": {
+     "rows": 8,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "redshift.amazonaws.com": {
+     "rows": 8,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 4,
+     "in_pipeline_vocabulary": false
+    },
+    "billing.amazonaws.com": {
+     "rows": 7,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "oam.amazonaws.com": {
+     "rows": 7,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "aps.amazonaws.com": {
+     "rows": 7,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "schemas.amazonaws.com": {
+     "rows": 7,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "ds.amazonaws.com": {
+     "rows": 7,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "app-integrations.amazonaws.com": {
+     "rows": 7,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 2,
+     "in_pipeline_vocabulary": false
+    },
+    "gamelift.amazonaws.com": {
+     "rows": 7,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 3,
+     "in_pipeline_vocabulary": false
+    },
+    "rolesanywhere.amazonaws.com": {
+     "rows": 6,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 6,
+     "in_pipeline_vocabulary": false
+    },
+    "uxc.amazonaws.com": {
+     "rows": 6,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "tax.amazonaws.com": {
+     "rows": 6,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 2,
+     "in_pipeline_vocabulary": false
+    },
+    "chime.amazonaws.com": {
+     "rows": 6,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "codepipeline.amazonaws.com": {
+     "rows": 6,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 2,
+     "in_pipeline_vocabulary": false
+    },
+    "pinpoint.amazonaws.com": {
+     "rows": 6,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 2,
+     "in_pipeline_vocabulary": false
+    },
+    "macie2.amazonaws.com": {
+     "rows": 6,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "chime-sdk-media-pipelines.amazonaws.com": {
+     "rows": 6,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 2,
+     "in_pipeline_vocabulary": false
+    },
+    "elasticfilesystem.amazonaws.com": {
+     "rows": 6,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 2,
+     "in_pipeline_vocabulary": false
+    },
+    "states.amazonaws.com": {
+     "rows": 6,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 2,
+     "in_pipeline_vocabulary": false
+    },
+    "wellarchitected.amazonaws.com": {
+     "rows": 6,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "resource-groups.amazonaws.com": {
+     "rows": 6,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "dlm.amazonaws.com": {
+     "rows": 6,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "omics.amazonaws.com": {
+     "rows": 6,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 3,
+     "in_pipeline_vocabulary": false
+    },
+    "comprehend.amazonaws.com": {
+     "rows": 6,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 2,
+     "in_pipeline_vocabulary": false
+    },
+    "healthlake.amazonaws.com": {
+     "rows": 5,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "acm-pca.amazonaws.com": {
+     "rows": 5,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "aoss.amazonaws.com": {
+     "rows": 5,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "bedrock-agentcore.amazonaws.com": {
+     "rows": 5,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "datasync.amazonaws.com": {
+     "rows": 5,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 2,
+     "in_pipeline_vocabulary": false
+    },
+    "ssm-incidents.amazonaws.com": {
+     "rows": 5,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "lex.amazonaws.com": {
+     "rows": 5,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "route53.amazonaws.com": {
+     "rows": 4,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 2,
+     "in_pipeline_vocabulary": false
+    },
+    "signin.amazonaws.com": {
+     "rows": 4,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 2,
+     "in_pipeline_vocabulary": false
+    },
+    "devops-guru.amazonaws.com": {
+     "rows": 4,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 2,
+     "in_pipeline_vocabulary": false
+    },
+    "sns.amazonaws.com": {
+     "rows": 4,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "dynamodb.amazonaws.com": {
+     "rows": 4,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "s3express.amazonaws.com": {
+     "rows": 4,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "appsync.amazonaws.com": {
+     "rows": 4,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "rum.amazonaws.com": {
+     "rows": 4,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "codecommit.amazonaws.com": {
+     "rows": 4,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "ivschat.amazonaws.com": {
+     "rows": 4,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 2,
+     "in_pipeline_vocabulary": false
+    },
+    "workspaces.amazonaws.com": {
+     "rows": 4,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 2,
+     "in_pipeline_vocabulary": false
+    },
+    "billingconsole.amazonaws.com": {
+     "rows": 3,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "acm.amazonaws.com": {
+     "rows": 3,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "codebuild.amazonaws.com": {
+     "rows": 3,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "cognito-idp.amazonaws.com": {
+     "rows": 3,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "cognito-identity.amazonaws.com": {
+     "rows": 3,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "pipes.amazonaws.com": {
+     "rows": 3,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "ecr.amazonaws.com": {
+     "rows": 3,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "codeguru-profiler.amazonaws.com": {
+     "rows": 3,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "signer.amazonaws.com": {
+     "rows": 3,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "servicediscovery.amazonaws.com": {
+     "rows": 3,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "cloud9.amazonaws.com": {
+     "rows": 3,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "es.amazonaws.com": {
+     "rows": 3,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "route53domains.amazonaws.com": {
+     "rows": 3,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "workspaces-web.amazonaws.com": {
+     "rows": 3,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "finspace.amazonaws.com": {
+     "rows": 3,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "fsx.amazonaws.com": {
+     "rows": 2,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "backup-gateway.amazonaws.com": {
+     "rows": 2,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "codeconnections.amazonaws.com": {
+     "rows": 2,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "scheduler.amazonaws.com": {
+     "rows": 2,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "chime-sdk-voice.amazonaws.com": {
+     "rows": 2,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 2,
+     "in_pipeline_vocabulary": false
+    },
+    "iotdeviceadvisor.amazonaws.com": {
+     "rows": 2,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "kendra-ranking.amazonaws.com": {
+     "rows": 2,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "storagegateway.amazonaws.com": {
+     "rows": 2,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "directconnect.amazonaws.com": {
+     "rows": 2,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "securityhub.amazonaws.com": {
+     "rows": 1,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "datapipeline.amazonaws.com": {
+     "rows": 1,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "appflow.amazonaws.com": {
+     "rows": 1,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "ecr-public.amazonaws.com": {
+     "rows": 1,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "rekognition.amazonaws.com": {
+     "rows": 1,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    },
+    "sso.amazonaws.com": {
+     "rows": 1,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": false
+    }
+   },
+   "role": "real labelled CloudTrail, held-out test split (also the demo feed)"
+  },
+  {
+   "path": "datasets/privilege-escalation/synthetic_cloudtrail.csv",
+   "format": "csv (utf-8, header row, one CloudTrail event per row)",
+   "bytes": 3574892,
+   "sha256": "42c5ad12551bc1b2ee6d8c1260490da0eda77753af5a07bfb3c9ca45e6214ac2",
+   "rows": 11753,
+   "columns": [
+    "timestamp",
+    "event_name",
+    "event_source",
+    "aws_region",
+    "source_ip",
+    "error_code",
+    "label",
+    "attack_technique",
+    "read_only",
+    "user_agent",
+    "access_key_id",
+    "mfa_authenticated",
+    "target_resource",
+    "request_params_raw",
+    "principal_type",
+    "principal_arn",
+    "username",
+    "session_label",
+    "synthetic",
+    "campaign_id",
+    "chain_name",
+    "stage_index",
+    "attack_tactic",
+    "attack_technique_id",
+    "event_uid",
+    "hop_id",
+    "parent_event_id",
+    "root_event_id",
+    "recipient_account_id",
+    "before_permissions",
+    "after_permissions"
+   ],
+   "label_counts": {
+    "0": 10727,
+    "1": 1026
+   },
+   "attack_tactic_counts_for_label_1": {
+    "credential-access": 442,
+    "privilege-escalation": 396,
+    "persistence": 164,
+    "exfiltration": 12,
+    "defense-evasion": 12
+   },
+   "principal_type_counts": {
+    "IAMUser": 8025,
+    "AWSService": 1864,
+    "AssumedRole": 1587,
+    "unknown": 158,
+    "Root": 119
+   },
+   "collector_counts": {},
+   "region_counts": {
+    "us-east-1": 11753
+   },
+   "distinct_event_sources": 17,
+   "distinct_event_names": 75,
+   "event_sources": {
+    "iam.amazonaws.com": {
+     "rows": 2428,
+     "attack_labelled_rows": 406,
+     "distinct_event_names": 28,
+     "in_pipeline_vocabulary": true,
+     "event_names": {
+      "GetRole": 219,
+      "GetUser": 201,
+      "GetRolePolicy": 133,
+      "ListAttachedUserPolicies": 125,
+      "ListAccessKeys": 123,
+      "CreateRole": 122,
+      "ListRolePolicies": 121,
+      "ListGroups": 119,
+      "ListRoles": 119,
+      "AttachRolePolicy": 116,
+      "ListUsers": 115,
+      "ListAttachedRolePolicies": 114,
+      "GetAccountSummary": 112,
+      "ListPolicies": 112,
+      "GetAccountAuthorizationDetails": 96,
+      "GetUserPolicy": 82,
+      "AttachUserPolicy": 67,
+      "ListGroupsForUser": 59,
+      "PutRolePolicy": 55,
+      "CreateUser": 53,
+      "CreateAccessKey": 45,
+      "AddUserToGroup": 27,
+      "SetDefaultPolicyVersion": 21,
+      "CreatePolicyVersion": 19,
+      "UpdateAssumeRolePolicy": 18,
+      "CreateLoginProfile": 16,
+      "PutUserPolicy": 14,
+      "GetAccountPlanState": 5
+     }
+    },
+    "ec2.amazonaws.com": {
+     "rows": 2137,
+     "attack_labelled_rows": 120,
+     "distinct_event_names": 10,
+     "in_pipeline_vocabulary": true,
+     "event_names": {
+      "DescribeInstances": 602,
+      "DescribeSecurityGroups": 344,
+      "DescribeSubnets": 297,
+      "DescribeVpcs": 253,
+      "StopInstances": 147,
+      "ModifyInstanceAttribute": 146,
+      "StartInstances": 136,
+      "GetPasswordData": 80,
+      "CreateSnapshot": 77,
+      "RebootInstances": 55
+     }
+    },
+    "s3.amazonaws.com": {
+     "rows": 1524,
+     "attack_labelled_rows": 12,
+     "distinct_event_names": 5,
+     "in_pipeline_vocabulary": true,
+     "event_names": {
+      "GetBucketAcl": 876,
+      "GetBucketPolicy": 263,
+      "GetBucketLogging": 256,
+      "ListBuckets": 103,
+      "PutBucketPolicy": 26
+     }
+    },
+    "sts.amazonaws.com": {
+     "rows": 1468,
+     "attack_labelled_rows": 154,
+     "distinct_event_names": 2,
+     "in_pipeline_vocabulary": true,
+     "event_names": {
+      "AssumeRole": 1360,
+      "GetCallerIdentity": 108
+     }
+    },
+    "ssm.amazonaws.com": {
+     "rows": 1324,
+     "attack_labelled_rows": 94,
+     "distinct_event_names": 6,
+     "in_pipeline_vocabulary": true,
+     "event_names": {
+      "GetParameter": 468,
+      "DescribeInstanceInformation": 276,
+      "SendCommand": 250,
+      "PutParameter": 236,
+      "GetParameters": 54,
+      "DescribeParameters": 40
+     }
+    },
+    "secretsmanager.amazonaws.com": {
+     "rows": 1046,
+     "attack_labelled_rows": 188,
+     "distinct_event_names": 7,
+     "in_pipeline_vocabulary": true,
+     "event_names": {
+      "GetSecretValue": 450,
+      "ListSecrets": 149,
+      "RotateSecret": 127,
+      "PutSecretValue": 122,
+      "EndSecretVersionDelete": 79,
+      "StartSecretVersionDelete": 79,
+      "DescribeSecret": 40
+     }
+    },
+    "kms.amazonaws.com": {
+     "rows": 590,
+     "attack_labelled_rows": 40,
+     "distinct_event_names": 3,
+     "in_pipeline_vocabulary": true,
+     "event_names": {
+      "ListKeys": 341,
+      "DescribeKey": 209,
+      "Decrypt": 40
+     }
+    },
+    "rds.amazonaws.com": {
+     "rows": 337,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 2,
+     "in_pipeline_vocabulary": true,
+     "event_names": {
+      "DescribeDBInstances": 260,
+      "ModifyDBInstance": 77
+     }
+    },
+    "resource-explorer-2.amazonaws.com": {
+     "rows": 267,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 3,
+     "in_pipeline_vocabulary": false
+    },
+    "elasticloadbalancing.amazonaws.com": {
+     "rows": 145,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": true,
+     "event_names": {
+      "DescribeLoadBalancers": 145
+     }
+    },
+    "lambda.amazonaws.com": {
+     "rows": 133,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": true,
+     "event_names": {
+      "ListFunctions": 133
+     }
+    },
+    "account.amazonaws.com": {
+     "rows": 128,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": true,
+     "event_names": {
+      "GetRegionOptStatus": 128
+     }
+    },
+    "cloudtrail.amazonaws.com": {
+     "rows": 112,
+     "attack_labelled_rows": 12,
+     "distinct_event_names": 2,
+     "in_pipeline_vocabulary": true,
+     "event_names": {
+      "DescribeTrails": 100,
+      "StopLogging": 12
+     }
+    },
+    "notifications.amazonaws.com": {
+     "rows": 80,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": true,
+     "event_names": {
+      "ListManagedNotificationEvents": 80
+     }
+    },
+    "ce.amazonaws.com": {
+     "rows": 19,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": true,
+     "event_names": {
+      "GetCostAndUsage": 19
+     }
+    },
+    "budgets.amazonaws.com": {
+     "rows": 10,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": true,
+     "event_names": {
+      "DescribeBudgets": 10
+     }
+    },
+    "freetier.amazonaws.com": {
+     "rows": 5,
+     "attack_labelled_rows": 0,
+     "distinct_event_names": 1,
+     "in_pipeline_vocabulary": true,
+     "event_names": {
+      "ListEnrollmentStatuses": 5
+     }
+    }
+   },
+   "role": "synthetic CloudTrail used for training (generate_synthetic_data.py)"
+  }
+ ],
+ "derived_tables": [
+  {
+   "path": "datasets/privilege-escalation/cloudtrail_structural.csv",
+   "bytes": 1622683,
+   "columns": [
+    "log_id",
+    "source_node",
+    "target_node",
+    "edge_type",
+    "label",
+    "source_node_degree",
+    "edge_interaction_count",
+    "source_node_age_normalized",
+    "source_privilege_level",
+    "source_historical_risk",
+    "target_resource_criticality",
+    "is_cross_account"
+   ]
+  },
+  {
+   "path": "datasets/privilege-escalation/cloudtrail_temporal.csv",
+   "bytes": 3655854,
+   "columns": [
+    "log_id",
+    "username",
+    "timestamp",
+    "no_mfa",
+    "mfa_absent",
+    "principal_type_prior_risk",
+    "principal_type_idx",
+    "has_access_key",
+    "action_velocity",
+    "is_new_action",
+    "session_duration_normalized",
+    "events_per_minute_normalized",
+    "time_sin",
+    "time_cos",
+    "is_weekend",
+    "is_off_hours",
+    "action_risk_prior",
+    "event_name_idx",
+    "event_source_idx",
+    "is_write_action",
+    "read_only_absent",
+    "has_error",
+    "is_access_denied",
+    "is_iam_event",
+    "is_recon_action",
+    "is_defense_evasion",
+    "is_get_caller_identity",
+    "is_malicious_user_agent",
+    "is_public_ip",
+    "params_length_normalized",
+    "targets_sensitive_resource",
+    "is_non_default_region",
+    "is_create_key",
+    "is_secrets_or_kms",
+    "is_permission_modification",
+    "policy_statement_count_normalized",
+    "has_wildcard_action",
+    "has_wildcard_resource",
+    "privileged_action_reach",
+    "new_permission_count_log",
+    "permission_expansion_score",
+    "privilege_delta",
+    "target_permission_coverage",
+    "actor_permission_coverage",
+    "principal_handoff",
+    "causal_depth_normalized",
+    "lineage_enabling_steps_normalized",
+    "label"
+   ]
+  },
+  {
+   "path": "datasets/privilege-escalation/real_dataset_dev_structural.csv",
+   "bytes": 3460120,
+   "columns": [
+    "log_id",
+    "source_node",
+    "target_node",
+    "edge_type",
+    "label",
+    "source_node_degree",
+    "edge_interaction_count",
+    "source_node_age_normalized",
+    "source_privilege_level",
+    "source_historical_risk",
+    "target_resource_criticality",
+    "is_cross_account"
+   ]
+  },
+  {
+   "path": "datasets/privilege-escalation/real_dataset_dev_temporal.csv",
+   "bytes": 6291503,
+   "columns": [
+    "log_id",
+    "username",
+    "timestamp",
+    "no_mfa",
+    "mfa_absent",
+    "principal_type_prior_risk",
+    "principal_type_idx",
+    "has_access_key",
+    "action_velocity",
+    "is_new_action",
+    "session_duration_normalized",
+    "events_per_minute_normalized",
+    "time_sin",
+    "time_cos",
+    "is_weekend",
+    "is_off_hours",
+    "action_risk_prior",
+    "event_name_idx",
+    "event_source_idx",
+    "is_write_action",
+    "read_only_absent",
+    "has_error",
+    "is_access_denied",
+    "is_iam_event",
+    "is_recon_action",
+    "is_defense_evasion",
+    "is_get_caller_identity",
+    "is_malicious_user_agent",
+    "is_public_ip",
+    "params_length_normalized",
+    "targets_sensitive_resource",
+    "is_non_default_region",
+    "is_create_key",
+    "is_secrets_or_kms",
+    "is_permission_modification",
+    "policy_statement_count_normalized",
+    "has_wildcard_action",
+    "has_wildcard_resource",
+    "privileged_action_reach",
+    "new_permission_count_log",
+    "permission_expansion_score",
+    "privilege_delta",
+    "target_permission_coverage",
+    "actor_permission_coverage",
+    "principal_handoff",
+    "causal_depth_normalized",
+    "lineage_enabling_steps_normalized",
+    "label"
+   ]
+  },
+  {
+   "path": "datasets/privilege-escalation/real_dataset_test_structural.csv",
+   "bytes": 5349102,
+   "columns": [
+    "log_id",
+    "source_node",
+    "target_node",
+    "edge_type",
+    "label",
+    "source_node_degree",
+    "edge_interaction_count",
+    "source_node_age_normalized",
+    "source_privilege_level",
+    "source_historical_risk",
+    "target_resource_criticality",
+    "is_cross_account"
+   ]
+  },
+  {
+   "path": "datasets/privilege-escalation/real_dataset_test_temporal.csv",
+   "bytes": 9477302,
+   "columns": [
+    "log_id",
+    "username",
+    "timestamp",
+    "no_mfa",
+    "mfa_absent",
+    "principal_type_prior_risk",
+    "principal_type_idx",
+    "has_access_key",
+    "action_velocity",
+    "is_new_action",
+    "session_duration_normalized",
+    "events_per_minute_normalized",
+    "time_sin",
+    "time_cos",
+    "is_weekend",
+    "is_off_hours",
+    "action_risk_prior",
+    "event_name_idx",
+    "event_source_idx",
+    "is_write_action",
+    "read_only_absent",
+    "has_error",
+    "is_access_denied",
+    "is_iam_event",
+    "is_recon_action",
+    "is_defense_evasion",
+    "is_get_caller_identity",
+    "is_malicious_user_agent",
+    "is_public_ip",
+    "params_length_normalized",
+    "targets_sensitive_resource",
+    "is_non_default_region",
+    "is_create_key",
+    "is_secrets_or_kms",
+    "is_permission_modification",
+    "policy_statement_count_normalized",
+    "has_wildcard_action",
+    "has_wildcard_resource",
+    "privileged_action_reach",
+    "new_permission_count_log",
+    "permission_expansion_score",
+    "privilege_delta",
+    "target_permission_coverage",
+    "actor_permission_coverage",
+    "principal_handoff",
+    "causal_depth_normalized",
+    "lineage_enabling_steps_normalized",
+    "label"
+   ]
+  },
+  {
+   "path": "datasets/privilege-escalation/synthetic_campaign_annotations.csv",
+   "bytes": 884134,
+   "columns": [
+    "log_id",
+    "campaign_id",
+    "chain_name",
+    "attack_tactic",
+    "attack_technique_id",
+    "event_uid",
+    "parent_event_id",
+    "root_event_id",
+    "before_permissions",
+    "after_permissions",
+    "stage_index",
+    "hop_id",
+    "label"
+   ]
+  }
+ ],
+ "raw_cloudtrail_json_files": {
+  "path": "datasets/privilege-escalation/stratus_own_runs/CloudTrail",
+  "files": 3883,
+  "note": "gitignored in this repo; present only in working copies that collected them"
+ },
+ "summary": {
+  "pipeline_vocabulary_services": [
+   "iam",
+   "sts",
+   "ec2",
+   "s3",
+   "secretsmanager",
+   "ssm",
+   "cloudtrail",
+   "lambda",
+   "kms",
+   "rds",
+   "elasticloadbalancing",
+   "account",
+   "notifications",
+   "ce",
+   "budgets",
+   "freetier"
+  ],
+  "vocabulary_services_present_in_real_data": [
+   "account",
+   "budgets",
+   "ce",
+   "cloudtrail",
+   "ec2",
+   "elasticloadbalancing",
+   "freetier",
+   "iam",
+   "kms",
+   "lambda",
+   "notifications",
+   "rds",
+   "s3",
+   "secretsmanager",
+   "ssm",
+   "sts"
+  ],
+  "vocabulary_services_present_in_synthetic_data": [
+   "account",
+   "budgets",
+   "ce",
+   "cloudtrail",
+   "ec2",
+   "elasticloadbalancing",
+   "freetier",
+   "iam",
+   "kms",
+   "lambda",
+   "notifications",
+   "rds",
+   "s3",
+   "secretsmanager",
+   "ssm",
+   "sts"
+  ],
+  "services_in_data_but_outside_pipeline_vocabulary": {
+   "real_combined_distinct": 160,
+   "synthetic": [
+    "resource-explorer-2"
+   ]
+  }
+ }
+}

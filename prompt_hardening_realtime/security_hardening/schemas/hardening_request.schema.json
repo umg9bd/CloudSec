@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cloudsec/security_hardening/hardening_request.schema.json",
+  "title": "HardeningRequest",
+  "description": "Input to Stage 2. `screening_status` is copied from the upstream screening stage and is NOT judged here: the adapter only checks it against policy.yaml (approved / pending). Keys of `known_constraints` the module understands: environment (string), data_classification (string), already_enforced_control_ids (array of control ids enforced elsewhere), accepted_conflicts (array of recommended-control ids a human reviewer accepted). `conversation_context` is accepted and carried, but not interpreted in v0.1. Other keys are ignored.",
+  "type": "object",
+  "required": ["request_id", "screening_status", "original_prompt"],
+  "additionalProperties": false,
+  "properties": {
+    "request_id": {"type": "string", "minLength": 1, "maxLength": 200},
+    "screening_status": {"type": "string", "minLength": 1, "maxLength": 64},
+    "original_prompt": {"type": "string", "minLength": 1, "maxLength": 20000},
+    "conversation_context": {"type": "object"},
+    "task_metadata": {
+      "type": "object",
+      "properties": {
+        "services": {"type": "array", "items": {"type": "string"}},
+        "languages": {"type": "array", "items": {"type": "string"}},
+        "frameworks": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "known_constraints": {
+      "type": "object",
+      "properties": {
+        "environment": {"type": "string"},
+        "data_classification": {"type": "string"},
+        "already_enforced_control_ids": {"type": "array", "items": {"type": "string"}},
+        "accepted_conflicts": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "source_catalogue_version": {"type": ["string", "null"]}
+  }
+}

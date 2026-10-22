@@ -1,0 +1,33 @@
+# Operational policy for the Stage 2 prompt-hardening module.
+# Everything here is a project decision that can change without touching code.
+
+policy_version: "1"
+
+# Upstream screening is owned by another component. This module never judges a prompt safe;
+# it only checks the status string that component handed over.
+screening:
+  approved_statuses: ["SAFE"]                              # the only statuses that let hardening run
+  pending_statuses: ["PENDING", "IN_PROGRESS", "QUEUED"]   # -> SCREENING_PENDING
+  # any other value (UNSAFE, BLOCKED, REJECTED, FLAGGED, ...) -> SCREENING_NOT_APPROVED
+  # missing / not a string                                  -> INTEGRATION_ERROR
+
+limits:
+  max_prompt_chars: 20000
+  max_added_controls: 6          # keeps the revised prompt usable; the rest are reported as deferred
+  max_clarification_questions: 5
+
+behaviour:
+  # A request that depends on a service outside config/scope.yaml:
+  #   block -> OUT_OF_SCOPE (default; "do not pretend the pipeline supports it")
+  #   warn  -> harden the in-scope parts and warn
+  out_of_scope: block
+  # A control whose source is marked unavailable in the catalogue:
+  #   apply_with_warning -> apply the last known-good text and say so
+  #   skip               -> do not apply it; report it as deferred
+  on_unavailable_source: apply_with_warning
+  # true = only controls with provenance_status snapshot_verified may be applied
+  require_snapshot_verified_provenance: false
+
+# Per-project promotion/demotion of a control: control_id -> mandatory | recommended
+# Which controls are MANDATORY is a project policy decision, not something a source document says.
+enforcement_overrides: {}

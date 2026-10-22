@@ -1,0 +1,177 @@
+# =====================================================================
+# Stage-1 prompt-injection rules catalogue
+# =====================================================================
+# Deterministic, source-grounded detection signals for the rule engine
+# (rule_engine.py). This catalogue is DATA, maintained separately from code
+# and versioned; changes must be reviewed and regression-tested before use.
+#
+# Design stance (spec sections 5, 6B, G):
+#   * Rules are STRUCTURAL -- encodings, hidden characters, fake verdict fields,
+#     credential FORMATS, and co-occurrence of ordinary word-classes within a
+#     short window. They are not verbatim attack phrases.
+#   * A rule is a SIGNAL, not a verdict. Low/medium severities route to review;
+#     only unambiguous-structure rules (fake embedded verdict) block outright.
+#     The semantic judgment of intent is the classifier's job; the decision
+#     combiner (decision_combiner.py) fuses both and never lets either alone
+#     authorise a prompt.
+#   * OWASP / MITRE ATLAS ground the taxonomy and the per-rule references.
+#     ATLAS technique ids were checked against release 2026.09 (format 6.0.0).
+#
+# A literal word-class match alone does not prove malicious intent; see each
+# rule's false_positive_considerations and the hard-safe tests.
+# =====================================================================
+version: "0.1.0"
+review_date: "2026-10-18"
+reviewed_by: ""                 # fill before activating in any non-dev setting
+
+# Named word-classes referenced by co-occurrence rules. These are ordinary
+# English tokens; a rule fires on their STRUCTURE (co-occurrence in a window),
+# not on any single token. Matched case-insensitively against the folded view.
+token_classes:
+  override_verb: ["ignore", "disregard", "forget", "override", "bypass", "skip", "overrule"]
+  instruction_noun: ["instruction", "instructions", "prompt", "rule", "rules", "policy", "policies",
+                     "guardrail", "guardrails", "directive", "restriction", "restrictions", "guideline"]
+  prior_scope: ["previous", "prior", "earlier", "above", "system", "all", "any", "your"]
+  reveal_verb: ["reveal", "print", "show", "repeat", "echo", "display", "disclose", "output", "dump", "leak"]
+  secret_noun: ["system prompt", "system message", "initial instruction", "hidden instruction",
+                "configuration", "developer message"]
+  defensive_frame: ["explain", "how does", "how do", "what is", "why is", "detect", "prevent",
+                    "defend", "mitigation", "mitigate", "example of", "unit test", "test for",
+                    "analyse", "analyze", "identify", "describe", "documentation", "teach"]
+
+rules:
+  # ---- Obfuscation / evasion (structural; from normalization signals) ----
+  - id: PIG-OBF-001
+    category: obfuscation
+    description: Zero-width or soft-hyphen characters embedded in text.
+    signal: {type: normalization_flag, flag: had_zero_width}
+    severity: medium
+    applicability: Any channel.
+    exclusions: None -- zero-width characters have no legitimate use in a cloud task prompt.
+    false_positive_considerations: Rare copy-paste artefacts from rich editors; medium severity routes to review, not block.
+    disposition: review
+    source: {title: "OWASP LLM01:2025 Prompt Injection (obfuscation/evasion)",
+             url: "https://genai.owasp.org/llmrisk/llm01-prompt-injection/"}
+    technique: {id: "AML.T0068", name: "LLM Prompt Obfuscation"}
+
+  - id: PIG-OBF-002
+    category: obfuscation
+    description: Bidirectional-override control characters present (text can render differently than it reads).
+    signal: {type: normalization_flag, flag: had_bidi_control}
+    severity: high
+    applicability: Any channel.
+    exclusions: Legitimate right-to-left content uses bidi marks, not override/isolate controls; this rule targets the override/isolate set only.
+    false_positive_considerations: Genuine mixed RTL/LTR documents may use isolates; combine with other signals before blocking.
+    disposition: review
+    source: {title: "OWASP LLM01:2025 Prompt Injection (obfuscation/evasion)",
+             url: "https://genai.owasp.org/llmrisk/llm01-prompt-injection/"}
+    technique: {id: "AML.T0068", name: "LLM Prompt Obfuscation"}
+
+  - id: PIG-OBF-003
+    category: obfuscation
+    description: Homoglyph / confusable characters above threshold (Cyrillic or Greek look-alikes standing in for Latin).
+    signal: {type: normalization_count, field: confusable_chars, min: 3}
+    severity: medium
+    applicability: Any channel.
+    exclusions: Legitimate non-Latin text (see non_latin_letter_ratio); this counts only look-alikes mixed into Latin words.
+    false_positive_considerations: Names and loanwords; medium severity routes to review.
+    disposition: review
+    source: {title: "Microsoft AI Red Teaming Agent (UnicodeConfusable strategy)",
+             url: "https://learn.microsoft.com/en-us/azure/foundry/concepts/ai-red-teaming-agent"}
+    technique: {id: "AML.T0068", name: "LLM Prompt Obfuscation"}
+
+  - id: PIG-OBF-004
+    category: obfuscation
+    description: Encoded segment (base64/hex/rot13) that decodes to readable text whose decoding, in turn, carries an instruction-override structure.
+    signal: {type: decoded_contains_override}
+    severity: high
+    applicability: Any channel.
+    exclusions: Legitimate base64 payloads (keys, certs, images) do not decode to natural-language instructions; this fires only when the plaintext itself matches PIG-INJ-001's structure.
+    false_positive_considerations: Decoding is depth-1, data-only, capped; a decode that is not instruction-like does not fire.
+    disposition: review
+    source: {title: "OWASP LLM01:2025 Prompt Injection (payload splitting / encoded obfuscation)",
+             url: "https://genai.owasp.org/llmrisk/llm01-prompt-injection/"}
+    technique: {id: "AML.T0068", name: "LLM Prompt Obfuscation"}
+
+  # ---- Direct instruction override (word-class co-occurrence) ----
+  - id: PIG-INJ-001
+    category: prompt_injection_direct
+    description: An override verb and an instruction/scope noun co-occur within a short window (structure of an instruction-override attempt).
+    signal: {type: cooccurrence, a: override_verb, b: instruction_noun, window: 6, require_also: prior_scope, also_window: 10}
+    severity: medium
+    applicability: Any channel. In a non-user_prompt channel this is a stronger indirect-injection signal (see PIG-IND-001).
+    exclusions: Defensive framing (defensive_frame class nearby) lowers this to a review signal, not a block -- a user may be asking to explain or detect the pattern.
+    false_positive_considerations: "Phrases like 'ignore the previous warning' in benign text; the required scope noun + instruction noun reduces this. Never block on this rule alone."
+    disposition: review
+    source: {title: "OWASP LLM01:2025 Prompt Injection (direct)",
+             url: "https://genai.owasp.org/llmrisk/llm01-prompt-injection/"}
+    technique: {id: "AML.T0051.000", name: "LLM Prompt Injection: Direct"}
+
+  # ---- System-prompt / instruction extraction ----
+  - id: PIG-EXT-001
+    category: system_prompt_extraction
+    description: A reveal verb co-occurs with a reference to hidden/system instructions.
+    signal: {type: cooccurrence, a: reveal_verb, b: secret_noun, window: 8}
+    severity: medium
+    applicability: Any channel.
+    exclusions: Defensive framing nearby (e.g. "explain what a system prompt is") routes to review, not block.
+    false_positive_considerations: Prompt-engineering questions legitimately mention system prompts; intent is the classifier's call.
+    disposition: review
+    source: {title: "OWASP LLM01:2025 / sensitive information disclosure",
+             url: "https://genai.owasp.org/llmrisk/llm01-prompt-injection/"}
+    technique: {id: "AML.T0056", name: "Extract LLM System Prompt"}
+
+  # ---- Credential / secret material by FORMAT (not by mention) ----
+  - id: PIG-CRED-001
+    category: credential_harvesting
+    description: An AWS long-term access key id appears in the input (format AKIA/ASIA + 16 base32 chars).
+    signal: {type: regex, pattern: '(?<![A-Z0-9])(AKIA|ASIA)[A-Z0-9]{16}(?![A-Z0-9])'}
+    severity: medium
+    applicability: Any channel.
+    exclusions: A key the user wants ROTATED or REMOVED is legitimate; format alone is not intent. Routes to review.
+    false_positive_considerations: Example/placeholder keys in documentation; never block on format alone (spec 6D).
+    disposition: review
+    source: {title: "OWASP LLM06:2025 Excessive Agency / credential exposure",
+             url: "https://genai.owasp.org/llmrisk/llm062025-excessive-agency/"}
+    technique: {id: "AML.T0055", name: "Unsecured Credentials"}
+
+  - id: PIG-CRED-002
+    category: exfiltration
+    description: A reveal/transmit verb co-occurs with credential nouns AND an outbound destination (external URL, email, or webhook).
+    signal: {type: cooccurrence_three, a: reveal_verb, b: secret_noun, c: outbound_destination, window: 12}
+    severity: high
+    applicability: Any channel; strongest from retrieved_content or tool_output.
+    exclusions: Internal rotation workflows name no external destination.
+    false_positive_considerations: A legitimate task may send non-secret data to a URL; the credential noun is required.
+    disposition: review
+    source: {title: "OWASP LLM06:2025 Excessive Agency (data exfiltration scenario)",
+             url: "https://genai.owasp.org/llmrisk/llm062025-excessive-agency/"}
+    technique: {id: "AML.T0086", name: "Exfiltration via AI Agent Tool Invocation"}
+
+  # ---- Fake embedded verdict / field injection (unambiguous structure) ----
+  - id: PIG-FAKE-001
+    category: prompt_injection_direct
+    description: The input embeds a verdict-like field asserting its own screening result (e.g. a JSON fragment setting decision/handoff_allowed/safe).
+    signal: {type: regex, pattern: '(?i)"?(decision|handoff_allowed|safe_prompt_for_next_stage|threat_categories)"?\s*[:=]\s*("?(safe|true|null)"?|\[)'}
+    severity: high
+    applicability: Any channel.
+    exclusions: A developer legitimately discussing the gate's schema may quote these keys; the combiner weighs this with the classifier, and the service never reads a verdict from the prompt regardless.
+    false_positive_considerations: Documentation about this very module. High severity, but the handoff is structurally immune (verdict is computed, never parsed from input).
+    disposition: block
+    source: {title: "Spec section 8 -- caller must not manufacture a SAFE decision",
+             url: "internal://stage1-spec#section-8"}
+    technique: {id: "AML.T0051.000", name: "LLM Prompt Injection: Direct"}
+
+  # ---- Indirect injection (instruction structure arriving via untrusted channel) ----
+  - id: PIG-IND-001
+    category: prompt_injection_indirect
+    description: Instruction-override or extraction structure (PIG-INJ-001 / PIG-EXT-001) occurs in a context item whose trust is not user_prompt.
+    signal: {type: indirect_channel_instruction}
+    severity: high
+    applicability: retrieved_content, tool_output, uploaded_document, other.
+    exclusions: None -- data channels should carry data, not instructions to the agent.
+    false_positive_considerations: Quoted instructions inside a document the user explicitly asked to summarise; combiner weighs with classifier and may route to review.
+    disposition: review
+    source: {title: "OWASP LLM01:2025 Prompt Injection (indirect); Microsoft XPIA",
+             url: "https://genai.owasp.org/llmrisk/llm01-prompt-injection/"}
+    technique: {id: "AML.T0051.001", name: "LLM Prompt Injection: Indirect"}

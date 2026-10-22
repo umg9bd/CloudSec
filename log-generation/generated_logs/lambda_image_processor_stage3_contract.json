@@ -1,0 +1,193 @@
+{
+  "status": "GENERATED",
+  "request_id": "gen-lambda_image_processor",
+  "parsed_intent": {
+    "task_category": "lambda_create_function",
+    "desired_outcome": "Create a Lambda function named image-processor-worker with execution role arn:aws:iam::111122223333:role/lambda-s3-execution-role",
+    "explicit_requirements": [
+      "Create Lambda serverless function"
+    ],
+    "provided_parameters": {
+      "handler": "index.handler",
+      "runtime": "python3.11",
+      "functionName": "image-processor-worker",
+      "role": "arn:aws:iam::111122223333:role/lambda-s3-execution-role"
+    },
+    "parameter_provenance": {
+      "handler": "DEFAULT",
+      "runtime": "DEFAULT",
+      "functionName": "USER_PROMPT",
+      "role": "USER_PROMPT"
+    },
+    "missing_parameters": [],
+    "ambiguities": [],
+    "needs_clarification": false,
+    "clarification_questions": []
+  },
+  "security_constraints": [],
+  "proposed_actions": [
+    {
+      "step": 1,
+      "action_id": "act-lambda-create-function",
+      "service": "lambda",
+      "operation": "CreateFunction",
+      "iam_permission": "lambda:CreateFunction",
+      "status": "SUPPORTED",
+      "mapping_rule_id": "MAP-LAMBDA-001",
+      "requirement_type": "REQUIRED",
+      "depends_on": [],
+      "rationale": "Primary action required to fulfill user's functional request"
+    }
+  ],
+  "expected_direct_events": [
+    {
+      "prediction_id": "pred-0001",
+      "step": 1,
+      "action_id": "act-lambda-create-function",
+      "service": "lambda",
+      "api_operation": "CreateFunction",
+      "record_type": "PREDICTED_CLOUDTRAIL_EVENT",
+      "eventSource": "lambda.amazonaws.com",
+      "eventName": "CreateFunction20150331",
+      "requestParameters": {
+        "functionName": "image-processor-worker",
+        "role": "arn:aws:iam::111122223333:role/lambda-s3-execution-role",
+        "handler": "index.handler",
+        "runtime": "python3.11"
+      },
+      "parameter_provenance": {
+        "functionName": "USER_PROMPT",
+        "role": "USER_PROMPT",
+        "handler": "DEFAULT",
+        "runtime": "DEFAULT"
+      },
+      "depends_on_predictions": [],
+      "requirement_type": "REQUIRED",
+      "mapping_rule_id": "MAP-LAMBDA-001",
+      "source_refs": [
+        "https://docs.aws.amazon.com/lambda/latest/dg/API_CreateFunction.html",
+        "https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-event-reference.html"
+      ],
+      "fixture_ref": "fixtures/lambda_create_function.json",
+      "unknown_fields": [
+        "eventID",
+        "requestID",
+        "eventTime",
+        "responseElements",
+        "recipientAccountId",
+        "awsRegion",
+        "sourceIPAddress",
+        "userAgent"
+      ],
+      "support_status": "VERIFIED",
+      "recording_scope_assumption": "Lambda control plane management events. Note: CloudTrail eventName is CreateFunction20150331."
+    }
+  ],
+  "conditional_events": [],
+  "action_dependency_graph": {
+    "nodes": [
+      {
+        "id": "task:gen-lambda_image_processor",
+        "type": "Task",
+        "label": "Task: lambda_create_function",
+        "state": "PROPOSED",
+        "properties": {
+          "task_category": "lambda_create_function",
+          "desired_outcome": "Create a Lambda function named image-processor-worker with execution role arn:aws:iam::111122223333:role/lambda-s3-execution-role"
+        }
+      },
+      {
+        "id": "action:act-lambda-create-function",
+        "type": "ProposedAction",
+        "label": "Action: CreateFunction",
+        "state": "PROPOSED",
+        "properties": {
+          "step": 1,
+          "action_id": "act-lambda-create-function",
+          "service": "lambda",
+          "operation": "CreateFunction",
+          "iam_permission": "lambda:CreateFunction",
+          "mapping_rule_id": "MAP-LAMBDA-001"
+        }
+      },
+      {
+        "id": "service:lambda",
+        "type": "Service",
+        "label": "Service: lambda.amazonaws.com",
+        "state": "PROPOSED",
+        "properties": {
+          "service_name": "lambda"
+        }
+      },
+      {
+        "id": "resource:arn:aws:lambda:::function:image-processor-worker",
+        "type": "Resource",
+        "label": "Resource: arn:aws:lambda:::function:image-processor-worker",
+        "state": "PROPOSED",
+        "properties": {
+          "resource_identifier": "arn:aws:lambda:::function:image-processor-worker"
+        }
+      },
+      {
+        "id": "event:pred-0001",
+        "type": "PredictedEvent",
+        "label": "PredictedEvent: CreateFunction20150331",
+        "state": "PREDICTED",
+        "properties": {
+          "prediction_id": "pred-0001",
+          "eventSource": "lambda.amazonaws.com",
+          "eventName": "CreateFunction20150331",
+          "step": 1,
+          "mapping_rule_id": "MAP-LAMBDA-001"
+        }
+      }
+    ],
+    "edges": [
+      {
+        "source": "task:gen-lambda_image_processor",
+        "target": "action:act-lambda-create-function",
+        "relation": "PROPOSES",
+        "state": "PROPOSED",
+        "properties": {
+          "step": 1
+        }
+      },
+      {
+        "source": "action:act-lambda-create-function",
+        "target": "service:lambda",
+        "relation": "INVOKES",
+        "state": "PROPOSED",
+        "properties": {}
+      },
+      {
+        "source": "action:act-lambda-create-function",
+        "target": "resource:arn:aws:lambda:::function:image-processor-worker",
+        "relation": "TARGETS",
+        "state": "PROPOSED",
+        "properties": {}
+      },
+      {
+        "source": "action:act-lambda-create-function",
+        "target": "event:pred-0001",
+        "relation": "MAPS_TO_EVENT",
+        "state": "PROPOSED",
+        "properties": {}
+      }
+    ]
+  },
+  "unmodelled_effects": [],
+  "prediction_coverage": {
+    "scope": "validated_catalogue",
+    "complete_within_scope": true,
+    "limitations": []
+  },
+  "missing_parameters": [],
+  "clarification_questions": [],
+  "assumptions": [],
+  "source_provenance": [
+    "https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-event-reference.html",
+    "https://docs.aws.amazon.com/lambda/latest/dg/API_CreateFunction.html"
+  ],
+  "catalogue_version": "1.2.0",
+  "intent_model_version": "fast-path-regex-v1"
+}

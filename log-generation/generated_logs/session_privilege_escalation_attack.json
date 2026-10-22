@@ -1,0 +1,491 @@
+{
+  "Records": [
+    {
+      "eventVersion": "1.08",
+      "userIdentity": {
+        "type": "IAMUser",
+        "principalId": "AIDA45845255ED734BF6",
+        "arn": "arn:aws:iam::111122223333:user/syn:attacker-01",
+        "accountId": "111122223333",
+        "userName": "syn:attacker-01"
+      },
+      "eventTime": "2026-10-20T11:31:06Z",
+      "eventSource": "sts.amazonaws.com",
+      "eventName": "GetCallerIdentity",
+      "awsRegion": "us-east-1",
+      "sourceIPAddress": "198.51.30.92",
+      "userAgent": "aws-sdk-go/v2 aws-cli/2.15.0",
+      "requestParameters": {},
+      "responseElements": null,
+      "errorCode": null,
+      "errorMessage": null,
+      "requestID": "c0e0ba4a-acec-40a9-b794-5d3177bdb284",
+      "eventID": "9331b596-5153-45b1-a745-55d5a93465c2",
+      "readOnly": true,
+      "eventType": "AwsApiCall",
+      "managementEvent": true,
+      "recipientAccountId": "111122223333",
+      "eventCategory": "Management"
+    },
+    {
+      "eventVersion": "1.08",
+      "userIdentity": {
+        "type": "IAMUser",
+        "principalId": "AIDA24BE48FBF8F14CCE",
+        "arn": "arn:aws:iam::111122223333:user/syn:attacker-01",
+        "accountId": "111122223333",
+        "userName": "syn:attacker-01"
+      },
+      "eventTime": "2026-10-20T11:31:35Z",
+      "eventSource": "ec2.amazonaws.com",
+      "eventName": "DescribeVpcs",
+      "awsRegion": "us-east-1",
+      "sourceIPAddress": "198.51.52.19",
+      "userAgent": "aws-sdk-go/v2 aws-cli/2.15.0",
+      "requestParameters": {},
+      "responseElements": null,
+      "errorCode": null,
+      "errorMessage": null,
+      "requestID": "5b615f49-a301-43aa-a879-965781631b9c",
+      "eventID": "74c16636-a8c6-4468-bfe4-36c46ad7d3e3",
+      "readOnly": true,
+      "eventType": "AwsApiCall",
+      "managementEvent": true,
+      "recipientAccountId": "111122223333",
+      "eventCategory": "Management"
+    },
+    {
+      "eventVersion": "1.08",
+      "userIdentity": {
+        "type": "IAMUser",
+        "principalId": "AIDA0F925C237EF64231",
+        "arn": "arn:aws:iam::111122223333:user/syn:attacker-01",
+        "accountId": "111122223333",
+        "userName": "syn:attacker-01"
+      },
+      "eventTime": "2026-10-20T11:31:54Z",
+      "eventSource": "ec2.amazonaws.com",
+      "eventName": "DescribeSubnets",
+      "awsRegion": "us-east-1",
+      "sourceIPAddress": "198.51.165.242",
+      "userAgent": "aws-sdk-go/v2 aws-cli/2.15.0",
+      "requestParameters": {},
+      "responseElements": null,
+      "errorCode": null,
+      "errorMessage": null,
+      "requestID": "1dffda36-280f-40e5-8526-792e24e43a83",
+      "eventID": "2ae01614-c265-4e08-87ad-96df7f0ac854",
+      "readOnly": true,
+      "eventType": "AwsApiCall",
+      "managementEvent": true,
+      "recipientAccountId": "111122223333",
+      "eventCategory": "Management"
+    },
+    {
+      "eventVersion": "1.08",
+      "userIdentity": {
+        "type": "IAMUser",
+        "principalId": "AIDA3A14B0ECD03D4532",
+        "arn": "arn:aws:iam::111122223333:user/syn:attacker-01",
+        "accountId": "111122223333",
+        "userName": "syn:attacker-01"
+      },
+      "eventTime": "2026-10-20T11:32:25Z",
+      "eventSource": "ec2.amazonaws.com",
+      "eventName": "DescribeSecurityGroups",
+      "awsRegion": "us-east-1",
+      "sourceIPAddress": "198.51.162.9",
+      "userAgent": "aws-sdk-go/v2 aws-cli/2.15.0",
+      "requestParameters": {},
+      "responseElements": null,
+      "errorCode": null,
+      "errorMessage": null,
+      "requestID": "2b3ab4c9-ae2a-4a34-98ca-a4f0c5e79cbb",
+      "eventID": "f9522b33-db93-491e-a738-49fb4228f259",
+      "readOnly": true,
+      "eventType": "AwsApiCall",
+      "managementEvent": true,
+      "recipientAccountId": "111122223333",
+      "eventCategory": "Management"
+    },
+    {
+      "eventVersion": "1.08",
+      "userIdentity": {
+        "type": "IAMUser",
+        "principalId": "AIDAEBFA9C8137094D64",
+        "arn": "arn:aws:iam::111122223333:user/syn:attacker-01",
+        "accountId": "111122223333",
+        "userName": "syn:attacker-01"
+      },
+      "eventTime": "2026-10-20T11:32:58Z",
+      "eventSource": "ec2.amazonaws.com",
+      "eventName": "DescribeInstances",
+      "awsRegion": "us-east-1",
+      "sourceIPAddress": "198.51.32.253",
+      "userAgent": "aws-sdk-go/v2 aws-cli/2.15.0",
+      "requestParameters": {},
+      "responseElements": null,
+      "errorCode": null,
+      "errorMessage": null,
+      "requestID": "6c802e0f-3f33-4604-a03f-898d04c08901",
+      "eventID": "1d57ef4e-d50e-4ede-b129-f1df73d72f7e",
+      "readOnly": true,
+      "eventType": "AwsApiCall",
+      "managementEvent": true,
+      "recipientAccountId": "111122223333",
+      "eventCategory": "Management"
+    },
+    {
+      "eventVersion": "1.08",
+      "userIdentity": {
+        "type": "IAMUser",
+        "principalId": "AIDA1DBAA0C0F4654C25",
+        "arn": "arn:aws:iam::111122223333:user/syn:attacker-01",
+        "accountId": "111122223333",
+        "userName": "syn:attacker-01"
+      },
+      "eventTime": "2026-10-20T11:33:17Z",
+      "eventSource": "iam.amazonaws.com",
+      "eventName": "ListRoles",
+      "awsRegion": "us-east-1",
+      "sourceIPAddress": "198.51.154.57",
+      "userAgent": "aws-sdk-go/v2 aws-cli/2.15.0",
+      "requestParameters": {},
+      "responseElements": null,
+      "errorCode": null,
+      "errorMessage": null,
+      "requestID": "aee5aa87-1b21-4ece-a40f-4fa39a9f7818",
+      "eventID": "2cd6b699-3ce5-40d6-b75c-7ee0143ff642",
+      "readOnly": true,
+      "eventType": "AwsApiCall",
+      "managementEvent": true,
+      "recipientAccountId": "111122223333",
+      "eventCategory": "Management"
+    },
+    {
+      "eventVersion": "1.08",
+      "userIdentity": {
+        "type": "IAMUser",
+        "principalId": "AIDA1C0E81400D944EC5",
+        "arn": "arn:aws:iam::111122223333:user/syn:attacker-01",
+        "accountId": "111122223333",
+        "userName": "syn:attacker-01"
+      },
+      "eventTime": "2026-10-20T11:33:45Z",
+      "eventSource": "iam.amazonaws.com",
+      "eventName": "GetRole",
+      "awsRegion": "us-east-1",
+      "sourceIPAddress": "198.51.166.2",
+      "userAgent": "aws-sdk-go/v2 aws-cli/2.15.0",
+      "requestParameters": {
+        "roleName": "existing-service-role"
+      },
+      "responseElements": null,
+      "errorCode": null,
+      "errorMessage": null,
+      "requestID": "bb932638-536b-4df3-bda8-202e04b06769",
+      "eventID": "f6e20012-57bc-4fe4-b10c-7de2ce984ea7",
+      "readOnly": true,
+      "eventType": "AwsApiCall",
+      "managementEvent": true,
+      "recipientAccountId": "111122223333",
+      "eventCategory": "Management"
+    },
+    {
+      "eventVersion": "1.08",
+      "userIdentity": {
+        "type": "IAMUser",
+        "principalId": "AIDA27E052BA178D4834",
+        "arn": "arn:aws:iam::111122223333:user/syn:attacker-01",
+        "accountId": "111122223333",
+        "userName": "syn:attacker-01"
+      },
+      "eventTime": "2026-10-20T11:34:15Z",
+      "eventSource": "iam.amazonaws.com",
+      "eventName": "CreateRole",
+      "awsRegion": "us-east-1",
+      "sourceIPAddress": "198.51.121.146",
+      "userAgent": "aws-sdk-go/v2 aws-cli/2.15.0",
+      "requestParameters": {
+        "roleName": "AdminExecutionRole"
+      },
+      "responseElements": {
+        "status": "SUCCESS"
+      },
+      "errorCode": null,
+      "errorMessage": null,
+      "requestID": "6f43d4a1-acc6-4e8a-85e6-55b09acc9fac",
+      "eventID": "ef5e882e-1228-4592-b2b9-5b0057debad5",
+      "readOnly": false,
+      "eventType": "AwsApiCall",
+      "managementEvent": true,
+      "recipientAccountId": "111122223333",
+      "eventCategory": "Management"
+    },
+    {
+      "eventVersion": "1.08",
+      "userIdentity": {
+        "type": "IAMUser",
+        "principalId": "AIDA960F633C501346C7",
+        "arn": "arn:aws:iam::111122223333:user/syn:attacker-01",
+        "accountId": "111122223333",
+        "userName": "syn:attacker-01"
+      },
+      "eventTime": "2026-10-20T11:34:23Z",
+      "eventSource": "iam.amazonaws.com",
+      "eventName": "AttachRolePolicy",
+      "awsRegion": "us-east-1",
+      "sourceIPAddress": "198.51.194.167",
+      "userAgent": "aws-sdk-go/v2 aws-cli/2.15.0",
+      "requestParameters": {
+        "roleName": "AdminExecutionRole",
+        "policyArn": "arn:aws:iam::aws:policy/AdministratorAccess"
+      },
+      "responseElements": {
+        "status": "SUCCESS"
+      },
+      "errorCode": null,
+      "errorMessage": null,
+      "requestID": "a037d614-c789-41d2-987c-9e98bdfb8e99",
+      "eventID": "f582fe94-2e0c-49c2-90c7-6d1772542d26",
+      "readOnly": false,
+      "eventType": "AwsApiCall",
+      "managementEvent": true,
+      "recipientAccountId": "111122223333",
+      "eventCategory": "Management"
+    },
+    {
+      "eventVersion": "1.08",
+      "userIdentity": {
+        "type": "IAMUser",
+        "principalId": "AIDA0148D02058B94BEF",
+        "arn": "arn:aws:iam::111122223333:user/syn:attacker-01",
+        "accountId": "111122223333",
+        "userName": "syn:attacker-01"
+      },
+      "eventTime": "2026-10-20T11:34:45Z",
+      "eventSource": "iam.amazonaws.com",
+      "eventName": "PutRolePolicy",
+      "awsRegion": "us-east-1",
+      "sourceIPAddress": "198.51.219.212",
+      "userAgent": "aws-sdk-go/v2 aws-cli/2.15.0",
+      "requestParameters": {
+        "roleName": "AdminExecutionRole",
+        "policyName": "CustomInlineAccess"
+      },
+      "responseElements": {
+        "status": "SUCCESS"
+      },
+      "errorCode": null,
+      "errorMessage": null,
+      "requestID": "7f2c9689-3dad-4cb4-9fbe-b9ac08dd7e53",
+      "eventID": "19d424e9-d9ae-4649-9a9c-dcbd10b95aee",
+      "readOnly": false,
+      "eventType": "AwsApiCall",
+      "managementEvent": true,
+      "recipientAccountId": "111122223333",
+      "eventCategory": "Management"
+    },
+    {
+      "eventVersion": "1.08",
+      "userIdentity": {
+        "type": "IAMUser",
+        "principalId": "AIDA87F015F439F34F6B",
+        "arn": "arn:aws:iam::111122223333:user/syn:attacker-01",
+        "accountId": "111122223333",
+        "userName": "syn:attacker-01"
+      },
+      "eventTime": "2026-10-20T11:34:55Z",
+      "eventSource": "sts.amazonaws.com",
+      "eventName": "AssumeRole",
+      "awsRegion": "us-east-1",
+      "sourceIPAddress": "198.51.236.57",
+      "userAgent": "aws-sdk-go/v2 aws-cli/2.15.0",
+      "requestParameters": {
+        "roleArn": "arn:aws:iam::111122223333:role/AdminExecutionRole"
+      },
+      "responseElements": {
+        "status": "SUCCESS"
+      },
+      "errorCode": null,
+      "errorMessage": null,
+      "requestID": "4bc679a2-24f7-42fc-985a-b0562faae616",
+      "eventID": "f4932aa4-25a6-48d0-a491-0ee9c8debffc",
+      "readOnly": false,
+      "eventType": "AwsApiCall",
+      "managementEvent": true,
+      "recipientAccountId": "111122223333",
+      "eventCategory": "Management"
+    },
+    {
+      "eventVersion": "1.08",
+      "userIdentity": {
+        "type": "IAMUser",
+        "principalId": "AIDAB9DA78BA4AA04C49",
+        "arn": "arn:aws:iam::111122223333:role/AdminExecutionRole",
+        "accountId": "111122223333",
+        "userName": "AdminExecutionRole"
+      },
+      "eventTime": "2026-10-20T11:35:26Z",
+      "eventSource": "sts.amazonaws.com",
+      "eventName": "GetCallerIdentity",
+      "awsRegion": "us-east-1",
+      "sourceIPAddress": "198.51.152.64",
+      "userAgent": "aws-sdk-go/v2 aws-cli/2.15.0",
+      "requestParameters": {},
+      "responseElements": null,
+      "errorCode": null,
+      "errorMessage": null,
+      "requestID": "3977e5d3-3214-4ab5-8372-6e4b47dd31ae",
+      "eventID": "c09fe2fe-034a-4409-be64-2125c79c0d66",
+      "readOnly": true,
+      "eventType": "AwsApiCall",
+      "managementEvent": true,
+      "recipientAccountId": "111122223333",
+      "eventCategory": "Management"
+    },
+    {
+      "eventVersion": "1.08",
+      "userIdentity": {
+        "type": "IAMUser",
+        "principalId": "AIDAECAD5FA98952414A",
+        "arn": "arn:aws:iam::111122223333:role/AdminExecutionRole",
+        "accountId": "111122223333",
+        "userName": "AdminExecutionRole"
+      },
+      "eventTime": "2026-10-20T11:36:00Z",
+      "eventSource": "kms.amazonaws.com",
+      "eventName": "DescribeKey",
+      "awsRegion": "us-east-1",
+      "sourceIPAddress": "198.51.50.245",
+      "userAgent": "aws-sdk-go/v2 aws-cli/2.15.0",
+      "requestParameters": {},
+      "responseElements": null,
+      "errorCode": null,
+      "errorMessage": null,
+      "requestID": "af4926e1-f29a-47fd-9594-d90fd5818e7a",
+      "eventID": "92d38027-c39d-4ba0-95ae-f748f7839e2f",
+      "readOnly": true,
+      "eventType": "AwsApiCall",
+      "managementEvent": true,
+      "recipientAccountId": "111122223333",
+      "eventCategory": "Management"
+    },
+    {
+      "eventVersion": "1.08",
+      "userIdentity": {
+        "type": "IAMUser",
+        "principalId": "AIDA49ED5D89EC5C4C70",
+        "arn": "arn:aws:iam::111122223333:role/AdminExecutionRole",
+        "accountId": "111122223333",
+        "userName": "AdminExecutionRole"
+      },
+      "eventTime": "2026-10-20T11:36:13Z",
+      "eventSource": "secretsmanager.amazonaws.com",
+      "eventName": "ListSecrets",
+      "awsRegion": "us-east-1",
+      "sourceIPAddress": "198.51.238.66",
+      "userAgent": "aws-sdk-go/v2 aws-cli/2.15.0",
+      "requestParameters": {},
+      "responseElements": null,
+      "errorCode": null,
+      "errorMessage": null,
+      "requestID": "411f5f05-c816-4199-9ce8-036c90ea3f94",
+      "eventID": "41b18901-aa66-48c5-832d-d1e74b7086c1",
+      "readOnly": true,
+      "eventType": "AwsApiCall",
+      "managementEvent": true,
+      "recipientAccountId": "111122223333",
+      "eventCategory": "Management"
+    },
+    {
+      "eventVersion": "1.08",
+      "userIdentity": {
+        "type": "IAMUser",
+        "principalId": "AIDA68BCFB1A8DD0402C",
+        "arn": "arn:aws:iam::111122223333:role/AdminExecutionRole",
+        "accountId": "111122223333",
+        "userName": "AdminExecutionRole"
+      },
+      "eventTime": "2026-10-20T11:36:24Z",
+      "eventSource": "secretsmanager.amazonaws.com",
+      "eventName": "GetSecretValue",
+      "awsRegion": "us-east-1",
+      "sourceIPAddress": "198.51.99.48",
+      "userAgent": "aws-sdk-go/v2 aws-cli/2.15.0",
+      "requestParameters": {
+        "secretId": "prod/db/credentials"
+      },
+      "responseElements": {
+        "status": "SUCCESS"
+      },
+      "errorCode": null,
+      "errorMessage": null,
+      "requestID": "be0776ea-df9a-4cf0-aa87-e119c6a98851",
+      "eventID": "1c5d4929-2dd9-4da8-9f4c-1383e9a53d68",
+      "readOnly": false,
+      "eventType": "AwsApiCall",
+      "managementEvent": true,
+      "recipientAccountId": "111122223333",
+      "eventCategory": "Management"
+    },
+    {
+      "eventVersion": "1.08",
+      "userIdentity": {
+        "type": "IAMUser",
+        "principalId": "AIDABB58BF1E9BFC4F88",
+        "arn": "arn:aws:iam::111122223333:role/AdminExecutionRole",
+        "accountId": "111122223333",
+        "userName": "AdminExecutionRole"
+      },
+      "eventTime": "2026-10-20T11:36:35Z",
+      "eventSource": "cloudtrail.amazonaws.com",
+      "eventName": "DescribeTrails",
+      "awsRegion": "us-east-1",
+      "sourceIPAddress": "198.51.24.69",
+      "userAgent": "aws-sdk-go/v2 aws-cli/2.15.0",
+      "requestParameters": {},
+      "responseElements": null,
+      "errorCode": null,
+      "errorMessage": null,
+      "requestID": "6b719a73-5e1c-4edd-9740-d755dd8404bb",
+      "eventID": "a825d953-5e91-441b-84c7-e6adeb28fb23",
+      "readOnly": true,
+      "eventType": "AwsApiCall",
+      "managementEvent": true,
+      "recipientAccountId": "111122223333",
+      "eventCategory": "Management"
+    },
+    {
+      "eventVersion": "1.08",
+      "userIdentity": {
+        "type": "IAMUser",
+        "principalId": "AIDA72ABD87511354658",
+        "arn": "arn:aws:iam::111122223333:role/AdminExecutionRole",
+        "accountId": "111122223333",
+        "userName": "AdminExecutionRole"
+      },
+      "eventTime": "2026-10-20T11:37:07Z",
+      "eventSource": "cloudtrail.amazonaws.com",
+      "eventName": "StopLogging",
+      "awsRegion": "us-east-1",
+      "sourceIPAddress": "198.51.12.114",
+      "userAgent": "aws-sdk-go/v2 aws-cli/2.15.0",
+      "requestParameters": {
+        "name": "prod-audit-trail"
+      },
+      "responseElements": {
+        "status": "SUCCESS"
+      },
+      "errorCode": null,
+      "errorMessage": null,
+      "requestID": "a7cd1a32-cce6-4118-bd17-330db8d377ae",
+      "eventID": "40c91bea-69dc-4bb2-8dc5-d57fd68b702d",
+      "readOnly": false,
+      "eventType": "AwsApiCall",
+      "managementEvent": true,
+      "recipientAccountId": "111122223333",
+      "eventCategory": "Management"
+    }
+  ]
+}

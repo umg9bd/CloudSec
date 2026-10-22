@@ -1,0 +1,154 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cloudsec/security_hardening/hardening_response.schema.json",
+  "title": "HardeningResponse",
+  "description": "Output of Stage 2. Downstream planning may consume `revised_prompt` ONLY when status is HARDENED or ALREADY_ADEQUATE; every other status carries revised_prompt = null (enforced below).",
+  "type": "object",
+  "required": ["schema_version", "request_id", "status", "original_prompt", "revised_prompt", "security_gaps", "added_controls", "assumptions", "clarification_questions", "source_catalogue_version", "requires_user_review"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {"const": "1"},
+    "request_id": {"type": "string"},
+    "status": {"enum": ["HARDENED", "ALREADY_ADEQUATE", "NEEDS_CLARIFICATION", "SECURITY_CONFLICT", "OUT_OF_SCOPE", "SCREENING_PENDING", "SCREENING_NOT_APPROVED", "INTEGRATION_ERROR"]},
+    "original_prompt": {"type": ["string", "null"]},
+    "revised_prompt": {"type": ["string", "null"]},
+    "security_gaps": {"type": "array", "items": {"$ref": "#/$defs/gap"}},
+    "added_controls": {"type": "array", "items": {"$ref": "#/$defs/added_control"}},
+    "satisfied_controls": {"type": "array", "items": {"$ref": "#/$defs/satisfied_control"}},
+    "deferred_controls": {"type": "array", "items": {"$ref": "#/$defs/deferred_control"}},
+    "conflicts": {"type": "array", "items": {"$ref": "#/$defs/conflict"}},
+    "assumptions": {"type": "array", "items": {"type": "string"}},
+    "clarification_questions": {"type": "array", "items": {"$ref": "#/$defs/question"}},
+    "scope_findings": {"$ref": "#/$defs/scope_findings"},
+    "warnings": {"type": "array", "items": {"type": "string"}},
+    "errors": {"type": "array", "items": {"$ref": "#/$defs/error"}},
+    "source_catalogue_version": {"type": ["string", "null"]},
+    "catalogue_sha256": {"type": ["string", "null"]},
+    "catalogue_freshness": {"type": ["object", "null"]},
+    "requires_user_review": {"type": "boolean"}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"status": {"enum": ["HARDENED", "ALREADY_ADEQUATE"]}}},
+      "then": {"properties": {"revised_prompt": {"type": "string", "minLength": 1}}},
+      "else": {"properties": {"revised_prompt": {"type": "null"}}}
+    },
+    {
+      "if": {"properties": {"status": {"const": "HARDENED"}}},
+      "then": {"properties": {"added_controls": {"minItems": 1}}}
+    },
+    {
+      "if": {"properties": {"status": {"const": "SECURITY_CONFLICT"}}},
+      "then": {"required": ["conflicts"], "properties": {"conflicts": {"minItems": 1}, "requires_user_review": {"const": true}}}
+    },
+    {
+      "if": {"properties": {"status": {"const": "NEEDS_CLARIFICATION"}}},
+      "then": {"properties": {"clarification_questions": {"minItems": 1}, "requires_user_review": {"const": true}}}
+    },
+    {
+      "if": {"properties": {"status": {"const": "INTEGRATION_ERROR"}}},
+      "then": {"required": ["errors"], "properties": {"errors": {"minItems": 1}}}
+    }
+  ],
+  "$defs": {
+    "source_reference": {
+      "type": "object",
+      "required": ["source_name", "source_url", "source_version_or_section", "retrieved_at", "content_hash", "provenance_status", "derived"],
+      "additionalProperties": false,
+      "properties": {
+        "source_name": {"type": "string", "minLength": 1},
+        "source_url": {"type": "string", "pattern": "^(https://|repo:)"},
+        "source_version_or_section": {"type": "string", "minLength": 1},
+        "retrieved_at": {"type": ["string", "null"]},
+        "content_hash": {"type": ["string", "null"]},
+        "provenance_status": {"enum": ["unverified", "section_checked", "snapshot_verified"]},
+        "derived": {"type": "boolean"},
+        "supporting_references": {"type": "array", "items": {"type": "object"}}
+      }
+    },
+    "gap": {
+      "type": "object",
+      "required": ["control_id", "description", "severity"],
+      "additionalProperties": false,
+      "properties": {
+        "control_id": {"type": "string"},
+        "description": {"type": "string", "minLength": 1},
+        "severity": {"enum": ["critical", "high", "medium", "low"]}
+      }
+    },
+    "added_control": {
+      "type": "object",
+      "required": ["control_id", "reason", "source_references", "verification_expectation", "clause", "enforcement", "severity"],
+      "additionalProperties": false,
+      "properties": {
+        "control_id": {"type": "string"},
+        "control_name": {"type": "string"},
+        "reason": {"type": "string", "minLength": 1},
+        "source_references": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/source_reference"}},
+        "verification_expectation": {"type": "string", "minLength": 1},
+        "clause": {"type": "string", "minLength": 1},
+        "enforcement": {"enum": ["mandatory", "recommended"]},
+        "severity": {"enum": ["critical", "high", "medium", "low"]}
+      }
+    },
+    "satisfied_control": {
+      "type": "object",
+      "required": ["control_id", "evidence"],
+      "additionalProperties": false,
+      "properties": {
+        "control_id": {"type": "string"},
+        "evidence": {"type": "string"},
+        "verification_expectation": {"type": "string"}
+      }
+    },
+    "deferred_control": {
+      "type": "object",
+      "required": ["control_id", "reason"],
+      "additionalProperties": false,
+      "properties": {"control_id": {"type": "string"}, "reason": {"type": "string"}}
+    },
+    "conflict": {
+      "type": "object",
+      "required": ["control_id", "request_excerpt", "why", "proposed_alternative"],
+      "additionalProperties": false,
+      "properties": {
+        "control_id": {"type": "string"},
+        "request_excerpt": {"type": "string"},
+        "why": {"type": "string", "minLength": 1},
+        "proposed_alternative": {"type": "string", "minLength": 1},
+        "enforcement": {"enum": ["mandatory", "recommended"]},
+        "can_be_accepted_by_reviewer": {"type": "boolean"},
+        "source_references": {"type": "array", "items": {"$ref": "#/$defs/source_reference"}}
+      }
+    },
+    "question": {
+      "type": "object",
+      "required": ["question", "why_it_matters", "blocking"],
+      "additionalProperties": false,
+      "properties": {
+        "question": {"type": "string", "minLength": 1},
+        "why_it_matters": {"type": "string"},
+        "blocking": {"type": "boolean"},
+        "control_id": {"type": ["string", "null"]}
+      }
+    },
+    "scope_findings": {
+      "type": "object",
+      "required": ["approved_services", "excluded_services", "out_of_scope_services", "recognised_services"],
+      "additionalProperties": false,
+      "properties": {
+        "approved_services": {"type": "array", "items": {"type": "string"}},
+        "excluded_services": {"type": "array", "items": {"type": "string"}},
+        "out_of_scope_services": {"type": "array", "items": {"type": "string"}},
+        "recognised_services": {"type": "array", "items": {"type": "string"}},
+        "note": {"type": "string"}
+      }
+    },
+    "error": {
+      "type": "object",
+      "required": ["code", "message"],
+      "additionalProperties": false,
+      "properties": {"code": {"type": "string"}, "message": {"type": "string"}, "path": {"type": "string"}}
+    }
+  }
+}

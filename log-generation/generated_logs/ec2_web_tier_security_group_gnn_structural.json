@@ -1,0 +1,10 @@
+[
+  {
+    "log_id": "pred_stream:pred-0001",
+    "source_node": "arn:aws:iam::111122223333:user/agentic-operator",
+    "target_node": "arn:aws:ec2:::security-group/web-tier-secgroup",
+    "edge_type": "CreateSecurityGroup",
+    "label": 0,
+    "state": "PROPOSED"
+  }
+]

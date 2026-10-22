@@ -1,0 +1,13 @@
+{
+  "capture_limitations": "This is a concise review record, not a raw HTML/PDF capture. content_hash hashes these exact review-record bytes. Running source_sync sync will store raw response bytes and replace this baseline hash only for sections it can verify.",
+  "capture_type": "official-page-section-review",
+  "control_id": "APP-INPUT-003",
+  "decision": "supported",
+  "record_type": "curated_source_section_review",
+  "record_version": 1,
+  "reviewed_at": "2026-10-21T04:45:00Z",
+  "source_name": "OWASP Cheat Sheet Series \u2014 Input Validation",
+  "source_recommendation_assessment": "OWASP recommends validating untrusted input server-side with well-defined allow-lists and both syntactic and semantic rules. The control asks the implementation to reject values that do not meet explicit type, length, range, and format requirements.",
+  "source_url": "https://cheatsheetseries.owasp.org/cheatsheets/Input_Validation_Cheat_Sheet.html",
+  "source_version_or_section": "Allow-list validation; syntax, semantic, and length checks"
+}

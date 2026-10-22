@@ -1,0 +1,18 @@
+[
+  {
+    "log_id": "pred_stream:pred-0001",
+    "source_node": "arn:aws:iam::111122223333:user/agentic-operator",
+    "target_node": "arn:aws:kms:::proposed-cmk",
+    "edge_type": "CreateKey",
+    "label": 0,
+    "state": "PROPOSED"
+  },
+  {
+    "log_id": "pred_stream:pred-0002",
+    "source_node": "arn:aws:iam::111122223333:user/agentic-operator",
+    "target_node": "arn:aws:kms:us-east-1:111122223333:key/<PROPOSED_RESOURCE_ID_FROM_STEP_1>",
+    "edge_type": "EnableKeyRotation",
+    "label": 0,
+    "state": "PROPOSED"
+  }
+]

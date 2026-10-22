@@ -1,0 +1,1577 @@
+catalogue_id: cloudsec-prompt-hardening-controls
+catalogue_version: 0.2.3
+schema_version: '1'
+updated_at: '2026-10-21'
+scope_version: '1'
+description: Catalogue for the bounded CloudSec security-hardening module. Twenty-four active external
+  controls have dated local section-review records. These local records are not raw upstream snapshots
+  and do not supply content_hash values for the external pages. The remaining draft control awaits exact
+  NIST SSDF clause review. Automated raw-source synchronisation is implemented with opt-in activation
+  and tested using mocked responses; live raw retrieval remains unrun.
+changelog:
+- version: 0.2.3
+  date: '2026-10-21'
+  change: Verified and corrected official source sections for secure error handling, context-aware output
+    encoding, and dependency supply-chain checks; promoted those controls from draft after source review.
+    Incomplete source syncs are prevented from activating.
+- version: 0.2.2
+  date: '2026-10-21'
+  change: Clarified rate-limit and logging cue detection; preserved trust-policy review for IAM-role creation;
+    tightened source-sync activation so incomplete syncs cannot replace the last-known-good catalogue.
+- version: 0.2.1
+  date: '2026-10-21'
+  change: Scoped bucket controls to bucket-specific actions; clarified upload-surface detection and source
+    provenance states.
+- version: 0.2.0
+  date: '2026-10-21'
+  change: Reviewed 20 active external controls against cited official AWS/OWASP documentation; added dated
+    SHA-256-hashed section-review records. Corrected deprecated OWASP/API references. Demoted LOG-AUDIT-001
+    (its referenced parent pipeline file is absent from this export) and DEV-VERIFY-001 (exact NIST SSDF
+    clauses not reverified) pending source review. Implemented explicit source_sync workflow separately;
+    no live raw-source sync was run.
+- version: 0.1.2
+  date: '2026-10-19'
+  change: requirement_cues.replacement_trail now recognises "after the new organization trail"-style wording,
+    so retiring a trail with a named replacement is not reported as disabling audit logging.
+- version: 0.1.1
+  date: '2026-10-18'
+  change: 'Applicability tuning after running the analyser over scenario prompts: IAM-ESCALATE-004 now
+    needs an explicit PassRole / IAM-write shape; S3-PUBLIC-001 and S3-ENCRYPT-002 apply to creating or
+    changing a bucket, not to granting access to an existing one; DB-ACCESS-001 needs an endpoint or untrusted
+    input, so a plain schema migration is not flagged; IAM-LEASTPRIV-001 no longer treats EC2 network
+    rules as IAM grants and its clause wording was made subject-neutral.'
+- version: 0.1.0
+  date: '2026-10-18'
+  change: 'Initial catalogue: 25 controls (22 active, 3 draft awaiting source verification).'
+freshness:
+  last_sync_attempt: null
+  last_sync_status: never_synced
+  last_known_good_version: 0.2.3
+  note: Dated local section-review records are stored under snapshots/section_evidence. These are not
+    raw upstream response snapshots. Run python -m security_hardening.source_sync sync in a network-enabled
+    environment to fetch raw official source bytes and create a candidate; activation is opt-in and blocked
+    when any source is unavailable or expected section cues cannot be verified.
+requirement_cues:
+  least_privilege:
+  - least[- ]privilege
+  - principle of least
+  - minimum (necessary |required )?(permissions?|access|privileges?)
+  - only (the )?(permissions?|actions?|access|privileges?) (it |they |that )?(needs?|requires?|required|necessary)
+  - narrowly[- ]scoped
+  scoped_resources:
+  - (scoped?|restricted?|limited?)( down)? to (only )?(the |that |this )?(specific|named|single|one|particular)
+    (bucket|prefix|resource|table|role|path|key|arn|object|parameter)s?
+  - resource[- ]level (permissions?|scoping|restriction)
+  - only (on|for|to) (the )?(specific |named |single |particular )?(bucket|prefix|resource|path|arn)
+  no_wildcards:
+  - \bno wildcards?\b
+  - (avoid|without|(do not|don[\x27’]?t|never) use)\s+(any\s+)?wildcards?
+  - (avoid|without)\s+(a\s+)?(\*|star)\b
+  restricted_trust:
+  - trust (policy|relationship)[^.]{0,60}(only|restricted|limited|scoped|just)
+  - only (the |this )?(specific |named )?(service|account|role|principal|user)s?[^.]{0,30}(can|may|is
+    allowed to|are allowed to) assume
+  - restrict(ed|s)?\s+(who|which)\s+(\w+\s+){0,2}assume
+  - external[- ]?id
+  - assumable (only )?by
+  block_public_access:
+  - block public access
+  - (no|without)\s+public\s+(access|read|write|acl)
+  - (not|never)\s+(be\s+)?(publicly|public)\b
+  - private (bucket|only)
+  - (must|should|stay|remain)\s+(stay |remain |be )?private
+  - (disable|block|deny)\s+(all\s+)?public
+  private_only_access:
+  - private (subnet|endpoint|network|access|only)
+  - not (exposed|reachable|accessible)\s+(to|from)\s+the\s+(public\s+)?internet
+  - no (public|internet) (access|exposure|ingress)
+  - internal[- ]only
+  - vpc[- ]only
+  encryption_at_rest:
+  - encrypt(ed|ion)?\s+(at rest|the (bucket|data|objects?|volumes?|database))
+  - server[- ]side encryption
+  - \bSSE\b
+  - encryption at rest
+  - encrypted (bucket|volume|storage|database)
+  encryption_in_transit:
+  - in[- ]transit
+  - \bTLS\b
+  - https[- ]only
+  - (enforce|require)\s+(https|ssl)
+  - secure[- ]?transport
+  versioning_or_backup:
+  - \bversioning\b
+  - \bback(up|ed up|s up)\b
+  - object lock
+  - point[- ]in[- ]time
+  - snapshot (it )?before
+  - retain (a )?(copy|backup)
+  deletion_protection:
+  - deletion protection
+  - mfa delete
+  - (confirm(ation)?|approval)\s+before\s+(deleting|delete|removing)
+  - soft[- ]delete
+  - require(s)?\s+(explicit\s+)?(confirmation|approval)
+  audit_logging:
+  - audit (log|trail|logging)
+  - cloudtrail (logging )?(must |should |stays |remains )?(be )?(enabled|on|active)
+  - keep (cloudtrail|logging) (on|enabled|active)
+  - (access|server access) logging
+  - log (all )?(access|changes|api calls)
+  replacement_trail:
+  - replacement trail
+  - (after|once|before|when)\s+(the\s+)?(new|replacement|organization|org|equivalent)(\s+[\w-]+){0,2}\s+trail
+  - equivalent trail
+  - another trail (is|remains|already)
+  temporary_credentials:
+  - temporary credentials?
+  - short[- ]lived (credentials?|tokens?)
+  - (iam )?roles?\s+(instead of|rather than)\s+(long[- ]term |static )?(access )?keys?
+  - instance profile
+  - no (long[- ]term|static) (access )?keys?
+  - \bfederat(ed|ion)\b
+  mfa_required:
+  - \bMFA\b
+  - multi[- ]?factor
+  - \b2FA\b
+  - two[- ]factor
+  no_hardcoded_secrets:
+  - (no|never|not|without|avoid)\s+(\w+\s+){0,3}(hard[- ]?cod(e|ed|ing)|embed(ded|ding)?|commit(ted|ting)?)\s+(\w+\s+){0,3}(secrets?|credentials?|keys?|passwords?|tokens?)
+  - (secrets?|credentials?|passwords?|keys?|tokens?)\s+(must |should )?(come|be (read|loaded|injected|retrieved|fetched))\s+(from|via|at
+    runtime)
+  - (read|load|retrieve|fetch|inject)\w*\s+(the\s+)?(secrets?|credentials?|passwords?|keys?|tokens?)\s+(from|via)\s+(the\s+)?(env|environment|secret|parameter|vault|store)
+  - no secrets? in (code|source|the repo|git)
+  - environment variables? for (secrets?|credentials?|passwords?)
+  parameterized_queries:
+  - parameteri[sz]ed (quer(y|ies)|statements?|sql)
+  - prepared statements?
+  - bind(ing)? (variables|parameters)
+  - bound parameters?
+  - query parameters? binding
+  safe_command_execution:
+  - (no|avoid|without|never)\s+(\w+\s+){0,2}(shell|os\.system|shell=true)
+  - argument (list|array)
+  - subprocess[^.]{0,30}list
+  - \bshlex\b
+  - allow[- ]?list(ed)? (of )?commands?
+  input_validation:
+  - validat(e|es|ed|ion|ing)\s+(\w+\s+){0,4}(input|parameters?|params?|fields?|requests?|payloads?|length|charset|types?|formats?|values?)
+  - (allow[- ]?list|whitelist)
+  - sanitiz(e|es|ed|ation|ing)
+  - (schema|pydantic|marshmallow|joi|zod) validation
+  - max(imum)? length
+  - reject (invalid|malformed|unexpected)
+  output_encoding:
+  - (output|html|context[- ]aware) (encod|escap)
+  - escape (html|output|user)
+  - auto[- ]?escap
+  - content security policy
+  - \bCSP\b
+  authn_required:
+  - (require|requires|requiring|must)\s+(\w+\s+){0,3}authenticat
+  - authenticated (users?|requests?|callers?|clients?)
+  - (jwt|oauth|oidc|api key|bearer token|session)\s+(auth|authentication|validation|required)
+  - behind (auth|authentication|login)
+  - login required
+  object_level_authz:
+  - (object|resource|record|row)[- ]level (authori[sz]ation|access (control|check))
+  - only (return|show|allow|access|expose)[^.]{0,60}(own|owner|authori[sz]ed|permitted|entitled)
+  - (authori[sz]ation|ownership|permission) checks?
+  - (verify|check|ensure)\s+(that\s+)?(the\s+)?(caller|user|requester)\s+(owns|is authori[sz]ed|has access|may
+    access)
+  - tenant isolation
+  ssrf_protection:
+  - \bssrf\b
+  - allow[- ]?list(ed)? (of )?(hosts?|domains?|urls?|schemes?)
+  - (block|deny|reject)\w*\s+(private|internal|link[- ]local|metadata)
+  - 169\.254\.169\.254
+  path_restriction:
+  - path traversal
+  - (canonical|resolve|normali[sz])\w*\s+(the\s+)?paths?
+  - (restrict|confine|limit)\w*\s+(to\s+)?(a |the )?(base|upload|specific|allowed)\s+(dir|directory|folder)
+  - \b(basename|secure_filename)\b
+  rate_limiting:
+  - rate[- ]?limit(ing|ed)?
+  - \brequest rates?\b
+  - (cap|limit|restrict)\w*\s+(the\s+)?(request\s+)?rates?
+  - throttl(e|ing|ed)
+  - (max|maximum|limit)\w*\s+(the\s+)?(upload|file|request|payload|body)\s+size
+  - (size|upload|request) limits?
+  secure_error_handling:
+  - (generic|sanitized|safe|non[- ]?revealing) error (message|response)s?
+  - (no|don[\x27’]?t|do not|never|without)\s+(\w+\s+){0,3}(stack ?traces?|internal (errors?|details)|verbose
+    errors?|sql errors?)
+  - (hide|avoid leaking|not (leak|expose))\s+(internal|stack|error)
+  no_sensitive_logging:
+  - (redact|mask|scrub)\w*\s+(sensitive|secrets?|pii|tokens?|passwords?|personal)
+  - (never|do not|don[\x27’]?t|no|avoid|without)\s+(\w+\s+){0,3}log(ging)?\s+(\w+\s+){0,3}(passwords?|secrets?|tokens?|credentials?|pii|sensitive|personal|parameters?|values?|inputs?)
+  - no sensitive (data|values?) in logs?
+  dependency_scanning:
+  - (dependency|vulnerability)\s+(scan|check|audit)
+  - \b(dependabot|pip[- ]audit|npm audit|snyk|trivy|safety)\b
+  - pin(ned)?\s+(the\s+)?(versions?|dependencies)
+  - \b(lockfile|sbom)\b
+  - known[- ]vulnerab
+  security_tests:
+  - (security|negative|abuse|injection|authori[sz]ation|permission) tests?
+  - (write|add|include)\w*\s+(unit |automated |integration )?tests?\s+(for|that|covering)[^.]{0,80}(inject|authori[sz]|permission|deny|denied|malicious|invalid|traversal|unauthori)
+  - \b(sast|dast|bandit|semgrep|checkov|tfsec|cfn[- ]?nag)\b
+  - policy (validation|linting|simulat)
+  - iam access analyzer
+  rollback_plan:
+  - roll ?back
+  - \brevert
+  - backup before
+  - reversible
+  change_review:
+  - (peer|code|security) review
+  - (require|requires|needs?)\s+(\w+\s+){0,3}(approval|sign[- ]?off)
+  - \b(change (request|control|ticket)|four[- ]eyes)\b
+  - (terraform )?plan (output )?(review|first)|\bdry[- ]?run\b
+  - permissions? boundar(y|ies)
+  restricted_cidr:
+  - (only|restricted to|limited to|allow(ed)? from)\s+(\w+\s+){0,3}(cidr|ip range|ip addresses?|office|vpn|corporate|trusted|known)
+  - \b(?!0\.0\.0\.0/0)\d{1,3}(\.\d{1,3}){3}/\d{1,2}\b
+  - (source|referenced?|from the)\s+security group
+  - allow[- ]?list(ed)? (ips?|cidrs?)
+  least_privilege_db:
+  - (read[- ]only|least[- ]privilege|limited|restricted|minimal)\s+(database |db )?(user|role|account|connection|credentials?|privileges|permissions)
+  - (only|just)\s+(select|read)\s+(permission|access|privilege)s?
+  - dedicated (db|database) (user|account|role)
+controls:
+- control_id: IAM-LEASTPRIV-001
+  control_category: identity_and_permissions
+  control_name: Least-privilege permissions
+  control_description: Permissions granted to a principal should be limited to the specific actions and
+    resources the workload needs, rather than broad access granted for convenience.
+  enforcement: recommended
+  applicability_conditions:
+    any:
+    - fact: permission_shapes
+      any_of:
+      - policy_authoring
+      - passrole
+      - iam_write
+      - wildcard_action
+      - wildcard_resource
+      - admin_policy
+    - all:
+      - fact: action_classes
+        any_of:
+        - grant
+        - create
+        - modify
+      - fact: resource_kinds
+        any_of:
+        - iam_role
+        - iam_policy
+        - iam_user
+        - iam_group
+        - access_key
+    - all:
+      - fact: action_classes
+        any_of:
+        - grant
+      - fact: services
+        any_of:
+        - s3
+        - ssm
+        - cloudtrail
+        - sts
+  satisfied_by:
+    fact: stated_requirements
+    any_of:
+    - least_privilege
+    - scoped_resources
+  affected_services_or_components:
+  - iam
+  - sts
+  required_prompt_clause: Limit {subject} to only the specific actions on the specific resources this
+    task needs (name the actions and resources; add conditions where they help). Do not use wildcard actions
+    or resources, and do not remove any permission the requested functionality actually needs.
+  verification_expectation: 'Inspect the resulting policy: no "*" in Action or Resource unless justified
+    in writing, and every action maps to a stated need. Run policy validation or an access-analysis check
+    if one is available and report its findings.'
+  severity_or_priority: high
+  source_name: AWS IAM User Guide — Security best practices
+  source_url: https://docs.aws.amazon.com/IAM/latest/UserGuide/best-practices.html
+  source_version_or_section: Apply least-privilege permissions
+  retrieved_at: '2026-10-21T04:45:00Z'
+  content_hash: null
+  provenance_status: section_checked
+  derived: false
+  supporting_references: []
+  catalogue_version: 0.1.1
+  active_status: active
+  source_status: available
+- control_id: IAM-WILDCARD-002
+  control_category: identity_and_permissions
+  control_name: Avoid wildcard permissions and broad administrator policies
+  control_description: Wildcard actions, wildcard resources and broad administrator-level managed policies
+    should not be granted unless the broad access is justified, bounded and reviewed.
+  enforcement: recommended
+  applicability_conditions:
+    any:
+    - fact: permission_shapes
+      any_of:
+      - wildcard_action
+      - wildcard_resource
+      - admin_policy
+    - fact: requested_configurations
+      any_of:
+      - attach_admin_policy
+      - wildcard_permissions
+  satisfied_by:
+    fact: stated_requirements
+    any_of:
+    - no_wildcards
+  affected_services_or_components:
+  - iam
+  required_prompt_clause: Avoid "*" actions, "*" resources and broad managed administrator policies for
+    {subject}. If broader access is genuinely required, state why, limit its scope and duration, and flag
+    it for review instead of applying it silently.
+  verification_expectation: Search the produced policies and templates for "*" in Action/Resource and
+    for administrator-level managed policy attachments; each hit must have a written justification or
+    be removed.
+  severity_or_priority: high
+  conflict_triggers:
+  - id: admin-or-wildcard-requested
+    when:
+      fact: requested_configurations
+      any_of:
+      - attach_admin_policy
+      - wildcard_permissions
+    why: The request asks for administrator-level or all-actions permissions, which conflicts with least-privilege
+      guidance.
+    alternative: Grant only the specific actions on the specific resources the task needs (the access
+      the workload actually uses is the right starting point). If broad access is truly needed temporarily,
+      make it time-bound, reviewed and logged.
+  source_name: AWS IAM User Guide — Security best practices
+  source_url: https://docs.aws.amazon.com/IAM/latest/UserGuide/best-practices.html
+  source_version_or_section: Apply least-privilege permissions; avoid broad policies
+  retrieved_at: '2026-10-21T04:45:00Z'
+  content_hash: null
+  provenance_status: section_checked
+  derived: true
+  supporting_references:
+  - source_name: AWS IAM User Guide - Security best practices in IAM
+    source_url: https://docs.aws.amazon.com/IAM/latest/UserGuide/best-practices.html
+    source_version_or_section: Use conditions in IAM policies to further restrict access
+  catalogue_version: 0.1.0
+  active_status: active
+  source_status: available
+- control_id: IAM-TRUST-003
+  control_category: identity_and_permissions
+  control_name: Constrain role trust policies
+  control_description: A role's trust policy decides who can assume it; it should name explicit principals
+    and add conditions for cross-account or external principals rather than trusting broadly.
+  enforcement: recommended
+  applicability_conditions:
+    any:
+    - fact: resource_kinds
+      any_of:
+      - trust_policy
+    - fact: permission_shapes
+      any_of:
+      - trust_wildcard
+    - all:
+      - fact: resource_kinds
+        any_of:
+        - iam_role
+      - fact: action_classes
+        any_of:
+        - create
+    - all:
+      - fact: exposure
+        any_of:
+        - cross_account
+      - fact: services
+        any_of:
+        - iam
+        - sts
+  satisfied_by:
+    fact: stated_requirements
+    any_of:
+    - restricted_trust
+  affected_services_or_components:
+  - iam
+  - sts
+  required_prompt_clause: For {subject}, list the exact principal(s) allowed to assume the role in its
+    trust policy (no wildcard principal), add conditions for cross-account or external principals, and
+    do not widen who can assume it beyond what the request names.
+  verification_expectation: 'Read the trust policy: the Principal element names specific accounts, roles
+    or services, never "*", and cross-account trust carries a condition. Report any principal the request
+    did not name.'
+  severity_or_priority: high
+  required_context:
+  - key: assuming_principal
+    question: Which principal(s) (service, role or account) should be allowed to assume this role?
+    why_it_matters: The trust policy must name who may assume the role, and nothing in the request says
+      who that is.
+    provided_when:
+      fact: stated_requirements
+      any_of:
+      - restricted_trust
+    blocking: false
+  conflict_triggers:
+  - id: wildcard-trust-principal-requested
+    when:
+      fact: requested_configurations
+      any_of:
+      - wildcard_trust_principal
+    why: Trusting any principal to assume the role lets unintended identities obtain its permissions.
+    alternative: Name the specific account, role or service that needs to assume the role and add conditions
+      (for example an external ID for third parties).
+  source_name: AWS IAM User Guide — Security best practices
+  source_url: https://docs.aws.amazon.com/IAM/latest/UserGuide/best-practices.html
+  source_version_or_section: IAM Access Analyzer and resource access review
+  retrieved_at: '2026-10-21T04:45:00Z'
+  content_hash: null
+  provenance_status: section_checked
+  derived: true
+  supporting_references:
+  - source_name: AWS IAM User Guide - Security best practices in IAM
+    source_url: https://docs.aws.amazon.com/IAM/latest/UserGuide/best-practices.html
+    source_version_or_section: Apply least-privilege permissions
+  catalogue_version: 0.1.0
+  active_status: active
+  source_status: available
+- control_id: IAM-ESCALATE-004
+  control_category: identity_and_permissions
+  control_name: Prevent unintended permission expansion
+  control_description: Rights to pass roles, create or attach policies, or edit trust policies let a principal
+    grant itself or others more access than intended and should be tightly bounded and reviewed.
+  enforcement: recommended
+  applicability_conditions:
+    fact: permission_shapes
+    any_of:
+    - passrole
+    - iam_write
+  satisfied_by:
+    fact: stated_requirements
+    any_of:
+    - change_review
+  affected_services_or_components:
+  - iam
+  - sts
+  required_prompt_clause: 'Check that {subject} cannot be used to grant itself or others more access than
+    intended: limit iam:PassRole to the specific roles needed, avoid unrestricted policy-creation and
+    policy-attachment rights, and consider a permissions boundary for delegated administration.'
+  verification_expectation: List every IAM write action and iam:PassRole grant in the result and confirm
+    each is limited to named resources; confirm the principal cannot attach a more powerful policy to
+    itself.
+  severity_or_priority: high
+  source_name: AWS IAM User Guide — Security best practices
+  source_url: https://docs.aws.amazon.com/IAM/latest/UserGuide/best-practices.html
+  source_version_or_section: Permissions boundaries and delegated permission management
+  retrieved_at: '2026-10-21T04:45:00Z'
+  content_hash: null
+  provenance_status: section_checked
+  derived: true
+  supporting_references:
+  - source_name: AWS IAM User Guide - Security best practices in IAM
+    source_url: https://docs.aws.amazon.com/IAM/latest/UserGuide/best-practices.html
+    source_version_or_section: Apply least-privilege permissions
+  catalogue_version: 0.1.1
+  active_status: active
+  source_status: available
+- control_id: IAM-CREDS-005
+  control_category: identity_and_permissions
+  control_name: Prefer temporary credentials; protect the root user
+  control_description: Workloads should obtain temporary credentials through roles instead of long-term
+    access keys, and the root user should not be used for routine tasks.
+  enforcement: recommended
+  applicability_conditions:
+    any:
+    - fact: credential_handling
+      any_of:
+      - create_access_key
+      - long_term_credentials
+      - use_root
+    - fact: resource_kinds
+      any_of:
+      - access_key
+    - fact: requested_configurations
+      any_of:
+      - use_root_credentials
+  satisfied_by:
+    fact: stated_requirements
+    any_of:
+    - temporary_credentials
+  affected_services_or_components:
+  - iam
+  - sts
+  required_prompt_clause: Use IAM roles with temporary credentials instead of long-term access keys for
+    {subject}, and never use the root user for this task. If a long-term key is unavoidable, scope it
+    tightly, plan its rotation, and keep it out of source code and logs.
+  verification_expectation: Confirm no new long-term access key is created without a stated reason and
+    rotation plan, and that no step runs as the root user.
+  severity_or_priority: high
+  conflict_triggers:
+  - id: root-credentials-requested
+    enforcement: mandatory
+    when:
+      fact: requested_configurations
+      any_of:
+      - use_root_credentials
+    why: Routine use of the root user or root access keys is exactly what IAM guidance says to avoid.
+    alternative: Use an IAM role (or a dedicated least-privilege IAM identity) with temporary credentials
+      and reserve the root user for the few tasks that require it.
+  source_name: AWS IAM User Guide — Security best practices
+  source_url: https://docs.aws.amazon.com/IAM/latest/UserGuide/best-practices.html
+  source_version_or_section: Use temporary credentials and roles for workloads
+  retrieved_at: '2026-10-21T04:45:00Z'
+  content_hash: null
+  provenance_status: section_checked
+  derived: false
+  supporting_references:
+  - source_name: AWS IAM User Guide - Security best practices in IAM
+    source_url: https://docs.aws.amazon.com/IAM/latest/UserGuide/best-practices.html
+    source_version_or_section: Follow best practices to protect your root user
+  catalogue_version: 0.1.0
+  active_status: active
+  source_status: available
+- control_id: S3-PUBLIC-001
+  control_category: storage_and_cloud_resources
+  control_name: Avoid unintended public exposure of buckets
+  control_description: Buckets should stay private unless public content is the explicit purpose, with
+    Block Public Access on and access limited to named principals.
+  enforcement: recommended
+  applicability_conditions:
+    all:
+    - fact: services
+      any_of:
+      - s3
+    - any:
+      - fact: resource_actions
+        any_of:
+        - create_bucket
+        - modify_bucket
+      - fact: exposure
+        any_of:
+        - public_internet
+        - public_principal
+      - fact: requested_configurations
+        any_of:
+        - public_bucket_access
+        - public_bucket_write
+        - disable_public_access_block
+  satisfied_by:
+    fact: stated_requirements
+    any_of:
+    - block_public_access
+    - private_only_access
+  affected_services_or_components:
+  - s3
+  required_prompt_clause: 'Keep {subject} private: enable S3 Block Public Access, grant access only to
+    the specific principals the request names, and do not add public ACLs or wildcard-principal bucket
+    policies unless the request explicitly requires public content.'
+  verification_expectation: Confirm Block Public Access is enabled on the bucket, no policy statement
+    uses a wildcard principal without a restricting condition, and no public ACL is set; report any intentional
+    public content.
+  severity_or_priority: high
+  required_context:
+  - key: bucket_audience
+    question: Is any of this bucket's content meant to be public, or should it be private to named principals?
+    why_it_matters: Public exposure of a bucket is a different configuration from private access.
+    provided_when:
+      any:
+      - fact: stated_requirements
+        any_of:
+        - block_public_access
+        - private_only_access
+      - fact: exposure
+        any_of:
+        - public_internet
+        - public_principal
+    default_assumption: 'The bucket is private: no public read or write access was requested.'
+    blocking: false
+  conflict_triggers:
+  - id: public-bucket-write-requested
+    when:
+      fact: requested_configurations
+      any_of:
+      - public_bucket_write
+    why: Letting anyone write to a bucket enables abuse and data tampering.
+    alternative: Let named principals upload through scoped credentials, or use time-limited upload permissions
+      for specific objects.
+  - id: public-access-block-disable-requested
+    when:
+      fact: requested_configurations
+      any_of:
+      - disable_public_access_block
+    why: Turning off Block Public Access removes the safeguard against accidental public exposure.
+    alternative: Keep Block Public Access on and grant access to specific principals; if public content
+      is required, scope any exception to the exact prefix and review it.
+  - id: public-read-of-sensitive-data-requested
+    when:
+      all:
+      - fact: requested_configurations
+        any_of:
+        - public_bucket_access
+      - fact: sensitive_data
+        present: true
+    why: The request makes a bucket publicly readable while the data it describes looks sensitive.
+    alternative: Keep the data private and share it through scoped, time-limited access for the people
+      who need it.
+  source_name: Amazon S3 User Guide — Security best practices
+  source_url: https://docs.aws.amazon.com/AmazonS3/latest/userguide/security-best-practices.html
+  source_version_or_section: Block public access and review bucket policies / ACLs
+  retrieved_at: '2026-10-21T04:45:00Z'
+  content_hash: null
+  provenance_status: section_checked
+  derived: false
+  supporting_references:
+  - source_name: AWS S3 User Guide - Security best practices for Amazon S3
+    source_url: https://docs.aws.amazon.com/AmazonS3/latest/userguide/security-best-practices.html
+    source_version_or_section: Use S3 Block Public Access
+  catalogue_version: 0.1.1
+  active_status: active
+  source_status: available
+- control_id: S3-ENCRYPT-002
+  control_category: storage_and_cloud_resources
+  control_name: Encrypt bucket data at rest and in transit
+  control_description: Data stored in a bucket should be encrypted at rest, and access should require
+    encrypted transport.
+  enforcement: recommended
+  applicability_conditions:
+    all:
+    - fact: services
+      any_of:
+      - s3
+    - any:
+      - fact: resource_actions
+        any_of:
+        - create_bucket
+        - modify_bucket
+      - fact: requested_configurations
+        any_of:
+        - disable_encryption
+  satisfied_by:
+    fact: stated_requirements
+    all_of:
+    - encryption_at_rest
+    - encryption_in_transit
+  affected_services_or_components:
+  - s3
+  required_prompt_clause: Enable server-side encryption at rest for {subject} using the project's existing
+    default setting (do not introduce new key-management resources unless the request names them), and
+    require encrypted transport by denying requests that do not use TLS.
+  verification_expectation: Confirm default encryption is enabled on the bucket and the bucket policy
+    denies requests where secure transport is false.
+  severity_or_priority: medium
+  conflict_triggers:
+  - id: encryption-disable-requested
+    when:
+      fact: requested_configurations
+      any_of:
+      - disable_encryption
+    why: The request asks to turn encryption off for stored data.
+    alternative: Keep default server-side encryption enabled; if a specific workflow needs plaintext access,
+      decrypt in the authorised application layer rather than disabling storage encryption.
+  source_name: Amazon S3 User Guide — Security best practices
+  source_url: https://docs.aws.amazon.com/AmazonS3/latest/userguide/security-best-practices.html
+  source_version_or_section: Protect data at rest and in transit
+  retrieved_at: '2026-10-21T04:45:00Z'
+  content_hash: null
+  provenance_status: section_checked
+  derived: false
+  supporting_references: []
+  catalogue_version: 0.1.1
+  active_status: active
+  source_status: available
+- control_id: S3-DELETE-003
+  control_category: storage_and_cloud_resources
+  control_name: Safeguards before deleting or overwriting bucket data
+  control_description: Deleting or overwriting objects should be recoverable (versioning, retention, backups)
+    and limited to the scope the request names.
+  enforcement: recommended
+  applicability_conditions:
+    all:
+    - fact: services
+      any_of:
+      - s3
+    - any:
+      - fact: action_classes
+        any_of:
+        - delete
+      - fact: high_impact
+        any_of:
+        - destructive
+        - irreversible
+  satisfied_by:
+    fact: stated_requirements
+    any_of:
+    - versioning_or_backup
+    - deletion_protection
+    - rollback_plan
+  affected_services_or_components:
+  - s3
+  required_prompt_clause: Before deleting or overwriting data in {subject}, confirm versioning, a backup
+    or a retention hold is in place so the change can be undone, and do not delete anything outside the
+    scope the request names.
+  verification_expectation: Confirm a recovery mechanism exists before the destructive step (versioning,
+    backup or retention) and that the delete targets only the named bucket or prefix.
+  severity_or_priority: medium
+  source_name: Amazon S3 User Guide — Security best practices
+  source_url: https://docs.aws.amazon.com/AmazonS3/latest/userguide/security-best-practices.html
+  source_version_or_section: Versioning, retention and protection from destructive changes
+  retrieved_at: '2026-10-21T04:45:00Z'
+  content_hash: null
+  provenance_status: section_checked
+  derived: false
+  supporting_references: []
+  catalogue_version: 0.1.0
+  active_status: active
+  source_status: available
+- control_id: VPC-SGROUP-001
+  control_category: network_exposure
+  control_name: Restrict security-group ingress to what is needed
+  control_description: Inbound rules should open only the ports and sources a service needs; administrative
+    and database ports must not be open to the whole internet.
+  enforcement: recommended
+  applicability_conditions:
+    any:
+    - fact: resource_kinds
+      any_of:
+      - security_group
+      - ingress_rule
+    - fact: exposure
+      any_of:
+      - admin_port_open
+      - db_port_open
+      - public_internet
+    - all:
+      - fact: services
+        any_of:
+        - ec2
+        - rds
+        - elasticloadbalancing
+      - fact: action_classes
+        any_of:
+        - create
+        - expose
+    - fact: requested_configurations
+      any_of:
+      - open_admin_port_to_world
+      - open_db_port_to_world
+      - open_all_ports_to_world
+  satisfied_by:
+    fact: stated_requirements
+    any_of:
+    - restricted_cidr
+    - private_only_access
+  affected_services_or_components:
+  - ec2
+  - rds
+  - elasticloadbalancing
+  required_prompt_clause: Restrict inbound rules for {subject} to the specific ports and source ranges
+    the request needs; never open administrative (SSH/RDP) or database ports to 0.0.0.0/0 or ::/0, and
+    prefer security-group references over broad CIDR ranges.
+  verification_expectation: 'Review every ingress rule produced: each has a stated port and a specific
+    source, and none opens SSH, RDP or a database port to 0.0.0.0/0 or ::/0.'
+  severity_or_priority: high
+  required_context:
+  - key: allowed_sources
+    question: Which source IP ranges or security groups should be allowed to reach this resource?
+    why_it_matters: An inbound rule needs a specific source; "users" or "the team" does not identify one.
+    provided_when:
+      fact: stated_requirements
+      any_of:
+      - restricted_cidr
+      - private_only_access
+    blocking: false
+  conflict_triggers:
+  - id: admin-port-open-to-world-requested
+    when:
+      fact: requested_configurations
+      any_of:
+      - open_admin_port_to_world
+      - open_all_ports_to_world
+    why: Opening SSH, RDP or all ports to the whole internet exposes the host to anyone.
+    alternative: Allow the port only from the specific trusted CIDR range or security group that needs
+      it (for example an office or VPN range supplied by the requester).
+  - id: db-port-open-to-world-requested
+    when:
+      fact: requested_configurations
+      any_of:
+      - open_db_port_to_world
+    why: A database reachable from the whole internet is exposed to credential attacks and exploits.
+    alternative: Keep the database in private subnets and allow its port only from the application's security
+      group.
+  source_name: Amazon VPC User Guide — Security best practices
+  source_url: https://docs.aws.amazon.com/vpc/latest/userguide/vpc-security-best-practices.html
+  source_version_or_section: 'Security groups: limit permitted network traffic'
+  retrieved_at: '2026-10-21T04:45:00Z'
+  content_hash: null
+  provenance_status: section_checked
+  derived: false
+  supporting_references: []
+  catalogue_version: 0.1.0
+  active_status: active
+  source_status: available
+- control_id: LOG-AUDIT-001
+  control_category: development_and_observability
+  control_name: Preserve audit logging
+  control_description: Audit logging should not be disabled or removed as a side effect of a task. AWS
+    recommends maintaining an ongoing record of account activity and preserving the integrity and completeness
+    of those records.
+  enforcement: mandatory
+  applicability_conditions:
+    any:
+    - fact: services
+      any_of:
+      - cloudtrail
+    - fact: resource_kinds
+      any_of:
+      - trail
+    - fact: high_impact
+      any_of:
+      - security_control_change
+    - fact: requested_configurations
+      any_of:
+      - disable_audit_logging
+  satisfied_by:
+    fact: stated_requirements
+    any_of:
+    - audit_logging
+  affected_services_or_components:
+  - cloudtrail
+  - ec2
+  required_prompt_clause: Do not disable, stop or delete audit logging (CloudTrail trails and VPC flow
+    logs) as part of this task; if a trail must be retired, name the replacement trail that records the
+    required events and validate the transition.
+  verification_expectation: Confirm no step stops CloudTrail logging, deletes a trail or removes VPC flow
+    logs, and that any retired trail has a named replacement recording the required events.
+  severity_or_priority: high
+  conflict_triggers:
+  - id: audit-logging-disable-requested
+    enforcement: mandatory
+    when:
+      fact: requested_configurations
+      any_of:
+      - disable_audit_logging
+    unless:
+      fact: stated_requirements
+      any_of:
+      - replacement_trail
+    why: The request disables or deletes audit logging, which removes an important record for security
+      investigations and incident response.
+    alternative: Keep logging on. If a trail is being replaced, name the replacement trail that records
+      the same events and confirm it is active before removing the old one; to reduce cost, review and
+      narrow event selectors instead of turning logging off.
+  source_name: AWS CloudTrail User Guide — Security best practices
+  source_url: https://docs.aws.amazon.com/awscloudtrail/latest/userguide/best-practices-security.html
+  source_version_or_section: Preventative security best practices; preserve audit-log integrity and ongoing
+    records
+  retrieved_at: '2026-10-21T04:55:00Z'
+  content_hash: null
+  provenance_status: section_checked
+  derived: false
+  supporting_references:
+  - source_name: AWS Well-Architected Framework — Security Pillar
+    source_url: https://docs.aws.amazon.com/wellarchitected/latest/security-pillar/welcome.html
+    source_version_or_section: Design principles — enable traceability
+  catalogue_version: 0.1.0
+  active_status: active
+  source_status: available
+- control_id: DEV-VERIFY-001
+  control_category: development_and_observability
+  control_name: Automated security tests and review
+  control_description: Code and infrastructure changes that touch security-relevant behaviour should come
+    with automated tests and analysis that exercise that behaviour.
+  enforcement: recommended
+  applicability_conditions:
+    all:
+    - fact: app_context
+      any_of:
+      - code_task
+      - iac
+    - any:
+      - fact: input_flows
+        present: true
+      - fact: permission_shapes
+        present: true
+      - fact: exposure
+        present: true
+      - fact: services
+        present: true
+      - fact: sensitive_data
+        present: true
+  satisfied_by:
+    fact: stated_requirements
+    any_of:
+    - security_tests
+  affected_services_or_components:
+  - application
+  - iac
+  required_prompt_clause: Add automated tests that exercise the security-relevant behaviour of this change
+    (denied access, invalid and malicious input), run any available static analysis or policy linting,
+    and report failures instead of hiding them.
+  verification_expectation: Confirm tests exist for the denial and invalid-input paths of the change,
+    that they were actually run, and that analysis findings are reported.
+  severity_or_priority: medium
+  source_name: NIST SP 800-218 Secure Software Development Framework (SSDF)
+  source_url: https://csrc.nist.gov/pubs/sp/800/218/final
+  source_version_or_section: PW.7 and PW.8 (code review and testing practices) — pending exact-source
+    verification; The official NIST SSDF landing page was checked, but the exact cited PW.7/PW.8 clauses
+    could not be verified from the evidence available in this export. Keep draft until exact section text
+    is captured.
+  retrieved_at: null
+  content_hash: null
+  provenance_status: unverified
+  derived: false
+  supporting_references: []
+  catalogue_version: 0.1.0
+  active_status: draft
+  source_status: unavailable
+- control_id: DEV-CHANGE-002
+  control_category: development_and_observability
+  control_name: Review and rollback for high-impact changes
+  control_description: Destructive, irreversible, production or security-control changes should be reviewable
+    before they are applied and reversible afterwards.
+  enforcement: recommended
+  applicability_conditions:
+    fact: high_impact
+    any_of:
+    - destructive
+    - irreversible
+    - production_target
+    - bulk_change
+    - security_control_change
+  satisfied_by:
+    fact: stated_requirements
+    any_of:
+    - rollback_plan
+    - change_review
+  affected_services_or_components:
+  - application
+  - iac
+  required_prompt_clause: 'Treat this as a high-impact change: describe the intended change before applying
+    it (plan or diff), keep a rollback path, and do not widen its scope beyond what the request names.'
+  verification_expectation: Confirm a plan or diff was produced before any change was applied and that
+    a rollback path is stated.
+  severity_or_priority: medium
+  source_name: AWS Well-Architected Framework — Security design principles
+  source_url: https://docs.aws.amazon.com/wellarchitected/latest/framework/sec-design.html
+  source_version_or_section: Automate security best practices; manage controls as code
+  retrieved_at: '2026-10-21T04:45:00Z'
+  content_hash: null
+  provenance_status: section_checked
+  derived: true
+  supporting_references:
+  - source_name: AWS Well-Architected Framework - Security Pillar
+    source_url: https://docs.aws.amazon.com/wellarchitected/latest/security-pillar/welcome.html
+    source_version_or_section: Design principles - Prepare for security events
+  catalogue_version: 0.1.0
+  active_status: active
+  source_status: available
+- control_id: APP-SQLI-001
+  control_category: application_and_api
+  control_name: Safe query construction
+  control_description: Untrusted input must never be concatenated or formatted into SQL text; use parameterized
+    queries or prepared statements.
+  enforcement: mandatory
+  applicability_conditions:
+    any:
+    - fact: input_flows
+      any_of:
+      - untrusted_input_to_sql
+    - fact: requested_configurations
+      any_of:
+      - string_built_sql
+  satisfied_by:
+    fact: stated_requirements
+    any_of:
+    - parameterized_queries
+  affected_services_or_components:
+  - application
+  - database
+  required_prompt_clause: Build every database query with parameterized queries or prepared statements;
+    never concatenate or format untrusted input into SQL text. Validate the input as a secondary defence.
+  verification_expectation: Search the produced code for string-built SQL (concatenation, f-strings, format
+    calls) reaching a query; there must be none, and a test must show a malicious input is treated as
+    data.
+  severity_or_priority: high
+  conflict_triggers:
+  - id: string-built-sql-requested
+    enforcement: mandatory
+    when:
+      fact: requested_configurations
+      any_of:
+      - string_built_sql
+    why: Building SQL from untrusted input by string concatenation or formatting is the classic SQL injection
+      pattern.
+    alternative: Use parameterized queries (or an ORM's bound parameters) so the input is always treated
+      as data.
+  source_name: OWASP Cheat Sheet Series — SQL Injection Prevention
+  source_url: https://cheatsheetseries.owasp.org/cheatsheets/SQL_Injection_Prevention_Cheat_Sheet.html
+  source_version_or_section: Prepared statements and parameterized queries
+  retrieved_at: '2026-10-21T04:45:00Z'
+  content_hash: null
+  provenance_status: section_checked
+  derived: false
+  supporting_references: []
+  catalogue_version: 0.1.0
+  active_status: active
+  source_status: available
+- control_id: APP-CMDI-002
+  control_category: application_and_api
+  control_name: No OS commands built from untrusted input
+  control_description: Untrusted input must not be placed into operating-system command strings; prefer
+    language APIs or argument lists without a shell, with allow-list validation.
+  enforcement: mandatory
+  applicability_conditions:
+    any:
+    - fact: input_flows
+      any_of:
+      - untrusted_input_to_shell
+    - fact: requested_configurations
+      any_of:
+      - shell_with_user_input
+  satisfied_by:
+    fact: stated_requirements
+    any_of:
+    - safe_command_execution
+  affected_services_or_components:
+  - application
+  required_prompt_clause: Do not build operating-system commands from untrusted input; use language APIs,
+    or pass arguments as a list without a shell, and validate any value that must reach a command against
+    an allow-list.
+  verification_expectation: Search for shell invocation with string-built commands (shell=True, os.system
+    and equivalents) that include request-derived values; there must be none.
+  severity_or_priority: high
+  conflict_triggers:
+  - id: shell-with-user-input-requested
+    enforcement: mandatory
+    when:
+      fact: requested_configurations
+      any_of:
+      - shell_with_user_input
+    why: Passing untrusted input to a shell command string allows command injection.
+    alternative: Call a library API for the task, or run the program with an argument list and no shell,
+      after validating inputs against an allow-list.
+  source_name: OWASP Cheat Sheet Series — OS Command Injection Defense
+  source_url: https://cheatsheetseries.owasp.org/cheatsheets/OS_Command_Injection_Defense_Cheat_Sheet.html
+  source_version_or_section: 'Primary defense: avoid OS commands; otherwise parameterize and validate'
+  retrieved_at: '2026-10-21T04:45:00Z'
+  content_hash: null
+  provenance_status: section_checked
+  derived: false
+  supporting_references: []
+  catalogue_version: 0.1.0
+  active_status: active
+  source_status: available
+- control_id: APP-INPUT-003
+  control_category: application_and_api
+  control_name: Server-side input validation
+  control_description: Untrusted input should be validated on the server against an allow-list of type,
+    length, range and format before use.
+  enforcement: recommended
+  applicability_conditions:
+    any:
+    - fact: input_flows
+      any_of:
+      - untrusted_input_present
+      - untrusted_input_to_sql
+      - untrusted_input_to_shell
+      - untrusted_input_to_path
+      - untrusted_input_to_url_fetch
+      - untrusted_input_to_html
+    - fact: app_context
+      any_of:
+      - file_upload
+  satisfied_by:
+    fact: stated_requirements
+    any_of:
+    - input_validation
+  affected_services_or_components:
+  - application
+  - api
+  required_prompt_clause: Validate all untrusted input on the server against an allow-list of type, length,
+    range and format, reject what does not match, and never rely on client-side checks alone.
+  verification_expectation: Confirm each input has an explicit server-side validation rule and that tests
+    cover rejected values (wrong type, too long, unexpected characters).
+  severity_or_priority: medium
+  source_name: OWASP Cheat Sheet Series — Input Validation
+  source_url: https://cheatsheetseries.owasp.org/cheatsheets/Input_Validation_Cheat_Sheet.html
+  source_version_or_section: Allow-list validation; syntax, semantic, and length checks
+  retrieved_at: '2026-10-21T04:45:00Z'
+  content_hash: null
+  provenance_status: section_checked
+  derived: false
+  supporting_references: []
+  catalogue_version: 0.1.0
+  active_status: active
+  source_status: available
+- control_id: APP-SSRF-004
+  control_category: application_and_api
+  control_name: Server-side request forgery (SSRF) mitigation
+  control_description: When the application fetches a URL that a user can influence, it must restrict
+    where it may connect.
+  enforcement: recommended
+  applicability_conditions:
+    fact: input_flows
+    any_of:
+    - untrusted_input_to_url_fetch
+  satisfied_by:
+    fact: stated_requirements
+    any_of:
+    - ssrf_protection
+  affected_services_or_components:
+  - application
+  - api
+  required_prompt_clause: When fetching a URL that a user can influence, allow only approved schemes and
+    hosts, block private, link-local and cloud-metadata addresses (including after redirects and DNS resolution),
+    and set timeouts and response-size limits.
+  verification_expectation: Test that requests to internal, loopback and metadata addresses (also via
+    redirect) are refused and that only allow-listed hosts are reachable.
+  severity_or_priority: high
+  source_name: OWASP API Security Top 10 (2023)
+  source_url: https://api-security.owasp.org/editions/2023/en/0x11-t10/
+  source_version_or_section: API7:2023 — Server Side Request Forgery
+  retrieved_at: '2026-10-21T04:45:00Z'
+  content_hash: null
+  provenance_status: section_checked
+  derived: false
+  supporting_references: []
+  catalogue_version: 0.1.0
+  active_status: active
+  source_status: available
+- control_id: APP-PATH-005
+  control_category: application_and_api
+  control_name: Path traversal and file-access restrictions
+  control_description: Files opened using user-supplied names or paths must be confined to an intended
+    directory.
+  enforcement: recommended
+  applicability_conditions:
+    any:
+    - fact: input_flows
+      any_of:
+      - untrusted_input_to_path
+    - fact: app_context
+      any_of:
+      - file_upload
+  satisfied_by:
+    fact: stated_requirements
+    any_of:
+    - path_restriction
+  affected_services_or_components:
+  - application
+  required_prompt_clause: 'Confine file access to one base directory: normalise and resolve user-supplied
+    names or paths, reject traversal sequences and absolute paths, and never use raw user input as a file
+    path.'
+  verification_expectation: Test that names such as "../" sequences and absolute paths are rejected and
+    that resolved paths stay inside the base directory.
+  severity_or_priority: high
+  source_name: OWASP Top 10 (2025)
+  source_url: https://top10.owasp.org/2025/A01_2025-Broken_Access_Control/
+  source_version_or_section: A01:2025 Broken Access Control; CWE-22 Path Traversal mapping
+  retrieved_at: '2026-10-21T04:45:00Z'
+  content_hash: null
+  provenance_status: section_checked
+  derived: true
+  supporting_references:
+  - source_name: OWASP Input Validation Cheat Sheet
+    source_url: https://cheatsheetseries.owasp.org/cheatsheets/Input_Validation_Cheat_Sheet.html
+    source_version_or_section: Implementing input validation (allow-list approach)
+  catalogue_version: 0.1.0
+  active_status: active
+  source_status: available
+- control_id: APP-AUTHZ-006
+  control_category: application_and_api
+  control_name: Authentication and object-level authorization
+  control_description: Endpoints that return or change user data must require authentication and check,
+    on the server, that the caller may access each object.
+  enforcement: recommended
+  applicability_conditions:
+    all:
+    - fact: app_context
+      any_of:
+      - api_endpoint
+      - web_app
+      - user_data_endpoint
+    - any:
+      - fact: app_context
+        any_of:
+        - user_data_endpoint
+        - authentication
+        - database_access
+      - fact: sensitive_data
+        present: true
+      - fact: action_classes
+        any_of:
+        - write
+        - delete
+        - modify
+      - fact: exposure
+        any_of:
+        - unauthenticated
+        - public_internet
+  satisfied_by:
+    fact: stated_requirements
+    all_of:
+    - authn_required
+    - object_level_authz
+  affected_services_or_components:
+  - application
+  - api
+  required_prompt_clause: Require authentication for {subject} and enforce authorization on the server
+    for every object returned or changed (object-level checks, not only a login check); deny by default
+    and use the project's existing authentication mechanism rather than inventing one.
+  verification_expectation: Confirm unauthenticated requests are rejected and that a test shows one user
+    cannot read or change another user's objects.
+  severity_or_priority: high
+  required_context:
+  - key: authentication_mechanism
+    question: Which authentication mechanism does this service already use, and what identifies the owner
+      of each record?
+    why_it_matters: Authorization checks need a caller identity and an ownership rule; the request defines
+      neither.
+    provided_when:
+      fact: stated_requirements
+      any_of:
+      - authn_required
+      - object_level_authz
+    blocking: false
+  conflict_triggers:
+  - id: authentication-disable-requested
+    when:
+      all:
+      - fact: requested_configurations
+        any_of:
+        - disable_authentication
+      - any:
+        - fact: app_context
+          any_of:
+          - user_data_endpoint
+          - database_access
+        - fact: sensitive_data
+          present: true
+        - fact: action_classes
+          any_of:
+          - write
+          - delete
+          - modify
+    why: The request exposes data or write operations without authentication.
+    alternative: Require authentication for the endpoint; if only a health or public-content route must
+      be open, scope the exception to that route alone.
+  source_name: OWASP API Security Top 10 (2023)
+  source_url: https://api-security.owasp.org/editions/2023/en/0x11-t10/
+  source_version_or_section: API1:2023 Broken Object Level Authorization and API2:2023 Broken Authentication
+  retrieved_at: '2026-10-21T04:45:00Z'
+  content_hash: null
+  provenance_status: section_checked
+  derived: false
+  supporting_references: []
+  catalogue_version: 0.1.0
+  active_status: active
+  source_status: available
+- control_id: APP-SECRETS-007
+  control_category: application_and_api
+  control_name: No hardcoded secrets; protect secrets in logs and output
+  control_description: Credentials and secrets must not be embedded in source, configuration or prompts,
+    and must not appear in logs, error messages or test output.
+  enforcement: mandatory
+  applicability_conditions:
+    any:
+    - fact: credential_handling
+      any_of:
+      - handles_secrets
+      - long_term_credentials
+      - create_access_key
+    - fact: sensitive_data
+      any_of:
+      - credentials
+    - fact: requested_configurations
+      any_of:
+      - embed_credentials
+  satisfied_by:
+    fact: stated_requirements
+    any_of:
+    - no_hardcoded_secrets
+  affected_services_or_components:
+  - application
+  - iac
+  required_prompt_clause: Never hardcode credentials or secrets in source, configuration or prompts; read
+    them at runtime from the project's existing secret-handling mechanism, and keep them out of logs,
+    error messages and test output.
+  verification_expectation: Scan the produced files and test output for credentials, keys and tokens;
+    there must be none, and secrets must be read from the runtime environment or the project's existing
+    secret mechanism.
+  severity_or_priority: high
+  conflict_triggers:
+  - id: embed-credentials-requested
+    enforcement: mandatory
+    when:
+      fact: requested_configurations
+      any_of:
+      - embed_credentials
+    why: Credentials placed in source code or configuration files are exposed to everyone who can read
+      the repository and to every copy of it.
+    alternative: Load the credential at runtime from the project's existing secret-handling mechanism
+      (environment injection or the approved secret store) and keep it out of version control.
+  source_name: OWASP Cheat Sheet Series — Secrets Management
+  source_url: https://cheatsheetseries.owasp.org/cheatsheets/Secrets_Management_Cheat_Sheet.html
+  source_version_or_section: 'Secrets-management practices: limit exposure, access, and lifecycle'
+  retrieved_at: '2026-10-21T04:45:00Z'
+  content_hash: null
+  provenance_status: section_checked
+  derived: false
+  supporting_references: []
+  catalogue_version: 0.1.0
+  active_status: active
+  source_status: available
+- control_id: APP-LOGGING-008
+  control_category: application_and_api
+  control_name: Security-relevant logging without sensitive values
+  control_description: Applications should log security-relevant events but exclude passwords, tokens,
+    secrets and personal data, and neutralise untrusted values written to logs.
+  enforcement: recommended
+  applicability_conditions:
+    any:
+    - fact: app_context
+      any_of:
+      - logging_task
+      - authentication
+    - all:
+      - fact: app_context
+        any_of:
+        - code_task
+        - api_endpoint
+        - web_app
+      - any:
+        - fact: sensitive_data
+          present: true
+        - fact: app_context
+          any_of:
+          - user_data_endpoint
+  satisfied_by:
+    fact: stated_requirements
+    any_of:
+    - no_sensitive_logging
+  affected_services_or_components:
+  - application
+  required_prompt_clause: Log security-relevant events (authentication, authorization failures, validation
+    failures) with enough context to investigate, but never log passwords, tokens, secrets or personal
+    data, and neutralise untrusted values written to logs.
+  verification_expectation: 'Review log statements: none writes credentials, tokens or personal data,
+    and a test shows untrusted input containing newlines cannot forge a log entry.'
+  severity_or_priority: medium
+  source_name: OWASP Cheat Sheet Series — Logging
+  source_url: https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html
+  source_version_or_section: 'Data to exclude or mask: passwords, tokens, connection strings, and sensitive
+    data'
+  retrieved_at: '2026-10-21T04:45:00Z'
+  content_hash: null
+  provenance_status: section_checked
+  derived: false
+  supporting_references: []
+  catalogue_version: 0.1.0
+  active_status: active
+  source_status: available
+- control_id: APP-RESOURCE-009
+  control_category: application_and_api
+  control_name: Resource-consumption limits
+  control_description: Endpoints and uploads should bound request size, rate, time and result size.
+  enforcement: recommended
+  applicability_conditions:
+    fact: app_context
+    any_of:
+    - api_endpoint
+    - file_upload
+  satisfied_by:
+    fact: stated_requirements
+    any_of:
+    - rate_limiting
+  affected_services_or_components:
+  - application
+  - api
+  required_prompt_clause: 'Limit resource consumption for {subject}: cap request and upload sizes, apply
+    rate limits and timeouts, and bound result sizes with pagination.'
+  verification_expectation: Confirm size caps, a rate limit and timeouts are configured and that list
+    endpoints are paginated.
+  severity_or_priority: medium
+  source_name: OWASP API Security Top 10 (2023)
+  source_url: https://api-security.owasp.org/editions/2023/en/0x11-t10/
+  source_version_or_section: API4:2023 — Unrestricted Resource Consumption
+  retrieved_at: '2026-10-21T04:45:00Z'
+  content_hash: null
+  provenance_status: section_checked
+  derived: false
+  supporting_references: []
+  catalogue_version: 0.1.0
+  active_status: active
+  source_status: available
+- control_id: APP-ERRORS-010
+  control_category: application_and_api
+  control_name: Secure error handling
+  control_description: Clients should receive generic errors; stack traces, SQL errors and internals belong
+    in server-side logs only.
+  enforcement: recommended
+  applicability_conditions:
+    fact: app_context
+    any_of:
+    - api_endpoint
+    - web_app
+  satisfied_by:
+    fact: stated_requirements
+    any_of:
+    - secure_error_handling
+  affected_services_or_components:
+  - application
+  - api
+  required_prompt_clause: Return generic error messages to clients and keep stack traces, SQL errors and
+    internal details in server-side logs only.
+  verification_expectation: Trigger an error path and confirm the response body contains no stack trace,
+    SQL text or internal path.
+  severity_or_priority: medium
+  source_name: OWASP Error Handling Cheat Sheet
+  source_url: https://cheatsheetseries.owasp.org/cheatsheets/Error_Handling_Cheat_Sheet.html
+  source_version_or_section: Objective — return generic responses to users while retaining technical error
+    details server-side
+  retrieved_at: '2026-10-21T05:13:34Z'
+  content_hash: null
+  provenance_status: section_checked
+  derived: true
+  supporting_references:
+  - source_name: OWASP Top 10
+    source_url: https://owasp.org/www-project-top-ten/
+    source_version_or_section: Security misconfiguration (edition to be confirmed)
+  catalogue_version: 0.1.0
+  active_status: active
+  notes: Official OWASP Error Handling guidance reviewed; raw upstream bytes have not yet been captured,
+    so this remains section_checked rather than snapshot_verified.
+  source_status: available
+- control_id: APP-OUTPUT-011
+  control_category: application_and_api
+  control_name: Context-aware output encoding
+  control_description: Untrusted data written into HTML, JavaScript, URLs or other interpreters must be
+    encoded for that context.
+  enforcement: recommended
+  applicability_conditions:
+    fact: input_flows
+    any_of:
+    - untrusted_input_to_html
+  satisfied_by:
+    fact: stated_requirements
+    any_of:
+    - output_encoding
+  affected_services_or_components:
+  - application
+  required_prompt_clause: Apply context-aware output encoding when untrusted data is written into HTML,
+    JavaScript, URLs or other interpreters, and prefer the framework's automatic escaping.
+  verification_expectation: Confirm a test renders a script-like value as inert text in each output context
+    used.
+  severity_or_priority: high
+  source_name: OWASP Cross Site Scripting Prevention Cheat Sheet
+  source_url: https://cheatsheetseries.owasp.org/cheatsheets/Cross_Site_Scripting_Prevention_Cheat_Sheet
+  source_version_or_section: Output Encoding — HTML, attribute, JavaScript, CSS, and URL contexts
+  retrieved_at: '2026-10-21T05:13:34Z'
+  content_hash: null
+  provenance_status: section_checked
+  derived: true
+  supporting_references:
+  - source_name: OWASP Top 10
+    source_url: https://owasp.org/www-project-top-ten/
+    source_version_or_section: Injection, including cross-site scripting (edition to be confirmed)
+  catalogue_version: 0.1.0
+  active_status: active
+  notes: Official OWASP XSS prevention guidance reviewed; recommends context-appropriate output encoding
+    and framework default escaping. Raw upstream bytes have not yet been captured.
+  source_status: available
+- control_id: APP-DEPS-012
+  control_category: application_and_api
+  control_name: Dependency and supply-chain checks
+  control_description: New dependencies should be well maintained, version-pinned and scanned for known
+    vulnerabilities.
+  enforcement: recommended
+  applicability_conditions:
+    fact: app_context
+    any_of:
+    - dependency_change
+  satisfied_by:
+    fact: stated_requirements
+    any_of:
+    - dependency_scanning
+  affected_services_or_components:
+  - application
+  required_prompt_clause: Prefer maintained, well-known libraries, pin dependency versions, and run a
+    dependency vulnerability scan on any package you add.
+  verification_expectation: Confirm added packages are pinned and that a vulnerability scan was run and
+    its findings reported.
+  severity_or_priority: medium
+  source_name: OWASP Top 10:2025 — A03 Software Supply Chain Failures
+  source_url: https://top10.owasp.org/2025/A03_2025-Software_Supply_Chain_Failures/
+  source_version_or_section: 'A03:2025 — Description and How to prevent: dependency inventory, vulnerability
+    monitoring, and timely upgrades'
+  retrieved_at: '2026-10-21T05:13:34Z'
+  content_hash: null
+  provenance_status: section_checked
+  derived: true
+  supporting_references:
+  - source_name: NIST SP 800-218 Secure Software Development Framework (SSDF)
+    source_url: https://csrc.nist.gov/pubs/sp/800/218/final
+    source_version_or_section: PW.4 Reuse existing, well-secured software when feasible
+  catalogue_version: 0.1.0
+  active_status: active
+  notes: Corrected the stale A06:2025 URL/title. The current A03 page explicitly discusses dependency
+    versions, outdated components, regular vulnerability scans, SBOMs, and updates. Raw upstream bytes
+    have not yet been captured.
+  source_status: available
+- control_id: DB-ACCESS-001
+  control_category: database_and_sensitive_data
+  control_name: Least-privilege database access and restricted exposure
+  control_description: Application code should connect with a dedicated account limited to the operations
+    it needs, and the database should not be reachable from the public internet.
+  enforcement: recommended
+  applicability_conditions:
+    any:
+    - all:
+      - fact: app_context
+        any_of:
+        - database_access
+      - any:
+        - fact: app_context
+          any_of:
+          - api_endpoint
+          - web_app
+          - user_data_endpoint
+        - fact: input_flows
+          present: true
+    - all:
+      - fact: services
+        any_of:
+        - rds
+      - fact: action_classes
+        any_of:
+        - create
+        - modify
+        - expose
+  satisfied_by:
+    fact: stated_requirements
+    any_of:
+    - least_privilege_db
+  affected_services_or_components:
+  - database
+  - rds
+  required_prompt_clause: Connect to the database with a dedicated account limited to the operations this
+    code needs (not an administrator account), keep the database off the public internet, and protect
+    backups with the same access controls.
+  verification_expectation: Confirm the connection uses a non-administrator account with only the needed
+    privileges and that the database has no public network exposure.
+  severity_or_priority: high
+  source_name: OWASP Cheat Sheet Series — SQL Injection Prevention
+  source_url: https://cheatsheetseries.owasp.org/cheatsheets/SQL_Injection_Prevention_Cheat_Sheet.html
+  source_version_or_section: Least privilege for database accounts
+  retrieved_at: '2026-10-21T04:45:00Z'
+  content_hash: null
+  provenance_status: section_checked
+  derived: true
+  supporting_references:
+  - source_name: Amazon VPC User Guide - Security best practices for your VPC
+    source_url: https://docs.aws.amazon.com/vpc/latest/userguide/vpc-security-best-practices.html
+    source_version_or_section: Security groups
+  catalogue_version: 0.1.1
+  active_status: active
+  source_status: available

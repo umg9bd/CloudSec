@@ -1,0 +1,31 @@
+{
+  "eventVersion": "1.08",
+  "userIdentity": {
+    "type": "IAMUser",
+    "principalId": "AIDAEXAMPLEUSERID",
+    "arn": "arn:aws:iam::111122223333:user/test-admin",
+    "accountId": "111122223333"
+  },
+  "eventTime": "2026-10-18T12:05:00Z",
+  "eventSource": "iam.amazonaws.com",
+  "eventName": "CreateRole",
+  "awsRegion": "us-east-1",
+  "requestParameters": {
+    "roleName": "AppExecutionRole",
+    "assumeRolePolicyDocument": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"ec2.amazonaws.com\"},\"Action\":\"sts:AssumeRole\"}]}"
+  },
+  "responseElements": {
+    "role": {
+      "path": "/",
+      "roleName": "AppExecutionRole",
+      "roleId": "AROAEXAMPLEID",
+      "arn": "arn:aws:iam::111122223333:role/AppExecutionRole"
+    }
+  },
+  "requestID": "EXAMPLEREQUESTID04",
+  "eventID": "example-uuid-iam-create-role",
+  "eventType": "AwsApiCall",
+  "managementEvent": true,
+  "recipientAccountId": "111122223333",
+  "eventCategory": "Management"
+}

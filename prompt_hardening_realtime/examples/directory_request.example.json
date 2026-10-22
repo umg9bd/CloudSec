@@ -1,0 +1,5 @@
+{
+  "request_id": "replace-with-a-new-unique-id",
+  "screening_status": "SAFE",
+  "original_prompt": "Create a private S3 bucket for storing application logs."
+}

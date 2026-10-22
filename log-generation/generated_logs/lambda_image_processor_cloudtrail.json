@@ -1,0 +1,31 @@
+{
+  "Records": [
+    {
+      "eventVersion": "1.08",
+      "userIdentity": {
+        "type": "IAMUser",
+        "arn": "arn:aws:iam::111122223333:user/agentic-operator",
+        "accountId": "111122223333",
+        "userName": "agentic-operator"
+      },
+      "eventTime": "2026-10-18T12:00:00Z",
+      "eventSource": "lambda.amazonaws.com",
+      "eventName": "CreateFunction20150331",
+      "awsRegion": "us-east-1",
+      "requestParameters": {
+        "functionName": "image-processor-worker",
+        "role": "arn:aws:iam::111122223333:role/lambda-s3-execution-role",
+        "handler": "index.handler",
+        "runtime": "python3.11"
+      },
+      "responseElements": null,
+      "readOnly": false,
+      "eventType": "AwsApiCall",
+      "managementEvent": true,
+      "recipientAccountId": "111122223333",
+      "eventCategory": "Management",
+      "prediction_id": "pred-0001",
+      "record_type": "PREDICTED_CLOUDTRAIL_EVENT"
+    }
+  ]
+}

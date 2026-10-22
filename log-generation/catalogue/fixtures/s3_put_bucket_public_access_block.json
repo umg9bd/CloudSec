@@ -1,0 +1,29 @@
+{
+  "eventVersion": "1.08",
+  "userIdentity": {
+    "type": "IAMUser",
+    "principalId": "AIDAEXAMPLEUSERID",
+    "arn": "arn:aws:iam::111122223333:user/test-admin",
+    "accountId": "111122223333"
+  },
+  "eventTime": "2026-10-18T12:00:10Z",
+  "eventSource": "s3.amazonaws.com",
+  "eventName": "PutBucketPublicAccessBlock",
+  "awsRegion": "us-east-1",
+  "requestParameters": {
+    "bucketName": "sample-test-bucket-production",
+    "PublicAccessBlockConfiguration": {
+      "BlockPublicAcls": true,
+      "IgnorePublicAcls": true,
+      "BlockPublicPolicy": true,
+      "RestrictPublicBuckets": true
+    }
+  },
+  "responseElements": null,
+  "requestID": "EXAMPLEREQUESTID03",
+  "eventID": "example-uuid-s3-public-access-block",
+  "eventType": "AwsApiCall",
+  "managementEvent": true,
+  "recipientAccountId": "111122223333",
+  "eventCategory": "Management"
+}

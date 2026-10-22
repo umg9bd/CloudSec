@@ -1,0 +1,28 @@
+{
+  "eventVersion": "1.08",
+  "userIdentity": {
+    "type": "IAMUser",
+    "principalId": "AIDAEXAMPLEUSERID",
+    "arn": "arn:aws:iam::111122223333:user/test-admin",
+    "accountId": "111122223333"
+  },
+  "eventTime": "2026-10-18T12:15:00Z",
+  "eventSource": "ec2.amazonaws.com",
+  "eventName": "CreateSecurityGroup",
+  "awsRegion": "us-east-1",
+  "requestParameters": {
+    "groupName": "web-tier-secgroup",
+    "groupDescription": "Security group for web tier servers",
+    "vpcId": "vpc-0123456789abcdef0"
+  },
+  "responseElements": {
+    "return": true,
+    "groupId": "sg-0123456789abcdef0"
+  },
+  "requestID": "EXAMPLEREQUESTID08",
+  "eventID": "example-uuid-ec2-create-security-group",
+  "eventType": "AwsApiCall",
+  "managementEvent": true,
+  "recipientAccountId": "111122223333",
+  "eventCategory": "Management"
+}

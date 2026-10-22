@@ -1,0 +1,181 @@
+{
+  "excluded_mutable_runtime_state": [
+    "security_hardening/data/source_sync_state.json",
+    "security_hardening/data/source_sync_report_*.json",
+    "security_hardening/catalogue/candidates/*",
+    "security_hardening/catalogue/backups/*",
+    "security_hardening/snapshots/live/*"
+  ],
+  "file_globs": [
+    "requirements.txt",
+    "security_hardening/config/*.yaml",
+    "security_hardening/schemas/*.json",
+    "security_hardening/data/dataset_scope_report.json",
+    "security_hardening/snapshots/section_evidence/*.json"
+  ],
+  "files": [
+    {
+      "bytes": 17,
+      "path": "requirements.txt",
+      "sha256": "c9e3d5b71ce6e54e3c1cd3e97da9a4682811879f2ed85455982ccb9a035fd158"
+    },
+    {
+      "bytes": 37098,
+      "path": "security_hardening/config/lexicon.yaml",
+      "sha256": "3cae06588f5b1683c40529dde88dbb1a1ea2939c5ea358aef4ca063a9905f469"
+    },
+    {
+      "bytes": 1670,
+      "path": "security_hardening/config/policy.yaml",
+      "sha256": "1233dfb9a11ff7b8ed8d69dce169eb4a34144ee02f03014be4a0019487b454cd"
+    },
+    {
+      "bytes": 4024,
+      "path": "security_hardening/config/scope.yaml",
+      "sha256": "14db1eefd82ab0cd89f83ae6ed9e51ee188a6b243b49c98ea1ee57674e17e5bb"
+    },
+    {
+      "bytes": 131941,
+      "path": "security_hardening/data/dataset_scope_report.json",
+      "sha256": "8b8817ca3480ca1aea08dd2503ec75e0f27867c495b3f7876bd2aef614d3f075"
+    },
+    {
+      "bytes": 8211,
+      "path": "security_hardening/schemas/control_catalogue.schema.json",
+      "sha256": "f601651d58527e54b6fcb820ba8a87d46a4f7b8d586c3e6c6628bfe4885e0458"
+    },
+    {
+      "bytes": 1836,
+      "path": "security_hardening/schemas/hardening_request.schema.json",
+      "sha256": "c8491fcc0b1adf977702714786d79f4aaa1932517e083bb73dc4646e2726f1f3"
+    },
+    {
+      "bytes": 7268,
+      "path": "security_hardening/schemas/hardening_response.schema.json",
+      "sha256": "0ab22906a63cc9afe52eed235c5e44674eb75cb4a40e5f3618ed8387d8ce218f"
+    },
+    {
+      "bytes": 1069,
+      "path": "security_hardening/snapshots/section_evidence/APP-AUTHZ-006.json",
+      "sha256": "52b1f83db47a29f8bb4697181865434fc8e151a594ba3bff4dffee392a7122e9"
+    },
+    {
+      "bytes": 1031,
+      "path": "security_hardening/snapshots/section_evidence/APP-CMDI-002.json",
+      "sha256": "0e64f295ff0bb8d320ec08b113c1c4e8c6d449b68351eff77520f0fead40aebc"
+    },
+    {
+      "bytes": 1227,
+      "path": "security_hardening/snapshots/section_evidence/APP-DEPS-012.json",
+      "sha256": "6053be716f6babacab499ad440686d7b250abe0f76dd6588e2dc2c4803a0a582"
+    },
+    {
+      "bytes": 983,
+      "path": "security_hardening/snapshots/section_evidence/APP-ERRORS-010.json",
+      "sha256": "36912c26e323d27ebfe6d866bc1da3dc2d26eaccb176afa9835fa4efd5963bfb"
+    },
+    {
+      "bytes": 1041,
+      "path": "security_hardening/snapshots/section_evidence/APP-INPUT-003.json",
+      "sha256": "86a85ce3c00512a451f86aeaf600d8e18c33dbd5450d04264b76422a86fed6d6"
+    },
+    {
+      "bytes": 1036,
+      "path": "security_hardening/snapshots/section_evidence/APP-LOGGING-008.json",
+      "sha256": "fde97ea4ac85f07ad3b7da1e611e1f37aac60b9034c5075f62fced4618ac4d2b"
+    },
+    {
+      "bytes": 983,
+      "path": "security_hardening/snapshots/section_evidence/APP-OUTPUT-011.json",
+      "sha256": "e1ed28bf2f1335caceebf7c8d2a54059761ebdf399e13bfcb70b0b652ac1a58d"
+    },
+    {
+      "bytes": 984,
+      "path": "security_hardening/snapshots/section_evidence/APP-PATH-005.json",
+      "sha256": "c74910a90355bc4cc8fb5d6b013ce9f6080daa11544c1fd1f6c257ec91e64b62"
+    },
+    {
+      "bytes": 1013,
+      "path": "security_hardening/snapshots/section_evidence/APP-RESOURCE-009.json",
+      "sha256": "fc694a873f23ed38f7ad82df1e12787aac9e36c06259f2919cc24b141dd2df17"
+    },
+    {
+      "bytes": 1128,
+      "path": "security_hardening/snapshots/section_evidence/APP-SECRETS-007.json",
+      "sha256": "9b36e84a86181a1a3fdfd1a6346627884954807ee4fdaf7600947f0ee23aa98a"
+    },
+    {
+      "bytes": 975,
+      "path": "security_hardening/snapshots/section_evidence/APP-SQLI-001.json",
+      "sha256": "6473035565c286d7c15bb6d1c217e57d77f3b09589ef8a06a183390b96767829"
+    },
+    {
+      "bytes": 969,
+      "path": "security_hardening/snapshots/section_evidence/APP-SSRF-004.json",
+      "sha256": "2a7289b3c430831715cad385352ee42ce102d2e6029266164e3f5364dc5b1c85"
+    },
+    {
+      "bytes": 1015,
+      "path": "security_hardening/snapshots/section_evidence/DB-ACCESS-001.json",
+      "sha256": "d1854787d37409c0e1e9fd7166b8d72e2dd7f70e4f0679e05e7ec6e6e1848d4b"
+    },
+    {
+      "bytes": 1019,
+      "path": "security_hardening/snapshots/section_evidence/DEV-CHANGE-002.json",
+      "sha256": "3962018753de7256d9c92e2410b75d8ab318772b4b225fd5b9f4425d1a10b82d"
+    },
+    {
+      "bytes": 1014,
+      "path": "security_hardening/snapshots/section_evidence/IAM-CREDS-005.json",
+      "sha256": "7b874d56d608e87b35759926af1626ff05caa1ddf6b8f0b681ace7d99531cd42"
+    },
+    {
+      "bytes": 1060,
+      "path": "security_hardening/snapshots/section_evidence/IAM-ESCALATE-004.json",
+      "sha256": "5f5cb11b3dd1bd468e5a6e662261823c156f2729eee1a67c639fe98c4c9ca5de"
+    },
+    {
+      "bytes": 1013,
+      "path": "security_hardening/snapshots/section_evidence/IAM-LEASTPRIV-001.json",
+      "sha256": "30c4737459f7b22997afc5405e496e6e7e39912bc5f302f5eabdaab248be6ff0"
+    },
+    {
+      "bytes": 975,
+      "path": "security_hardening/snapshots/section_evidence/IAM-TRUST-003.json",
+      "sha256": "16f1bcc0d0bc114b8e53bec2f0bd378fb99c7d92344c195911274d9b0bc278a3"
+    },
+    {
+      "bytes": 996,
+      "path": "security_hardening/snapshots/section_evidence/IAM-WILDCARD-002.json",
+      "sha256": "3a48f5e5a8f79f01d60ae353b95eb7013c9ffef94cfc609e726035f54384b6fa"
+    },
+    {
+      "bytes": 1240,
+      "path": "security_hardening/snapshots/section_evidence/LOG-AUDIT-001.json",
+      "sha256": "2806dc4d569a8f220a5fddef4daa0d8bce11fad3bb4af6f3734adec9ef1c2c00"
+    },
+    {
+      "bytes": 1051,
+      "path": "security_hardening/snapshots/section_evidence/S3-DELETE-003.json",
+      "sha256": "cb4335962be682043651d726fbb68cb17f7efddf23d080cc45fa4d1f27b7aaa1"
+    },
+    {
+      "bytes": 986,
+      "path": "security_hardening/snapshots/section_evidence/S3-ENCRYPT-002.json",
+      "sha256": "0f43de69150071fb2bd1f8f35ac79f2cd9cad0ffb37107e7bebc140e3b8afe35"
+    },
+    {
+      "bytes": 1039,
+      "path": "security_hardening/snapshots/section_evidence/S3-PUBLIC-001.json",
+      "sha256": "ed8ca091f933959ac080a26753c38e31bdafe4c74137053a1ca861ea75d6d8bc"
+    },
+    {
+      "bytes": 986,
+      "path": "security_hardening/snapshots/section_evidence/VPC-SGROUP-001.json",
+      "sha256": "f45e01b08a536df7c2f2cc5971fea505d93dfe464c585f6e7e803b087ee67b29"
+    }
+  ],
+  "manifest_version": 2,
+  "purpose": "Preserve the standalone hardening submodule config, schemas, copied scope-report artifact, and dated local source-section review records. This manifest does not validate parent-pipeline datasets, models, checkpoints, or taxonomy, which were absent from the supplied ZIP.",
+  "trees": []
+}

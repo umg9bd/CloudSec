@@ -1,0 +1,285 @@
+{
+  "run_name": "distilbert-mbert-pi-v1",
+  "status": "fine-tuned checkpoint trained and evaluated in this run",
+  "gate_model": {
+    "model_version": "distilbert-mbert-pi-v1@baf8a81dd067",
+    "base_model": "distilbert/distilbert-base-multilingual-cased@45c032ab32cc946ad88a166f7cb282f58c753c2e",
+    "categories": [
+      "prompt_injection_direct",
+      "prompt_injection_indirect",
+      "jailbreak",
+      "system_prompt_extraction",
+      "credential_harvesting",
+      "exfiltration",
+      "privilege_escalation",
+      "defense_evasion_logging",
+      "data_destruction",
+      "obfuscation"
+    ],
+    "max_len": 256,
+    "malicious_threshold": 0.976,
+    "safe_threshold": 0.8844866752624512,
+    "category_thresholds": {
+      "prompt_injection_direct": {
+        "threshold": 0.101,
+        "calibrated": true,
+        "dev_positives": 30,
+        "dev_f1": 0.048
+      },
+      "prompt_injection_indirect": {
+        "threshold": 0.144,
+        "calibrated": true,
+        "dev_positives": 16,
+        "dev_f1": 0.048
+      },
+      "jailbreak": {
+        "threshold": 0.126,
+        "calibrated": true,
+        "dev_positives": 541,
+        "dev_f1": 0.762
+      },
+      "system_prompt_extraction": {
+        "threshold": 0.575,
+        "calibrated": true,
+        "dev_positives": 17,
+        "dev_f1": 0.103
+      },
+      "credential_harvesting": {
+        "threshold": 0.125,
+        "calibrated": true,
+        "dev_positives": 15,
+        "dev_f1": 0.035
+      },
+      "exfiltration": {
+        "threshold": 0.14,
+        "calibrated": true,
+        "dev_positives": 12,
+        "dev_f1": 0.035
+      },
+      "privilege_escalation": {
+        "threshold": 0.118,
+        "calibrated": true,
+        "dev_positives": 41,
+        "dev_f1": 0.067
+      },
+      "defense_evasion_logging": {
+        "threshold": 0.067,
+        "calibrated": true,
+        "dev_positives": 14,
+        "dev_f1": 0.023
+      },
+      "data_destruction": {
+        "threshold": 0.146,
+        "calibrated": true,
+        "dev_positives": 9,
+        "dev_f1": 0.022
+      },
+      "obfuscation": {
+        "threshold": 0.125,
+        "calibrated": true,
+        "dev_positives": 8,
+        "dev_f1": 0.022
+      }
+    },
+    "threshold_rule": {
+      "malicious": "smallest dev attack score with benign FPR <= 0.05",
+      "safe": "<= 5% of dev attacks below it",
+      "categories": "best dev F1 per category; 0.5 where no dev positives (uncalibrated)"
+    },
+    "scores_are_calibrated_probabilities": false
+  },
+  "task": "attack vs benign + multi-label threat categories; ambiguous not trained, reported separately",
+  "data_file": "datasets/prompt-injection/prompt_injection_merged.jsonl",
+  "data_sha256": "ec38b844973152d10aab23564f90c59eb85d84dec730a44d9a27fec31d651448",
+  "dataset_versions": [
+    "0.2.0",
+    "public"
+  ],
+  "harness": "datasets/prompt-injection/train_eval_baseline.py",
+  "harness_sha256": "8c36439b03d4499fa45e6117d103efc3b5794b0c84650c9921288a45f124bbc3",
+  "n_train": 2045,
+  "n_dev": 1221,
+  "n_train_attack": 1470,
+  "n_train_benign": 575,
+  "hyperparameters": {
+    "base_model_id": "distilbert/distilbert-base-multilingual-cased@45c032ab32cc946ad88a166f7cb282f58c753c2e",
+    "run_name": "distilbert-mbert-pi-v1",
+    "epochs": 4,
+    "batch_size": 16,
+    "lr": 3e-05,
+    "weight_decay": 0.01,
+    "warmup": 0.1,
+    "max_len": 256,
+    "category_loss_weight": 0.5,
+    "seed": 42,
+    "threads": 0
+  },
+  "epoch_history": [
+    {
+      "epoch": 1,
+      "dev_attack_auc": 0.9078,
+      "elapsed_s": 278
+    },
+    {
+      "epoch": 2,
+      "dev_attack_auc": 0.8508,
+      "elapsed_s": 572
+    },
+    {
+      "epoch": 3,
+      "dev_attack_auc": 0.8619,
+      "elapsed_s": 858
+    },
+    {
+      "epoch": 4,
+      "dev_attack_auc": 0.8747,
+      "elapsed_s": 1134
+    }
+  ],
+  "selected_epoch": 1,
+  "selected_dev_attack_auc": 0.9078463908972383,
+  "train_seconds": 1135,
+  "dev_at_malicious_threshold": {
+    "attack_recall": 0.7411402157164869,
+    "benign_fpr": 0.0472027972027972,
+    "f1": 0.8314606741573034
+  },
+  "dev_benign_uncertain_rate": 0.5646853146853147,
+  "held_out": {
+    "cloud_test": {
+      "n": 254,
+      "n_attack": 165,
+      "n_benign": 64,
+      "attack_recall_malicious": 0.07878787878787878,
+      "benign_fpr_malicious": 0.0,
+      "f1": 0.14606741573033707,
+      "roc_auc": 0.8236742424242425,
+      "attacks_called_safe": 0.1393939393939394,
+      "benign_called_safe": 0.578125,
+      "benign_called_uncertain": 0.421875
+    },
+    "public_test:deepset_prompt_injections": {
+      "n": 116,
+      "n_attack": 60,
+      "n_benign": 56,
+      "attack_recall_malicious": 0.16666666666666666,
+      "benign_fpr_malicious": 0.0,
+      "f1": 0.2857142857142857,
+      "roc_auc": 0.9961309523809524,
+      "attacks_called_safe": 0.16666666666666666,
+      "benign_called_safe": 1.0,
+      "benign_called_uncertain": 0.0
+    },
+    "public_test:jackhhao_jailbreak": {
+      "n": 258,
+      "n_attack": 136,
+      "n_benign": 122,
+      "attack_recall_malicious": 0.8676470588235294,
+      "benign_fpr_malicious": 0.11475409836065574,
+      "f1": 0.8805970149253731,
+      "roc_auc": 0.9508196721311475,
+      "attacks_called_safe": 0.0,
+      "benign_called_safe": 0.26229508196721313,
+      "benign_called_uncertain": 0.6229508196721312
+    },
+    "public_test:lakera_gandalf": {
+      "n": 223,
+      "n_attack": 223,
+      "n_benign": 0,
+      "attack_recall_malicious": 0.7309417040358744,
+      "benign_fpr_malicious": NaN,
+      "f1": 0.844559585492228,
+      "roc_auc": NaN,
+      "attacks_called_safe": 0.0,
+      "benign_called_safe": null,
+      "benign_called_uncertain": null
+    }
+  },
+  "cloud_test_by_category": {
+    "prompt_injection_direct": {
+      "n": 10,
+      "blocked_recall": 0.0,
+      "not_safe_recall": 1.0,
+      "category_head_recall": 1.0,
+      "test_templates": 2
+    },
+    "privilege_escalation": {
+      "n": 51,
+      "blocked_recall": 0.09803921568627451,
+      "not_safe_recall": 0.9411764705882353,
+      "category_head_recall": 0.4117647058823529,
+      "test_templates": 8
+    },
+    "credential_harvesting": {
+      "n": 17,
+      "blocked_recall": 0.23529411764705882,
+      "not_safe_recall": 1.0,
+      "category_head_recall": 0.47058823529411764,
+      "test_templates": 7
+    },
+    "system_prompt_extraction": {
+      "n": 9,
+      "blocked_recall": 0.0,
+      "not_safe_recall": 1.0,
+      "category_head_recall": 0.0,
+      "test_templates": 1
+    },
+    "exfiltration": {
+      "n": 26,
+      "blocked_recall": 0.07692307692307693,
+      "not_safe_recall": 1.0,
+      "category_head_recall": 0.19230769230769232,
+      "test_templates": 10
+    },
+    "defense_evasion_logging": {
+      "n": 24,
+      "blocked_recall": 0.0,
+      "not_safe_recall": 0.5416666666666666,
+      "category_head_recall": 1.0,
+      "test_templates": 5
+    },
+    "data_destruction": {
+      "n": 20,
+      "blocked_recall": 0.1,
+      "not_safe_recall": 0.55,
+      "category_head_recall": 0.35,
+      "test_templates": 7
+    },
+    "jailbreak": {
+      "n": 32,
+      "blocked_recall": 0.125,
+      "not_safe_recall": 1.0,
+      "category_head_recall": 0.03125,
+      "test_templates": 4
+    },
+    "prompt_injection_indirect": {
+      "n": 26,
+      "blocked_recall": 0.19230769230769232,
+      "not_safe_recall": 1.0,
+      "category_head_recall": 0.0,
+      "test_templates": 13
+    },
+    "obfuscation": {
+      "n": 18,
+      "blocked_recall": 0.1111111111111111,
+      "not_safe_recall": 1.0,
+      "category_head_recall": 0.2222222222222222,
+      "test_templates": 12
+    }
+  },
+  "ambiguous": {
+    "n": 119,
+    "malicious": 0.008403361344537815,
+    "uncertain": 0.8319327731092437,
+    "safe": 0.15966386554621848
+  },
+  "latency_model_only_cpu": {
+    "p50_ms": 32.59230000548996,
+    "p95_ms": 144.43759998539463,
+    "n": 200,
+    "threads": 6
+  },
+  "checkpoint_dir": "prompt_injection_gate/artifacts/distilbert-mbert-pi-v1",
+  "checkpoint_sha256": "baf8a81dd067e0d8f2fab4ceb105909c3673a16d58b703a3fe80e7e9d22d3275",
+  "torch": "2.13.0+cpu"
+}

@@ -1,0 +1,513 @@
+{
+  "catalogue_version": "1.2.0",
+  "last_reviewed": "2026-10-18",
+  "supported_tasks": {
+    "s3_create_bucket": {
+      "service": "s3",
+      "description": "Create an S3 bucket with optional security hardening (encryption, public access block, versioning)",
+      "primary_actions": ["act-s3-create-bucket"],
+      "security_hardening_actions": [
+        "act-s3-put-bucket-encryption",
+        "act-s3-put-public-access-block"
+      ],
+      "required_parameters": ["bucketName"],
+      "optional_parameters": ["region", "enable_versioning"]
+    },
+    "iam_create_role": {
+      "service": "iam",
+      "description": "Create an IAM role and attach managed or inline policy",
+      "primary_actions": ["act-iam-create-role"],
+      "ambiguous_actions": [
+        "act-iam-attach-role-policy",
+        "act-iam-put-role-policy"
+      ],
+      "required_parameters": ["roleName", "assumeRolePolicyDocument"],
+      "optional_parameters": ["policyArn", "policyDocument", "policyName"]
+    },
+    "kms_create_key": {
+      "service": "kms",
+      "description": "Create a KMS customer managed key (CMK) with rotation and alias",
+      "primary_actions": ["act-kms-create-key"],
+      "security_hardening_actions": [
+        "act-kms-enable-key-rotation"
+      ],
+      "required_parameters": ["description"],
+      "optional_parameters": ["aliasName", "keyUsage"]
+    },
+    "ec2_create_security_group": {
+      "service": "ec2",
+      "description": "Create an EC2 VPC Security Group and configure ingress/egress rules",
+      "primary_actions": ["act-ec2-create-security-group"],
+      "dependent_actions": [
+        "act-ec2-authorize-security-group-ingress"
+      ],
+      "required_parameters": ["groupName", "vpcId", "description"],
+      "optional_parameters": ["ipProtocol", "fromPort", "toPort", "cidrIp"]
+    },
+    "lambda_create_function": {
+      "service": "lambda",
+      "description": "Create an AWS Lambda serverless execution function",
+      "primary_actions": ["act-lambda-create-function"],
+      "required_parameters": ["functionName", "role", "handler", "runtime"],
+      "optional_parameters": ["description", "timeout", "memorySize"]
+    }
+  },
+  "security_constraint_triggers": {
+    "require_encryption": {
+      "target_service": "s3",
+      "action_id": "act-s3-put-bucket-encryption",
+      "rationale": "Enforce AES256 or KMS server-side encryption at rest"
+    },
+    "block_public_access": {
+      "target_service": "s3",
+      "action_id": "act-s3-put-public-access-block",
+      "rationale": "Prevent unintended public access to S3 bucket assets"
+    },
+    "enable_versioning": {
+      "target_service": "s3",
+      "action_id": "act-s3-put-bucket-versioning",
+      "rationale": "Maintain bucket object version history for ransomware protection"
+    },
+    "enable_key_rotation": {
+      "target_service": "kms",
+      "action_id": "act-kms-enable-key-rotation",
+      "rationale": "Enforce automatic annual key rotation for compliance"
+    }
+  },
+  "actions": {
+    "act-s3-create-bucket": {
+      "action_id": "act-s3-create-bucket",
+      "task_category": "s3_create_bucket",
+      "service": "s3",
+      "api_operation": "CreateBucket",
+      "iam_permission": "s3:CreateBucket",
+      "required_parameters": ["bucketName"],
+      "optional_parameters": ["region", "acl"],
+      "parameter_schema": {
+        "bucketName": {"type": "string", "pattern": "^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$"},
+        "region": {"type": "string", "default": "us-east-1"}
+      },
+      "preconditions": ["Bucket name must be globally unique across all AWS accounts"],
+      "depends_on": [],
+      "required_status": "REQUIRED",
+      "cloudtrail_mapping": {
+        "mapping_rule_id": "MAP-S3-001",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "CreateBucket",
+        "request_parameter_template": {
+          "bucketName": "{bucketName}",
+          "CreateBucketConfiguration": {}
+        },
+        "unknown_fields": ["eventID", "requestID", "eventTime", "responseElements", "recipientAccountId", "awsRegion", "sourceIPAddress", "userAgent"],
+        "recording_scope_assumption": "Management events with read/write type Write enabled on CloudTrail trail",
+        "source_urls": [
+          "https://docs.aws.amazon.com/AmazonS3/latest/API/API_CreateBucket.html",
+          "https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-event-reference.html"
+        ],
+        "fixture_ref": "fixtures/s3_create_bucket.json",
+        "review_date": "2026-10-18",
+        "validation_status": "VERIFIED"
+      }
+    },
+    "act-s3-put-bucket-encryption": {
+      "action_id": "act-s3-put-bucket-encryption",
+      "task_category": "s3_create_bucket",
+      "service": "s3",
+      "api_operation": "PutBucketEncryption",
+      "iam_permission": "s3:PutEncryptionConfiguration",
+      "required_parameters": ["bucketName"],
+      "optional_parameters": ["sseAlgorithm", "kmsMasterKeyId"],
+      "parameter_schema": {
+        "bucketName": {"type": "string"},
+        "sseAlgorithm": {"type": "string", "default": "AES256"}
+      },
+      "preconditions": ["S3 bucket must already exist"],
+      "depends_on": [
+        {"action_id": "act-s3-create-bucket", "rule_id": "DEP-S3-ENC-001"}
+      ],
+      "required_status": "CONDITIONAL",
+      "cloudtrail_mapping": {
+        "mapping_rule_id": "MAP-S3-002",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "PutBucketEncryption",
+        "request_parameter_template": {
+          "bucketName": "{bucketName}",
+          "ServerSideEncryptionConfiguration": {
+            "rules": [{"applyServerSideEncryptionByDefault": {"sseAlgorithm": "{sseAlgorithm}"}}]
+          }
+        },
+        "unknown_fields": ["eventID", "requestID", "eventTime", "responseElements", "recipientAccountId", "awsRegion", "sourceIPAddress", "userAgent"],
+        "recording_scope_assumption": "Management events with read/write type Write enabled on CloudTrail trail",
+        "source_urls": [
+          "https://docs.aws.amazon.com/AmazonS3/latest/API/API_PutBucketEncryption.html"
+        ],
+        "fixture_ref": "fixtures/s3_put_bucket_encryption.json",
+        "review_date": "2026-10-18",
+        "validation_status": "VERIFIED"
+      }
+    },
+    "act-s3-put-public-access-block": {
+      "action_id": "act-s3-put-public-access-block",
+      "task_category": "s3_create_bucket",
+      "service": "s3",
+      "api_operation": "PutPublicAccessBlock",
+      "iam_permission": "s3:PutBucketPublicAccessBlock",
+      "required_parameters": ["bucketName"],
+      "optional_parameters": [
+        "blockPublicAcls",
+        "ignorePublicAcls",
+        "blockPublicPolicy",
+        "restrictPublicBuckets"
+      ],
+      "parameter_schema": {
+        "bucketName": {"type": "string"},
+        "blockPublicAcls": {"type": "boolean", "default": true},
+        "ignorePublicAcls": {"type": "boolean", "default": true},
+        "blockPublicPolicy": {"type": "boolean", "default": true},
+        "restrictPublicBuckets": {"type": "boolean", "default": true}
+      },
+      "preconditions": ["S3 bucket must already exist"],
+      "depends_on": [
+        {"action_id": "act-s3-create-bucket", "rule_id": "DEP-S3-PAB-001"}
+      ],
+      "required_status": "CONDITIONAL",
+      "cloudtrail_mapping": {
+        "mapping_rule_id": "MAP-S3-003",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "PutBucketPublicAccessBlock",
+        "request_parameter_template": {
+          "bucketName": "{bucketName}",
+          "PublicAccessBlockConfiguration": {
+            "BlockPublicAcls": true,
+            "IgnorePublicAcls": true,
+            "BlockPublicPolicy": true,
+            "RestrictPublicBuckets": true
+          }
+        },
+        "unknown_fields": ["eventID", "requestID", "eventTime", "responseElements", "recipientAccountId", "awsRegion", "sourceIPAddress", "userAgent"],
+        "recording_scope_assumption": "Management events with read/write type Write enabled on CloudTrail trail. Note: API is PutPublicAccessBlock but CloudTrail eventName is PutBucketPublicAccessBlock.",
+        "source_urls": [
+          "https://docs.aws.amazon.com/AmazonS3/latest/API/API_PutPublicAccessBlock.html",
+          "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html"
+        ],
+        "fixture_ref": "fixtures/s3_put_bucket_public_access_block.json",
+        "review_date": "2026-10-18",
+        "validation_status": "VERIFIED"
+      }
+    },
+    "act-s3-put-bucket-versioning": {
+      "action_id": "act-s3-put-bucket-versioning",
+      "task_category": "s3_create_bucket",
+      "service": "s3",
+      "api_operation": "PutBucketVersioning",
+      "iam_permission": "s3:PutBucketVersioning",
+      "required_parameters": ["bucketName"],
+      "optional_parameters": ["status"],
+      "parameter_schema": {
+        "bucketName": {"type": "string"},
+        "status": {"type": "string", "default": "Enabled"}
+      },
+      "preconditions": ["S3 bucket must already exist"],
+      "depends_on": [
+        {"action_id": "act-s3-create-bucket", "rule_id": "DEP-S3-VER-001"}
+      ],
+      "required_status": "CONDITIONAL",
+      "cloudtrail_mapping": {
+        "mapping_rule_id": "MAP-S3-004",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "PutBucketVersioning",
+        "request_parameter_template": {
+          "bucketName": "{bucketName}",
+          "VersioningConfiguration": {"Status": "Enabled"}
+        },
+        "unknown_fields": ["eventID", "requestID", "eventTime", "responseElements", "recipientAccountId", "awsRegion", "sourceIPAddress", "userAgent"],
+        "recording_scope_assumption": "Management events with read/write type Write enabled on CloudTrail trail",
+        "source_urls": [
+          "https://docs.aws.amazon.com/AmazonS3/latest/API/API_PutBucketVersioning.html"
+        ],
+        "fixture_ref": null,
+        "review_date": "2026-10-18",
+        "validation_status": "VERIFIED"
+      }
+    },
+    "act-iam-create-role": {
+      "action_id": "act-iam-create-role",
+      "task_category": "iam_create_role",
+      "service": "iam",
+      "api_operation": "CreateRole",
+      "iam_permission": "iam:CreateRole",
+      "required_parameters": ["roleName", "assumeRolePolicyDocument"],
+      "optional_parameters": ["description", "maxSessionDuration", "path"],
+      "parameter_schema": {
+        "roleName": {"type": "string", "pattern": "^[\\w+=,.@-]{1,64}$"},
+        "assumeRolePolicyDocument": {"type": "object"}
+      },
+      "preconditions": ["Role name must be unique within the AWS account"],
+      "depends_on": [],
+      "required_status": "REQUIRED",
+      "cloudtrail_mapping": {
+        "mapping_rule_id": "MAP-IAM-001",
+        "eventSource": "iam.amazonaws.com",
+        "eventName": "CreateRole",
+        "request_parameter_template": {
+          "roleName": "{roleName}",
+          "assumeRolePolicyDocument": "{assumeRolePolicyDocument}"
+        },
+        "unknown_fields": ["eventID", "requestID", "eventTime", "responseElements", "recipientAccountId", "awsRegion", "sourceIPAddress", "userAgent"],
+        "recording_scope_assumption": "Global IAM events delivered to home region (us-east-1)",
+        "source_urls": [
+          "https://docs.aws.amazon.com/IAM/latest/APIReference/API_CreateRole.html"
+        ],
+        "fixture_ref": "fixtures/iam_create_role.json",
+        "review_date": "2026-10-18",
+        "validation_status": "VERIFIED"
+      }
+    },
+    "act-iam-attach-role-policy": {
+      "action_id": "act-iam-attach-role-policy",
+      "task_category": "iam_create_role",
+      "service": "iam",
+      "api_operation": "AttachRolePolicy",
+      "iam_permission": "iam:AttachRolePolicy",
+      "required_parameters": ["roleName", "policyArn"],
+      "optional_parameters": [],
+      "parameter_schema": {
+        "roleName": {"type": "string"},
+        "policyArn": {"type": "string", "pattern": "^arn:aws:iam::[0-9a-zA-Z-]*:policy/.+$"}
+      },
+      "preconditions": ["Target IAM role and managed policy ARN must exist"],
+      "depends_on": [
+        {"action_id": "act-iam-create-role", "rule_id": "DEP-IAM-ATT-001"}
+      ],
+      "required_status": "CONDITIONAL",
+      "cloudtrail_mapping": {
+        "mapping_rule_id": "MAP-IAM-002",
+        "eventSource": "iam.amazonaws.com",
+        "eventName": "AttachRolePolicy",
+        "request_parameter_template": {
+          "roleName": "{roleName}",
+          "policyArn": "{policyArn}"
+        },
+        "unknown_fields": ["eventID", "requestID", "eventTime", "responseElements", "recipientAccountId", "awsRegion", "sourceIPAddress", "userAgent"],
+        "recording_scope_assumption": "Global IAM events delivered to home region (us-east-1)",
+        "source_urls": [
+          "https://docs.aws.amazon.com/IAM/latest/APIReference/API_AttachRolePolicy.html"
+        ],
+        "fixture_ref": "fixtures/iam_attach_role_policy.json",
+        "review_date": "2026-10-18",
+        "validation_status": "VERIFIED"
+      }
+    },
+    "act-iam-put-role-policy": {
+      "action_id": "act-iam-put-role-policy",
+      "task_category": "iam_create_role",
+      "service": "iam",
+      "api_operation": "PutRolePolicy",
+      "iam_permission": "iam:PutRolePolicy",
+      "required_parameters": ["roleName", "policyName", "policyDocument"],
+      "optional_parameters": [],
+      "parameter_schema": {
+        "roleName": {"type": "string"},
+        "policyName": {"type": "string"},
+        "policyDocument": {"type": "object"}
+      },
+      "preconditions": ["Target IAM role must exist"],
+      "depends_on": [
+        {"action_id": "act-iam-create-role", "rule_id": "DEP-IAM-PUT-001"}
+      ],
+      "required_status": "CONDITIONAL",
+      "cloudtrail_mapping": {
+        "mapping_rule_id": "MAP-IAM-003",
+        "eventSource": "iam.amazonaws.com",
+        "eventName": "PutRolePolicy",
+        "request_parameter_template": {
+          "roleName": "{roleName}",
+          "policyName": "{policyName}",
+          "policyDocument": "{policyDocument}"
+        },
+        "unknown_fields": ["eventID", "requestID", "eventTime", "responseElements", "recipientAccountId", "awsRegion", "sourceIPAddress", "userAgent"],
+        "recording_scope_assumption": "Global IAM events delivered to home region (us-east-1)",
+        "source_urls": [
+          "https://docs.aws.amazon.com/IAM/latest/APIReference/API_PutRolePolicy.html"
+        ],
+        "fixture_ref": null,
+        "review_date": "2026-10-18",
+        "validation_status": "VERIFIED"
+      }
+    },
+    "act-kms-create-key": {
+      "action_id": "act-kms-create-key",
+      "task_category": "kms_create_key",
+      "service": "kms",
+      "api_operation": "CreateKey",
+      "iam_permission": "kms:CreateKey",
+      "required_parameters": ["description"],
+      "optional_parameters": ["keyUsage", "origin", "bypassPolicyLockoutSafetyCheck"],
+      "parameter_schema": {
+        "description": {"type": "string"},
+        "keyUsage": {"type": "string", "default": "ENCRYPT_DECRYPT"}
+      },
+      "preconditions": [],
+      "depends_on": [],
+      "required_status": "REQUIRED",
+      "cloudtrail_mapping": {
+        "mapping_rule_id": "MAP-KMS-001",
+        "eventSource": "kms.amazonaws.com",
+        "eventName": "CreateKey",
+        "request_parameter_template": {
+          "description": "{description}",
+          "keyUsage": "{keyUsage}"
+        },
+        "unknown_fields": ["eventID", "requestID", "eventTime", "responseElements", "recipientAccountId", "awsRegion", "sourceIPAddress", "userAgent"],
+        "recording_scope_assumption": "KMS Management events enabled on CloudTrail trail",
+        "source_urls": [
+          "https://docs.aws.amazon.com/kms/latest/APIReference/API_CreateKey.html"
+        ],
+        "fixture_ref": "fixtures/kms_create_key.json",
+        "review_date": "2026-10-18",
+        "validation_status": "VERIFIED"
+      }
+    },
+    "act-kms-enable-key-rotation": {
+      "action_id": "act-kms-enable-key-rotation",
+      "task_category": "kms_create_key",
+      "service": "kms",
+      "api_operation": "EnableKeyRotation",
+      "iam_permission": "kms:EnableKeyRotation",
+      "required_parameters": ["keyId"],
+      "optional_parameters": ["rotationPeriodInDays"],
+      "parameter_schema": {
+        "keyId": {"type": "string"}
+      },
+      "preconditions": ["Customer managed symmetric encryption KMS key must exist"],
+      "depends_on": [
+        {"action_id": "act-kms-create-key", "rule_id": "DEP-KMS-ROT-001"}
+      ],
+      "required_status": "CONDITIONAL",
+      "cloudtrail_mapping": {
+        "mapping_rule_id": "MAP-KMS-002",
+        "eventSource": "kms.amazonaws.com",
+        "eventName": "EnableKeyRotation",
+        "request_parameter_template": {
+          "keyId": "{keyId}"
+        },
+        "unknown_fields": ["eventID", "requestID", "eventTime", "responseElements", "recipientAccountId", "awsRegion", "sourceIPAddress", "userAgent"],
+        "recording_scope_assumption": "KMS Management events enabled on CloudTrail trail",
+        "source_urls": [
+          "https://docs.aws.amazon.com/kms/latest/APIReference/API_EnableKeyRotation.html"
+        ],
+        "fixture_ref": "fixtures/kms_enable_key_rotation.json",
+        "review_date": "2026-10-18",
+        "validation_status": "VERIFIED"
+      }
+    },
+    "act-ec2-create-security-group": {
+      "action_id": "act-ec2-create-security-group",
+      "task_category": "ec2_create_security_group",
+      "service": "ec2",
+      "api_operation": "CreateSecurityGroup",
+      "iam_permission": "ec2:CreateSecurityGroup",
+      "required_parameters": ["groupName", "vpcId", "description"],
+      "optional_parameters": [],
+      "parameter_schema": {
+        "groupName": {"type": "string"},
+        "vpcId": {"type": "string", "pattern": "^vpc-[0-9a-f]+$"},
+        "description": {"type": "string"}
+      },
+      "preconditions": ["VPC must exist in target region"],
+      "depends_on": [],
+      "required_status": "REQUIRED",
+      "cloudtrail_mapping": {
+        "mapping_rule_id": "MAP-EC2-001",
+        "eventSource": "ec2.amazonaws.com",
+        "eventName": "CreateSecurityGroup",
+        "request_parameter_template": {
+          "groupName": "{groupName}",
+          "vpcId": "{vpcId}",
+          "groupDescription": "{description}"
+        },
+        "unknown_fields": ["eventID", "requestID", "eventTime", "responseElements", "recipientAccountId", "awsRegion", "sourceIPAddress", "userAgent"],
+        "recording_scope_assumption": "EC2 Management events enabled on CloudTrail trail",
+        "source_urls": [
+          "https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_CreateSecurityGroup.html"
+        ],
+        "fixture_ref": "fixtures/ec2_create_security_group.json",
+        "review_date": "2026-10-18",
+        "validation_status": "VERIFIED"
+      }
+    },
+    "act-ec2-authorize-security-group-ingress": {
+      "action_id": "act-ec2-authorize-security-group-ingress",
+      "task_category": "ec2_create_security_group",
+      "service": "ec2",
+      "api_operation": "AuthorizeSecurityGroupIngress",
+      "iam_permission": "ec2:AuthorizeSecurityGroupIngress",
+      "required_parameters": ["groupId", "ipPermissions"],
+      "optional_parameters": [],
+      "parameter_schema": {
+        "groupId": {"type": "string", "pattern": "^sg-[0-9a-f]+$"},
+        "ipPermissions": {"type": "array"}
+      },
+      "preconditions": ["Security group must already exist"],
+      "depends_on": [
+        {"action_id": "act-ec2-create-security-group", "rule_id": "DEP-EC2-ING-001"}
+      ],
+      "required_status": "CONDITIONAL",
+      "cloudtrail_mapping": {
+        "mapping_rule_id": "MAP-EC2-002",
+        "eventSource": "ec2.amazonaws.com",
+        "eventName": "AuthorizeSecurityGroupIngress",
+        "request_parameter_template": {
+          "groupId": "{groupId}",
+          "ipPermissions": "{ipPermissions}"
+        },
+        "unknown_fields": ["eventID", "requestID", "eventTime", "responseElements", "recipientAccountId", "awsRegion", "sourceIPAddress", "userAgent"],
+        "recording_scope_assumption": "EC2 Management events enabled on CloudTrail trail",
+        "source_urls": [
+          "https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_AuthorizeSecurityGroupIngress.html"
+        ],
+        "fixture_ref": null,
+        "review_date": "2026-10-18",
+        "validation_status": "VERIFIED"
+      }
+    },
+    "act-lambda-create-function": {
+      "action_id": "act-lambda-create-function",
+      "task_category": "lambda_create_function",
+      "service": "lambda",
+      "api_operation": "CreateFunction",
+      "iam_permission": "lambda:CreateFunction",
+      "required_parameters": ["functionName", "role", "handler", "runtime"],
+      "optional_parameters": ["description", "timeout", "memorySize"],
+      "parameter_schema": {
+        "functionName": {"type": "string", "pattern": "^[a-zA-Z0-9-_]{1,64}$"},
+        "role": {"type": "string", "pattern": "^arn:aws:iam::[0-9]{12}:role/.+$"},
+        "handler": {"type": "string"},
+        "runtime": {"type": "string"}
+      },
+      "preconditions": ["Execution IAM role must exist and have trust relationship with lambda.amazonaws.com"],
+      "depends_on": [],
+      "required_status": "REQUIRED",
+      "cloudtrail_mapping": {
+        "mapping_rule_id": "MAP-LAMBDA-001",
+        "eventSource": "lambda.amazonaws.com",
+        "eventName": "CreateFunction20150331",
+        "request_parameter_template": {
+          "functionName": "{functionName}",
+          "role": "{role}",
+          "handler": "{handler}",
+          "runtime": "{runtime}"
+        },
+        "unknown_fields": ["eventID", "requestID", "eventTime", "responseElements", "recipientAccountId", "awsRegion", "sourceIPAddress", "userAgent"],
+        "recording_scope_assumption": "Lambda control plane management events. Note: CloudTrail eventName is CreateFunction20150331.",
+        "source_urls": [
+          "https://docs.aws.amazon.com/lambda/latest/dg/API_CreateFunction.html",
+          "https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-event-reference.html"
+        ],
+        "fixture_ref": "fixtures/lambda_create_function.json",
+        "review_date": "2026-10-18",
+        "validation_status": "VERIFIED"
+      }
+    }
+  }
+}

@@ -1,0 +1,81 @@
+# Approved AWS service scope for the Stage 2 prompt-hardening module.
+#
+# This file is a DECISION RECORD, not a source of truth for what the pipeline
+# supports. The pipeline's own vocabulary (feature_engine9.FIXED_EVENT_SOURCES)
+# and the dataset are the sources of truth; tests/test_security_hardening_scope.py
+# fails if this file drifts from them.
+#
+# RULE: a service is APPROVED for service-specific controls only if
+#   (a) it is in FIXED_EVENT_SOURCES (anything else becomes <UNK> in the feature engine),
+#   (b) it is represented in the existing dataset (datasets/privilege-escalation/), and
+#   (c) it is not excluded by project decision below.
+
+scope_version: "1"
+derived_from:
+  pipeline_vocabulary: "feature_engine9.py :: FIXED_EVENT_SOURCES"
+  dataset_report: "security_hardening/data/dataset_scope_report.json"
+  dataset_files:
+    - datasets/privilege-escalation/real_dataset_combined.csv
+    - datasets/privilege-escalation/synthetic_cloudtrail.csv
+
+# The catalogue may carry service-specific controls for these services only.
+approved_services:
+  iam:
+    event_source: iam.amazonaws.com
+    display: AWS IAM
+    dataset_evidence: "59 distinct event names in real data; privilege-escalation is the project's core domain"
+  sts:
+    event_source: sts.amazonaws.com
+    display: AWS STS (role assumption, caller identity)
+    dataset_evidence: "AssumeRole, GetCallerIdentity"
+  s3:
+    event_source: s3.amazonaws.com
+    display: Amazon S3
+    dataset_evidence: "31 distinct event names in real data (bucket configuration reads and object/bucket changes)"
+  ec2:
+    event_source: ec2.amazonaws.com
+    display: Amazon EC2, including VPC networking and security groups (CloudTrail records VPC API calls under ec2.amazonaws.com)
+    dataset_evidence: "122 distinct event names in real data, e.g. DescribeSecurityGroups, DescribeVpcs, DescribeSubnets"
+  ssm:
+    event_source: ssm.amazonaws.com
+    display: AWS Systems Manager (Parameter Store and instance management events)
+    dataset_evidence: "largest source in real data; GetParameter(s), DescribeParameters, PutParameter, DeleteParameter, DescribeInstanceInformation"
+  cloudtrail:
+    event_source: cloudtrail.amazonaws.com
+    display: AWS CloudTrail (audit logging)
+    dataset_evidence: "StartLogging, DeleteTrail, CreateTrail, PutEventSelectors; StopLogging/DeleteTrail are the pipeline's fast-lane actions"
+  rds:
+    event_source: rds.amazonaws.com
+    display: Amazon RDS
+    dataset_evidence: "32 distinct event names in real data (mostly Describe*), ModifyDBInstance in synthetic"
+  elasticloadbalancing:
+    event_source: elasticloadbalancing.amazonaws.com
+    display: Elastic Load Balancing
+    dataset_evidence: "DescribeLoadBalancers, DescribeTargetGroups"
+
+# In the vocabulary and the data, but billing/account metadata: recognised so they are not
+# reported as "unknown services", with no service-specific security controls in the catalogue.
+recognised_without_service_controls:
+  - account
+  - notifications
+  - ce
+  - budgets
+  - freetier
+
+# In the vocabulary and in the dataset, but excluded from this module by explicit project
+# instruction. Their records stay in the data and the feature engine is untouched; this module
+# simply adds no handling and answers OUT_OF_SCOPE when a request depends on them.
+excluded_by_project_decision:
+  lambda:
+    event_source: lambda.amazonaws.com
+    reason: "Excluded by instruction: no Lambda-specific catalogue sections or prompt handling."
+  kms:
+    event_source: kms.amazonaws.com
+    reason: "Excluded by instruction: no KMS-specific catalogue sections or prompt handling."
+  secretsmanager:
+    event_source: secretsmanager.amazonaws.com
+    reason: "Excluded by instruction: no Secrets Manager-specific catalogue sections or prompt handling."
+
+# Everything else (e.g. dynamodb, sns, eks, cloudfront ...) is outside the pipeline vocabulary,
+# so a request that depends on it is reported OUT_OF_SCOPE for clarification or hand-off.
+out_of_scope_rule: "Any AWS service not listed above."

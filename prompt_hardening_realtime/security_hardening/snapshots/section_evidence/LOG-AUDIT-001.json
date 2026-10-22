@@ -1,0 +1,13 @@
+{
+  "capture_limitations": "Concise review record, not a raw HTML/PDF capture. It does not supply the control content_hash. Run source_sync sync in a network-enabled environment to store raw response bytes and set content_hash only after section checks pass.",
+  "capture_type": "official-page-section-review",
+  "control_id": "LOG-AUDIT-001",
+  "decision": "supported",
+  "record_type": "curated_source_section_review",
+  "record_version": 1,
+  "reviewed_at": "2026-10-21T04:55:00Z",
+  "source_name": "AWS CloudTrail User Guide \u2014 Security best practices",
+  "source_recommendation_assessment": "AWS recommends creating ongoing records using CloudTrail trails, maintaining logging coverage across regions, enabling log file integrity validation, and protecting the completeness and availability of audit logs. This supports keeping audit logging enabled and validating any replacement before retiring a trail. The project-specific pipeline fast-lane implementation is not verified by this source review.",
+  "source_url": "https://docs.aws.amazon.com/awscloudtrail/latest/userguide/best-practices-security.html",
+  "source_version_or_section": "Preventative security best practices; preserve audit-log integrity and ongoing records"
+}

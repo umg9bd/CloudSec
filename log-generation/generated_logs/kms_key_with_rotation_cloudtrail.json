@@ -1,0 +1,53 @@
+{
+  "Records": [
+    {
+      "eventVersion": "1.08",
+      "userIdentity": {
+        "type": "IAMUser",
+        "arn": "arn:aws:iam::111122223333:user/agentic-operator",
+        "accountId": "111122223333",
+        "userName": "agentic-operator"
+      },
+      "eventTime": "2026-10-18T12:00:00Z",
+      "eventSource": "kms.amazonaws.com",
+      "eventName": "CreateKey",
+      "awsRegion": "us-east-1",
+      "requestParameters": {
+        "description": "Create a KMS customer managed key for encrypting production RDS database tables",
+        "keyUsage": "ENCRYPT_DECRYPT"
+      },
+      "responseElements": null,
+      "readOnly": false,
+      "eventType": "AwsApiCall",
+      "managementEvent": true,
+      "recipientAccountId": "111122223333",
+      "eventCategory": "Management",
+      "prediction_id": "pred-0001",
+      "record_type": "PREDICTED_CLOUDTRAIL_EVENT"
+    },
+    {
+      "eventVersion": "1.08",
+      "userIdentity": {
+        "type": "IAMUser",
+        "arn": "arn:aws:iam::111122223333:user/agentic-operator",
+        "accountId": "111122223333",
+        "userName": "agentic-operator"
+      },
+      "eventTime": "2026-10-18T12:00:00Z",
+      "eventSource": "kms.amazonaws.com",
+      "eventName": "EnableKeyRotation",
+      "awsRegion": "us-east-1",
+      "requestParameters": {
+        "keyId": "<PROPOSED_RESOURCE_ID_FROM_STEP_1>"
+      },
+      "responseElements": null,
+      "readOnly": false,
+      "eventType": "AwsApiCall",
+      "managementEvent": true,
+      "recipientAccountId": "111122223333",
+      "eventCategory": "Management",
+      "prediction_id": "pred-0002",
+      "record_type": "PREDICTED_CLOUDTRAIL_EVENT"
+    }
+  ]
+}
