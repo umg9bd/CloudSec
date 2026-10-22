@@ -27,7 +27,8 @@ ROOT = os.path.dirname(HERE)
 IS_WIN = sys.platform == "win32"
 VENV = os.path.join(HERE, ".venv")
 VPY = os.path.join(VENV, "Scripts", "python.exe") if IS_WIN else os.path.join(VENV, "bin", "python")
-DEPS = ["transformers>=4.50", "datasets>=3", "streamlit==1.64.0", "pyyaml>=6", "sentencepiece", "protobuf"]
+DEPS = ["transformers>=4.50", "datasets>=3", "streamlit==1.64.0", "pyyaml>=6", "sentencepiece", "protobuf",
+        "pydantic>=2"]   # pydantic: Stage 3 (log-generation) schemas, used by the downstream chain
 DATASET = os.path.join(ROOT, "datasets", "prompt-injection")
 MERGED = os.path.join(DATASET, "prompt_injection_merged.jsonl")
 CKPT = os.path.join(HERE, "artifacts", "distilbert-mbert-pi-v1")
@@ -50,7 +51,7 @@ def ensure_venv():
 
 
 def deps_present():
-    code = "import transformers, datasets, streamlit, yaml, torch"  # torch comes from system-site
+    code = "import transformers, datasets, streamlit, yaml, torch, pydantic"  # torch comes from system-site
     return subprocess.run([VPY, "-c", code], capture_output=True).returncode == 0
 
 

@@ -97,6 +97,19 @@ class Pipeline:
         self.alert_dir = path(self.cfg.alert_dir)
         self.output_csv = path(self.cfg.output_csv)
         os.makedirs(self.state_dir, exist_ok=True)
+        # Emails each alert at or above the threshold to the admin (notify.py). Live runs only:
+        # evaluation replays (write_outputs=False) must never email anyone.
+        self.notifier = notify.Notifier() if write_outputs else None
+        self.buffer_path = os.path.join(self.state_dir, "event_buffer.pkl")
+        self.reload_state()
+
+    def reload_state(self) -> None:
+        """(Re)reads the per-principal tracking state and the event buffer from state_dir.
+
+        Called once at start-up. A dry-run scorer (agent_orchestrator.py) calls it before each
+        assessment, so hypothetical events are scored against the history the live watcher last
+        saved -- and, since a dry run never calls save_state(), they are never added to it."""
+        path = lambda p: p if os.path.isabs(p) else os.path.join(ROOT, p)
         # Vocabulary and risk priors are the training-time files, frozen: live (unlabeled) traffic
         # must never change what an index or a prior means. Per-principal tracking state is this
         # deployment's own.
@@ -109,10 +122,6 @@ class Pipeline:
             principal_prior_path=path(fe9.PRINCIPAL_PRIOR_FILE),
             freeze_vocab=True, freeze_priors=True,
         )
-        # Emails each alert at or above the threshold to the admin (notify.py). Live runs only:
-        # evaluation replays (write_outputs=False) must never email anyone.
-        self.notifier = notify.Notifier() if write_outputs else None
-        self.buffer_path = os.path.join(self.state_dir, "event_buffer.pkl")
         self.buffer = pd.read_pickle(self.buffer_path) if os.path.exists(self.buffer_path) else pd.DataFrame()
         self._arrival = int(self.buffer["arrival"].max()) + 1 if len(self.buffer) else 0
 

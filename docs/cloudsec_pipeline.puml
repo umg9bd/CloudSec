@@ -1,0 +1,40 @@
+@startuml cloudsec_pipeline
+' CloudSec -- clean 6-stage pipeline (slide version; high level, key modules only).
+' Full module-level dependency map: docs/architecture_diagram.puml
+' Render: docker run --rm -v "%cd%:/data" -w /data plantuml/plantuml -tpng -tsvg docs/cloudsec_pipeline.puml
+
+title CloudSec pipeline:  screen -> harden -> simulate -> score -> dashboard -> gate
+
+skinparam shadowing false
+skinparam backgroundColor #FFFFFF
+skinparam DefaultFontName Segoe UI
+skinparam DefaultFontSize 13
+skinparam roundcorner 12
+skinparam ArrowThickness 1.3
+skinparam rectangleBorderThickness 1.4
+skinparam defaultTextAlignment center
+skinparam nodesep 14
+skinparam ranksep 16
+
+rectangle "**01   PROMPT SCREENING**\n<size:11>normalization  ·  input_validation  ·  rule_engine  ·  classifier_interface  ·  decision_combiner</size>\n<size:10><color:#6B7482>screening_service · schemas · explanation · session_store · fail-closed output</color></size>" as S1 #E9EFF8
+rectangle "**02   PROMPT HARDENING**\n<size:11>task_analyzer  ·  scope_inspector  ·  control_selector  ·  prompt_hardener</size>\n<size:10><color:#6B7482>security_controls.yaml · policy.yaml · scope.yaml · provenance / integrity checks</color></size>" as S2 #E1F3EE
+rectangle "**03   ACTION SIMULATION**\n<size:11>extractor  ·  planner  ·  enumerator  ·  graph_builder  ·  adapter</size>\n<size:10><color:#6B7482>output: proposed action graph + CloudTrail-style simulated records</color></size>" as S3 #ECE7F7
+rectangle "**04   RISK SCORING**\n<size:11>feature_engine9  —  identity · IAM · resource-path · temporal features</size>\n<size:11>HGT / graph branch (gnn_scorer)      +      LSTM-transformer branch (lstm_inference)</size>\n<size:10><color:#6B7482>fused risk + explanation:  pipeline.py · ensemble_explain.py · threshold</color></size>" as S4 #E9E5F6
+rectangle "**05   DASHBOARD**\n<size:11>cloudsec_dashboard  ·  live event risk score  ·  blocked-event explanation</size>\n<size:10><color:#6B7482>live scoring + explanations for security analysts when an event is stopped</color></size>" as S5 #FBEFD7
+rectangle "**06   EXECUTION GATE**\n<size:11>risk below threshold  +  all policy checks pass  +  action is in scope</size>\n<size:10><color:#6B7482>planned pre-flight gate</color></size>" as S6 #E4E8EC
+
+rectangle "**REJECT**\n<size:10>malicious / review</size>" as REJ #FBE9E7
+rectangle "**BLOCK · EXPLAIN · REVISE**\n<size:10>no cloud call; return failed checks, explanation + hardened template</size>" as BLK #FBE9E7
+rectangle "**PASS · EXECUTE SCOPED ACTION**\n<size:10>run approved actions only; capture actual CloudTrail events</size>" as PAS #E6F4EA
+
+S1 --> S2 : SAFE
+S1 -right-> REJ : malicious / review
+S2 --> S3
+S3 --> S4
+S4 --> S5
+S5 --> S6
+S6 --> BLK
+S6 --> PAS
+BLK -[hidden]right-> PAS
+
+@enduml

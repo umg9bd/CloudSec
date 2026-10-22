@@ -22,24 +22,193 @@ import streamlit as st
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # repo root
 
 from prompt_injection_gate.config import load_config
+from prompt_injection_gate.pipeline_bridge import PipelineBridge
 from prompt_injection_gate.schemas import ContextItem, Decision, ScreeningRequest, TRUST_LEVELS
-from prompt_injection_gate.screening_service import ScreeningService
 
 st.set_page_config(page_title="Stage-1 Prompt Screening", page_icon="🛡️", layout="centered")
 
 _COLOR = {Decision.SAFE: "#1a7f37", Decision.MALICIOUS: "#b42318", Decision.REVIEW_REQUIRED: "#b54708"}
 _BG = {Decision.SAFE: "#e6f4ea", Decision.MALICIOUS: "#fbeae8", Decision.REVIEW_REQUIRED: "#fdf3e7"}
 _ICON = {Decision.SAFE: "✅", Decision.MALICIOUS: "⛔", Decision.REVIEW_REQUIRED: "⚠️"}
+_SEV_COLOR = {"critical": "#b42318", "high": "#b42318", "medium": "#b54708", "low": "#5b6572", "info": "#5b6572"}
+
+
+def _sev(label):
+    c = _SEV_COLOR.get(str(label).lower(), "#5b6572")
+    return (f"<span style='background:{c};color:#fff;border-radius:4px;padding:1px 7px;"
+            f"font-size:12px;font-weight:700'>{str(label).upper()}</span>")
 
 
 @st.cache_resource(show_spinner="Loading screening model…")
-def get_service():
-    svc = ScreeningService(load_config())
-    return svc, svc.classifier.available, svc.classifier.version, svc.rules_version
+def get_bridge():
+    bridge = PipelineBridge(load_config())
+    svc = bridge.service
+    return bridge, svc.classifier.available, svc.classifier.version, svc.rules_version
+
+
+def _risk_banner(s2):
+    """A one-line risk read for the SAFE prompt, from Stage 2's security review."""
+    gaps = s2.get("security_gaps", [])
+    sev = {str(g.get("severity", "")).lower() for g in gaps}
+    review = s2.get("requires_user_review")
+    if {"critical", "high"} & sev:
+        n = sum(1 for g in gaps if str(g.get("severity", "")).lower() in ("critical", "high"))
+        st.error(f"⚠️ **Could be risky** — {n} high/critical security gap(s) must be addressed before this runs. "
+                 "The changes below are already added to the prompt.")
+    elif gaps:
+        st.warning(f"**Some risk** — {len(gaps)} security gap(s) found; required changes are added below.")
+    else:
+        st.success("**Low risk** — no security gaps; the request already meets the applicable controls.")
+    if review:
+        st.caption("A human should review this before it is executed (`requires_user_review = true`).")
+
+
+def _render_stage2(s2):
+    status = s2.get("status")
+    st.subheader(f"Stage 2 — security review · {status}")
+    _risk_banner(s2)
+
+    gaps = s2.get("security_gaps", [])
+    added = s2.get("added_controls", [])
+    satisfied = s2.get("satisfied_controls", [])
+    deferred = s2.get("deferred_controls", [])
+    questions = s2.get("clarification_questions", [])
+    conflicts = s2.get("conflicts", [])
+    c = st.columns(4)
+    c[0].metric("Risks found", len(gaps))
+    c[1].metric("Changes added", len(added))
+    c[2].metric("Already met", len(satisfied))
+    c[3].metric("Open questions", len(questions))
+
+    if gaps:
+        st.markdown("**Risks found**")
+        for g in gaps:
+            st.markdown(f"- {_sev(g.get('severity', 'info'))} &nbsp;`{g.get('control_id', '?')}` — "
+                        f"{g.get('description', '')}", unsafe_allow_html=True)
+
+    if added:
+        st.markdown("**Required changes added to the prompt**")
+        for a in added:
+            with st.expander(f"{a.get('control_id', '?')} — {a.get('control_name', '')}  ·  {str(a.get('severity', '')).upper()}"):
+                if a.get("clause"):
+                    st.markdown("**Change:** " + a["clause"])
+                if a.get("verification_expectation"):
+                    st.markdown("**How to verify:** " + a["verification_expectation"])
+                if a.get("reason"):
+                    st.caption(a["reason"])
+
+    if questions:
+        st.markdown("**Open questions (answer before running)**")
+        for q in questions:
+            flag = " ⛔ blocking" if q.get("blocking") else ""
+            st.markdown(f"- **{q.get('question', '')}**{flag}  \n  _{q.get('why_it_matters', '')}_")
+
+    if satisfied:
+        with st.expander(f"Already satisfied by the request ({len(satisfied)})"):
+            for sdt in satisfied:
+                st.markdown(f"- `{sdt.get('control_id', '?')}` — {sdt.get('verification_expectation', '')}")
+
+    for label, items in (("Conflicts", conflicts), ("Deferred controls", deferred),
+                         ("Warnings", s2.get("warnings", [])), ("Errors", s2.get("errors", []))):
+        if items:
+            st.markdown(f"**{label}:** " + ", ".join(
+                (i.get("control_id") or i.get("message") or str(i)) if isinstance(i, dict) else str(i) for i in items))
+
+    scope = s2.get("scope_findings", {}) or {}
+    in_scope = scope.get("approved_services", [])
+    out_scope = scope.get("out_of_scope_services", [])
+    if in_scope or out_scope:
+        st.caption("Services — in scope: " + (", ".join(in_scope) or "none")
+                   + ((" · out of scope: " + ", ".join(out_scope)) if out_scope else ""))
+
+    if s2.get("revised_prompt"):
+        with st.expander("Hardened prompt (what Stage 3 receives)"):
+            st.code(s2["revised_prompt"])
+
+
+def _render_stage3(s3):
+    contract = s3.get("stage3_contract", {}) or {}
+    st.subheader(f"Stage 3 — predicted AWS activity · {contract.get('status')}")
+    st.caption("What the agent's call would actually do, and the audit trail it would leave — "
+               "the input the GNN/LSTM risk scorer (Stage 4) consumes.")
+
+    actions = contract.get("proposed_actions", [])
+    if actions:
+        st.markdown("**Proposed AWS API calls (in order)**")
+        st.dataframe({"step": [a.get("step") for a in actions],
+                      "operation": [a.get("operation") for a in actions],
+                      "service": [a.get("service") for a in actions],
+                      "IAM permission": [a.get("iam_permission") for a in actions],
+                      "why": [a.get("rationale", "") for a in actions]},
+                     use_container_width=True, hide_index=True)
+
+    seq = s3.get("downstream_event_sequence", [])
+    if seq:
+        st.markdown("**Predicted CloudTrail events:** " + " → ".join(f"`{e}`" for e in seq))
+    rows = s3.get("downstream_gnn_structural_rows", [])
+    if rows:
+        with st.expander(f"Graph rows for the scorer ({len(rows)})"):
+            st.dataframe({"edge_type": [r.get("edge_type") for r in rows],
+                          "target_node": [r.get("target_node") for r in rows],
+                          "state": [r.get("state") for r in rows]},
+                         use_container_width=True, hide_index=True)
+
+    cov = contract.get("prediction_coverage", {}) or {}
+    if cov:
+        ok = "complete within the catalogue scope" if cov.get("complete_within_scope") else "NOT complete within scope"
+        st.caption(f"Coverage: {ok}.")
+        for lim in cov.get("limitations", []):
+            st.caption(f"• {lim}")
+    for label, key in (("Assumptions", "assumptions"), ("Missing parameters", "missing_parameters"),
+                       ("Unmodelled effects", "unmodelled_effects"), ("Open questions", "clarification_questions")):
+        vals = contract.get(key, [])
+        if vals:
+            st.markdown(f"**{label}:** " + "; ".join(str(v) for v in vals))
+
+    prov = contract.get("source_provenance", [])
+    if prov:
+        with st.expander(f"AWS documentation provenance ({len(prov)})"):
+            for u in prov:
+                st.markdown(f"- {u}")
+    with st.expander("Full Stage 3 payload (JSON for Stage 4)"):
+        st.json({"downstream_event_sequence": seq,
+                 "downstream_gnn_structural_rows": rows,
+                 "downstream_lstm_records": s3.get("downstream_lstm_records", {}),
+                 "stage3_contract": contract})
+
+
+def _render_downstream(bridge, resp):
+    """Always run Stage 2 (security review + harden) and Stage 3 (predict events) for a SAFE prompt."""
+    request = {
+        "request_id": resp.request_id,
+        "screening_status": bridge.cfg.handoff_screening_status,
+        "original_prompt": resp.safe_prompt_for_next_stage,
+    }
+    with st.spinner("Stage 2: reviewing and hardening the prompt…"):
+        s2 = bridge.run_stage2_inline(request)
+    st.divider()
+    if s2 is None:
+        st.warning("Stage 2 (security_hardening) is not importable here — the file was still delivered for a running watcher to pick up.")
+        return
+    _render_stage2(s2)
+
+    status = s2.get("status")
+    if status not in ("HARDENED", "ALREADY_ADEQUATE") or not s2.get("revised_prompt"):
+        st.info(f"Stage 3 does not run for a Stage 2 status of {status}.")
+        return
+
+    with st.spinner("Stage 3: predicting the AWS actions and CloudTrail events…"):
+        s3 = bridge.run_stage3(resp.safe_prompt_for_next_stage, s2["revised_prompt"], resp.request_id)
+    st.divider()
+    if s3 is None:
+        st.warning("Stage 3 (log-generation) is not importable here (is pydantic installed in this environment?).")
+        return
+    _render_stage3(s3)
 
 
 def main():
-    svc, clf_ok, clf_ver, rules_ver = get_service()
+    bridge, clf_ok, clf_ver, rules_ver = get_bridge()
+    svc = bridge.service
 
     st.title("🛡️ Stage-1 Prompt Screening")
     st.caption("Screens a prompt before the cloud-security workflow. A prompt is forwarded "
@@ -112,8 +281,12 @@ def main():
     if resp.handoff_allowed:
         st.success("safe_prompt_for_next_stage (unaltered original):")
         st.code(resp.safe_prompt_for_next_stage or "")
+        delivered_path = bridge.forward(resp)
+        if delivered_path:
+            st.caption(f"📤 Delivered to Stage 2 inbox: `{delivered_path}`")
+        _render_downstream(bridge, resp)      # Stage 2 + Stage 3 always run for a SAFE prompt
     else:
-        st.info("Nothing is forwarded. The prompt is held for the user or a reviewer.")
+        st.info("Nothing is forwarded. The prompt is held for the user or a reviewer — Stage 2 and Stage 3 do not run.")
 
     if resp.threat_categories:
         st.write("**Threat categories:** " + ", ".join(resp.threat_categories))

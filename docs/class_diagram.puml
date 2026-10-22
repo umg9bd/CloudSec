@@ -1,0 +1,160 @@
+@startuml class_diagram
+' CloudSec -- core class diagram (slide version).
+' Full detail: docs/class_diagram_full.puml
+' Render: docker run --rm -v "%cd%:/data" -w /data plantuml/plantuml -tpng docs/class_diagram.puml
+
+title CloudSec: real-time privilege-escalation detection
+
+hide empty members
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+skinparam defaultFontSize 14
+skinparam classFontStyle bold
+skinparam packageFontSize 15
+skinparam titleFontSize 20
+skinparam nodesep 35
+skinparam ranksep 55
+
+package "Real-time pipeline" {
+  class Pipeline {
+    -cfg: PipelineConfig
+    -engine: FeatureEngineer
+    -gnn: GNNScorer
+    -lstm: Scorer
+    +process_file(path)
+    +score(events)
+    +explain(alerts)
+  }
+
+  class PipelineConfig {
+    +weight_graph: float
+    +alert_threshold: float
+    +hgt_checkpoint: str
+    +lstm_checkpoint: str
+  }
+
+  class "ensemble_explain" as EnsembleExplainer <<module>> {
+    +explain_graph_events()
+    +explain_sequence_events()
+    +combine()
+  }
+}
+
+package "Feature engineering" {
+  class FeatureEngineer {
+    +get_structural_data(event)
+    +get_temporal_features(event)
+  }
+
+  class IdentityContext {
+    +observe(event)
+  }
+
+  class PermissionState {
+    +apply(event)
+    +effective(identity)
+  }
+
+  class AdaptiveRiskPrior {
+    +score(key)
+  }
+
+  class StateTracker {
+    +get_metrics(principal, event)
+  }
+
+  class GraphNodeTracker {
+    +record_edge(src, dst)
+  }
+}
+
+package "Graph model (HGT)" {
+  class GNNScorer {
+    +build_graph(events)
+    +score(events)
+  }
+
+  class OfflineGraphLoader {
+    +load(): HeteroData
+  }
+
+  class PrivilegePropagationGraph {
+    +hop_count()
+    +privilege_gain()
+  }
+
+  class HGTAnomalyDetector {
+    -encoder: HGTEncoder
+    -head: EdgeClassifierHead
+    +forward(graph)
+  }
+
+  class HGTEncoder
+  class EdgeClassifierHead
+
+  class EdgeExplainer {
+    +explain(graph, edge)
+  }
+}
+
+package "Sequence model (LSTM)" {
+  class Scorer {
+    -model: LSTMTransformerModel
+    -vocab: dict
+  }
+
+  class LSTMTransformerModel {
+    -embedding
+    -lstm
+    -transformer
+    +forward(sequence)
+  }
+
+  class EventSeq {
+    +log_id: str
+    +event_idxs
+    +feats
+  }
+
+  class "lstm_explain" as LSTMExplainer <<module>> {
+    +explain_seq()
+  }
+}
+
+' --- composition: what the pipeline is built from
+Pipeline *-- PipelineConfig
+Pipeline *-- FeatureEngineer
+Pipeline *-- GNNScorer
+Pipeline *-- Scorer
+Pipeline ..> EnsembleExplainer : per alert
+
+' --- feature engineering
+FeatureEngineer *-- IdentityContext
+FeatureEngineer *-- "2" AdaptiveRiskPrior
+FeatureEngineer *-- StateTracker
+FeatureEngineer *-- GraphNodeTracker
+IdentityContext *-- PermissionState
+
+' --- graph model
+GNNScorer ..> OfflineGraphLoader : builds window graph
+OfflineGraphLoader ..> PrivilegePropagationGraph : edge features
+GNNScorer o-- HGTAnomalyDetector
+HGTAnomalyDetector *-- HGTEncoder
+HGTAnomalyDetector *-- EdgeClassifierHead
+
+' --- sequence model
+Scorer o-- LSTMTransformerModel
+LSTMTransformerModel ..> EventSeq : scores
+
+' --- explanations
+EnsembleExplainer ..> EdgeExplainer : graph reasons
+EnsembleExplainer ..> LSTMExplainer : sequence reasons
+EdgeExplainer ..> HGTAnomalyDetector
+LSTMExplainer ..> LSTMTransformerModel
+
+note right of Pipeline
+  risk = w * p_graph + (1 - w) * p_sequence
+  alert when risk >= threshold
+end note
+
+@enduml

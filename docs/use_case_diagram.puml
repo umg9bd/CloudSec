@@ -1,0 +1,38 @@
+@startuml use_case_diagram
+' CloudSec -- use case diagram (slide version).
+' Render: docker run --rm -v "%cd%:/data" -w /data plantuml/plantuml -tpng -tsvg docs/use_case_diagram.puml
+
+title CloudSec: use cases
+
+left to right direction
+skinparam shadowing false
+skinparam defaultFontSize 14
+skinparam titleFontSize 20
+skinparam packageStyle rectangle
+
+actor "Security analyst" as Analyst
+actor "AWS CloudTrail" as CloudTrail <<external system>>
+
+rectangle "CloudSec" {
+  usecase "Ingest CloudTrail\nlog files" as UC_Ingest
+  usecase "Score events\n(HGT + LSTM ensemble)" as UC_Score
+  usecase "Extract identity and\npermission features" as UC_Features
+  usecase "Raise alert" as UC_Alert
+  usecase "Raise fast-lane alert\n(logging disabled)" as UC_FastLane
+  usecase "Explain alert\n(why it was flagged)" as UC_Explain
+  usecase "Watch live\nevent scores" as UC_Watch
+  usecase "Review alerts" as UC_Review
+}
+
+Analyst -- UC_Watch
+Analyst -- UC_Review
+CloudTrail -- UC_Ingest
+
+UC_Ingest ..> UC_Score : <<include>>
+UC_Score ..> UC_Features : <<include>>
+UC_Alert ..> UC_Score : <<extend>>\nrisk >= threshold
+UC_FastLane ..> UC_Score : <<extend>>
+UC_Alert ..> UC_Explain : <<include>>
+UC_Review ..> UC_Explain : <<include>>
+
+@enduml

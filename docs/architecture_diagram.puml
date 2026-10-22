@@ -1,0 +1,167 @@
+@startuml architecture_diagram
+' CloudSec -- full-system architecture (component diagram): every module, its
+' dependencies, and how the four stages integrate.
+' Render: docker run --rm -v "%cd%:/data" -w /data plantuml/plantuml -tpng -tsvg docs/architecture_diagram.puml
+
+title CloudSec: system architecture -- agentic gate (Stages 1-3) + real-time detector (Stage 4)
+
+skinparam shadowing false
+skinparam defaultFontSize 12
+skinparam titleFontSize 18
+skinparam componentStyle rectangle
+skinparam linetype ortho
+skinparam nodesep 10
+skinparam ranksep 20
+skinparam roundcorner 6
+skinparam ArrowFontSize 10
+skinparam packageTitleFontStyle bold
+skinparam wrapWidth 200
+skinparam componentBorderThickness 1
+skinparam packageStyle rectangle
+
+actor "AI agent /\ndeveloper" as AGENT
+actor "Security\nanalyst" as ANALYST
+cloud "AWS account" {
+  component "CloudTrail" as CT
+}
+
+' ===================== STAGE 1 =====================
+package "Stage 1 — Prompt-injection screening gate\n(prompt_injection_gate)" as S1 #E8F0FE {
+  component "ui_app (Streamlit)\nbridge_cli" as S1UI
+  component "pipeline_bridge\n(SAFE -> Stage 2)" as S1BR
+  component "screening_service\n(orchestrator)" as S1SVC
+  component "input_validation" as S1VAL
+  component "normalization" as S1NORM
+  component "rule_engine\n+ rules_catalogue.yaml" as S1RULE
+  component "classifier_interface\n(DistilBERT checkpoint)" as S1CLF
+  component "decision_combiner\n(fail-closed)" as S1COMB
+  component "session_store\n(multi-turn memory)" as S1SESS
+  component "explanation" as S1EXP
+}
+
+' ===================== STAGE 2 =====================
+package "Stage 2 — Security prompt hardening\n(prompt_hardening_realtime / security_hardening)" as S2 #E6F4EA {
+  folder "incoming/" as S2IN
+  component "directory_worker\n(file queue)" as S2WORK
+  component "integration\n(HardeningService)" as S2INT
+  component "prompt_hardener" as S2HARD
+  component "task_analyzer" as S2TASK
+  component "control_selector" as S2SEL
+  artifact "security_controls.yaml\n(control catalogue)" as S2CAT
+  component "schema_validation" as S2SCH
+  folder "output/\n*.response.json" as S2OUT
+}
+
+' ===================== STAGE 3 =====================
+package "Stage 3 — Hypothetical CloudTrail prediction\n(log-generation)" as S3 #FEF7E0 {
+  component "adapter\n(Stage3PipelineAdapter)" as S3ADP
+  component "engine (Stage3Engine)" as S3ENG
+  component "extractor\n(hybrid intent)" as S3EXT
+  component "planner\n(deterministic)" as S3PLAN
+  component "enumerator\n+ aws_action_catalogue" as S3ENUM
+  component "graph_builder" as S3GRAPH
+}
+
+' ===================== SHARED FEATURE ENGINE =====================
+package "Shared" as SH #EDE7F6 {
+  component "feature_engine9\n(structural + temporal features)" as FE
+}
+
+' ===================== STAGE 4 DETECTOR =====================
+package "Stage 4 — Detector / real-time pipeline" as S4 #FCE8E6 {
+  component "ingestion_gate\nvalidate -> classify -> route" as GATE
+  component "pipeline.py\nensemble: w*HGT + (1-w)*LSTM\nalert if risk >= threshold" as PIPE
+  component "ensemble_explain" as EEXP
+  component "cloudsec_dashboard\n(Streamlit)" as DASH
+  component "graph_construction (GNN)\ngnn_scorer (HGT ensemble)\n+ models, offline_graph, privilege_features" as GNN
+  component "incremental_updater\n+ neo4j_graph_builder\n(benign write-through)" as GINC
+  component "temporal-analysis (LSTM)\nlstm_inference (prod.scorer) + lstm_explain" as LSTM
+}
+
+' ===================== STORES =====================
+package "Stores & outputs" as ST #F1F3F4 {
+  database "Neo4j\nPrivilege Propagation Graph" as NEO
+  database "LSTM temporal history\n(gate_store/lstm_history.jsonl)" as LHIST
+  folder "revised_templates/\n(malicious events)" as REVT
+  artifact "runtime state\n(event_buffer.pkl, graph_node_state)" as RTST
+  artifact "alerts/ + output/risk_scores.csv" as ALERTS
+}
+
+' ===================== TRAINING DATA (de-emphasised) =====================
+artifact "datasets/prompt-injection\n(OWASP + cloud slice)" as DS1 #FFFFFF
+artifact "datasets/privilege-escalation\n(synthetic + real CloudTrail)" as DS4 #FFFFFF
+
+' ---------- Stage 1 internal dependencies ----------
+AGENT --> S1UI
+S1UI --> S1BR
+S1BR ..> S1SVC
+S1SVC ..> S1VAL
+S1SVC ..> S1NORM
+S1SVC ..> S1RULE
+S1SVC ..> S1CLF
+S1SVC ..> S1COMB
+S1SVC ..> S1SESS
+S1SVC ..> S1EXP
+DS1 ..> S1CLF : trains
+
+' ---------- Stage 2 internal dependencies ----------
+S2IN --> S2WORK
+S2WORK --> S2INT
+S2INT ..> S2SCH
+S2INT --> S2HARD
+S2HARD ..> S2TASK
+S2HARD ..> S2SEL
+S2SEL ..> S2CAT
+S2INT --> S2OUT
+
+' ---------- Stage 3 internal dependencies ----------
+S3ADP --> S3ENG
+S3ENG ..> S3EXT
+S3ENG ..> S3PLAN
+S3ENG ..> S3ENUM
+S3ENG ..> S3GRAPH
+
+' ---------- Detector internal dependencies ----------
+GATE ..> PIPE : reuse scoring
+PIPE ..> FE
+PIPE ..> GNN : p_graph
+PIPE ..> LSTM : p_sequence
+PIPE ..> EEXP
+PIPE --> ALERTS
+PIPE ..> RTST
+PIPE ..> DASH
+DASH --> ANALYST
+DS4 ..> GNN : trains
+DS4 ..> LSTM : trains
+
+' ---------- layout hints: left-to-right flow keeps Stage 1 at the left, Stage 4 at the right ----------
+S1 -[hidden]right-> S2
+S2 -[hidden]right-> S3
+S3 -[hidden]right-> S4
+
+' ================= CROSS-STAGE INTEGRATION (the agentic gate) =================
+S1BR -right-> S2IN : **(1)** SAFE prompt\n(atomic file drop)
+S2OUT -right-> S3ADP : **(2)** original +\nhardened prompt
+S3ADP -right-> GATE : **(3)** predicted (hypothetical)\nevents + structural rows
+GATE ..> S3ADP : rescore after revise
+
+' ================= RUNTIME INGESTION (real events) =================
+CT ==> PIPE : real CloudTrail\n(watch folder)
+PIPE ==> GATE : scored events
+
+' ================= GATE ROUTING (benign vs malicious) =================
+GATE ==> GINC : **benign** -> graph
+GINC ==> NEO : write-through\n(file fallback when down)
+GATE ==> LHIST : **benign** -> LSTM history
+GATE ==> S2INT : **malicious** ->\nrevise security template
+GATE ==> REVT : store revised template
+
+legend bottom
+  == CloudSec architecture ==
+  **==>** integration / data flow across modules      **..>** uses / depends-on
+  Pre-execution agentic gate: (1) screen -> (2) harden -> (3) predict events -> Stage 4 scores risk
+  (below threshold: allow & execute; above: revise template and rescore).
+  Runtime: real CloudTrail -> ingestion_gate -> benign to Neo4j + LSTM history; malicious to a revised template.
+endlegend
+
+@enduml

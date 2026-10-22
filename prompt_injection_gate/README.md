@@ -95,6 +95,44 @@ audit_record = svc.audit_record(req, resp)   # no raw prompt unless PIGATE_LOG_R
 No existing file is changed to integrate: Stage 2 imports this package and
 branches on `handoff_allowed`.
 
+## Delivering to Stage 2, and the full chain (`pipeline_bridge.py`)
+
+The integration seam between the stages is a **file drop**. Stage 2
+(`prompt_hardening_realtime`) watches an `incoming/` folder, so a SAFE prompt is
+written there as a request file; a MALICIOUS or REVIEW_REQUIRED prompt is never
+written. The bridge touches no Stage 2 or Stage 3 file, and screening stays a
+pure computation — delivery is a separate, explicit step.
+
+```python
+from prompt_injection_gate.pipeline_bridge import PipelineBridge
+
+bridge = PipelineBridge()
+res = bridge.screen_and_forward("Create an S3 bucket named telemetry-data-lake.")
+# res["forwarded"] is True only for SAFE; res["incoming_path"] is the delivered file.
+```
+
+The request file is `{request_id, screening_status: "SAFE", original_prompt}`,
+written atomically (temp-then-rename) under the stem `<request_id>.json` so a
+running watcher never sees a half-written file, and Stage 2 keys its response on
+that stem. The status is `SAFE` because the file is only ever written on a SAFE
+decision — exactly the approved status Stage 2's `policy.yaml` admits.
+
+Run the whole chain from the command line (screen → deliver → harden → predict
+the CloudTrail events the action would emit):
+
+```bash
+python -m prompt_injection_gate.bridge_cli "Create an S3 bucket named telemetry-data-lake."
+python -m prompt_injection_gate.bridge_cli --no-downstream "..."   # just screen + deliver
+python -m prompt_injection_gate.bridge_cli --json "..."            # machine-readable
+```
+
+In a real deployment Stage 2 consumes the inbox with its own watcher
+(`python -m security_hardening watch`); the bridge's in-process Stage 2/3 calls
+are for demonstrating the chain without starting it. If a neighbour module is
+absent the SAFE prompt is still delivered and that stage is reported unavailable
+rather than raising. The UI (`ui_app.py`) shows delivery and, optionally, the
+Stage 2 hardened prompt and Stage 3 predicted events.
+
 ## Configuration (environment variables)
 
 | Variable | Default | Meaning |
@@ -105,6 +143,10 @@ branches on `handoff_allowed`.
 | `PIGATE_MAX_CONTEXT_ITEMS` | 32 | untrusted-context count limit |
 | `PIGATE_RULE_BLOCK_SEVERITY` | `high` | rule severity that blocks SAFE |
 | `PIGATE_LOG_RAW_INPUT` | off | opt-in raw-prompt logging (default: sha256 only) |
+| `PIGATE_DELIVER_ON_SAFE` | on | write SAFE prompts to Stage 2's `incoming/` |
+| `PIGATE_STAGE2_INCOMING` | `../prompt_hardening_realtime/incoming` | Stage 2 inbox the bridge delivers to |
+| `PIGATE_STAGE2_ROOT` | `../prompt_hardening_realtime` | Stage 2 module root (in-process demo) |
+| `PIGATE_STAGE3_DIR` | `../log-generation` | Stage 3 module dir (in-process demo) |
 
 ## The classifier
 

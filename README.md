@@ -86,18 +86,50 @@ One command, with Docker Desktop running:
 ./run.sh           # macOS / Linux / Git Bash
 ```
 
-It does everything:
-- builds the image if needed (and rebuilds it when the Dockerfile changes);
-- clears the previous run's scores, alerts and per-principal history;
-- starts the pipeline and streams `real_dataset_test.csv` into `incoming/`,
-  200 events every 5 s, printing every event's HGT, LSTM and risk score, with
-  fast-lane and per-principal alerts inline;
-- serves the dashboard (`cloudsec_dashboard.py`) on http://localhost:8501 and
-  opens it in the browser. The page refreshes itself as new scores arrive.
+It starts the whole system (`cloudsec.py`) and opens the CloudSec app on
+http://localhost:8503. The app has two pages, switched from its sidebar:
 
-Ctrl+C stops all of it. Options pass through, e.g.
-`.\run.cmd --feed-interval 2 --feed-limit 2000`, or a different dataset:
-`.\run.cmd datasets/privilege-escalation/real_dataset_dev.csv`.
+| Page | What it does |
+|---|---|
+| **Agent Gate** (`agent_console.py`) | Ask the agent for an AWS change and watch every stage decide on it |
+| **Live Dashboard** (`cloudsec_dashboard.py`) | The real-time pipeline's event stream, alerts and their explanations |
+
+Behind the app:
+- the Stage 2 watcher (`prompt_hardening_realtime`) hardens each SAFE prompt dropped
+  into `prompt_hardening_realtime/incoming/`;
+- the real-time pipeline (`pipeline.py`) scores every executed (or dropped-in)
+  CloudTrail file in `incoming/` with HGT + LSTM, and prints each event in this terminal.
+
+A request on the Agent Gate page goes through:
+
+1. **Stage 1, screening:** a prompt injection or malicious request is refused, with
+   the reason. Nothing is forwarded.
+2. **Stage 2, hardening:** a SAFE prompt is written into Stage 2's `incoming/`. The
+   watcher returns the **prompt template**: your request, plus a locked security
+   section with the missing requirements, any conflicts and open questions.
+3. **Stage 3, prediction:** the exact AWS calls and CloudTrail events the request
+   would produce.
+4. **Stage 4, assessment:** HGT + LSTM score those predicted events against the
+   agent's stored history. It is a dry run, so nothing is saved.
+5. **Revise:** edit the request in the template and send it back. It goes through
+   every stage again. The security section is regenerated every round, so it
+   cannot be edited away.
+6. **Execute:** once every stage approves, **Execute** writes the plan's CloudTrail
+   into `incoming/`. The real-time pipeline scores it, adds it to the agent's
+   history, and the dashboard shows it. Execution is simulated, so no AWS API is
+   called. It runs exactly the approved plan: any change to the calls, targets,
+   parameters or principal is refused.
+
+Ctrl+C stops all of it. Options:
+- `--keep-state`: keep the agent's history, scores and alerts from the last run.
+  Otherwise each start is fresh.
+- `--feed [DATASET]`: also replay a dataset (default `real_dataset_test.csv`) as
+  background traffic, as the pipeline-only demo did.
+
+`agent_orchestrator.py` runs the same gate without the UI:
+`python agent_orchestrator.py --execute "Create a private S3 bucket named audit-logs-prod with versioning."`.
+Each step is logged, without the prompt text, to `output/agent_audit.jsonl`.
+Service logs are in `logs/`.
 
 ### Dashboard
 

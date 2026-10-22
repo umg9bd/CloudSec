@@ -64,6 +64,23 @@ class GateConfig:
     log_raw_input: bool = os.environ.get("PIGATE_LOG_RAW_INPUT", "").lower() in ("1", "true", "yes")
     audit_log_path: str = _path("PIGATE_AUDIT_LOG", "")   # "" => no file sink, caller handles records
 
+    # --- downstream handoff (pipeline_bridge.py) ---
+    # Stage 2 (prompt hardening) watches `incoming/`; a SAFE prompt is delivered
+    # there as a request file, a non-SAFE prompt is never written. Stage 3
+    # (log-generation) turns Stage 2's hardened prompt into predicted CloudTrail
+    # events. Defaults point at the sibling modules in this repo.
+    deliver_on_safe: bool = os.environ.get("PIGATE_DELIVER_ON_SAFE", "1").lower() not in ("0", "false", "no")
+    stage2_root: str = _path("PIGATE_STAGE2_ROOT",
+                             os.path.join(os.path.dirname(HERE), "prompt_hardening_realtime"))
+    stage2_incoming_dir: str = _path("PIGATE_STAGE2_INCOMING",
+                                     os.path.join(os.path.dirname(HERE), "prompt_hardening_realtime", "incoming"))
+    stage2_output_dir: str = _path("PIGATE_STAGE2_OUTPUT",
+                                   os.path.join(os.path.dirname(HERE), "prompt_hardening_realtime", "output"))
+    stage3_dir: str = _path("PIGATE_STAGE3_DIR", os.path.join(os.path.dirname(HERE), "log-generation"))
+    # The status written on a delivered request. Only ever written on a SAFE
+    # decision, so it is always the "approved" status the next stage expects.
+    handoff_screening_status: str = _path("PIGATE_HANDOFF_STATUS", "SAFE")
+
     # severity rank used across the module
     severity_rank: dict = field(default_factory=lambda: {"info": 0, "low": 1, "medium": 2, "high": 3, "critical": 4})
 

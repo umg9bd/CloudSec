@@ -1,18 +1,23 @@
 @echo off
-REM One command for everything: builds the Docker image if needed, clears the previous run's
-REM output, starts the pipeline, streams a dataset into incoming\ batch by batch (printing every
-REM event's HGT / LSTM / risk score and all alerts) and serves the dashboard on
-REM http://localhost:8501, which opens in the browser. Ctrl+C stops everything.
+REM One command for the whole system (cloudsec.py), in Docker. Builds the image if needed, then starts:
+REM   the CloudSec app    http://localhost:8503  -- sidebar switches between its two pages:
+REM     Agent Gate:     ask for an AWS change; it is screened (Stage 1),
+REM                       hardened (Stage 2, via its incoming/ folder), predicted (Stage 3), risk-scored
+REM                       by HGT + LSTM (Stage 4), and, if approved, executed (simulated) into incoming/
+REM     Live Dashboard: what the real-time pipeline scored (this window also shows every event)
+REM It opens in the browser. Ctrl+C stops everything.
 REM
-REM   run.cmd                                    real_dataset_test.csv, 200 events every 5 s
-REM   run.cmd --feed-interval 2 --feed-limit 2000
-REM   run.cmd datasets/privilege-escalation/real_dataset_dev.csv --feed-batch-size 100
+REM   run.cmd                        fresh start, agent traffic only
+REM   run.cmd --keep-state           keep the agent's history, scores and alerts from the last run
+REM   run.cmd --feed                 also replay real_dataset_test.csv as background traffic
+REM   run.cmd --feed datasets/privilege-escalation/real_dataset_dev.csv --feed-interval 2
 cd /d "%~dp0"
 docker info >nul 2>&1 || (echo Docker is not running - start Docker Desktop and try again. & exit /b 1)
+echo Building the CloudSec image (first time only takes a few minutes)...
 docker build -q -t cloudsec . >nul || exit /b 1
-REM Opens the dashboard in the browser once it answers (hidden window; gives up after 3 min).
-start "" /min powershell -NoProfile -WindowStyle Hidden -Command "for ($i = 0; $i -lt 180; $i++) { try { Invoke-WebRequest -UseBasicParsing -TimeoutSec 2 http://localhost:8501/_stcore/health | Out-Null; Start-Process http://localhost:8501; break } catch { Start-Sleep 1 } }"
+REM Opens the app once it answers (hidden window; gives up after 4 min).
+start "" /min powershell -NoProfile -WindowStyle Hidden -Command "for ($i = 0; $i -lt 240; $i++) { try { Invoke-WebRequest -UseBasicParsing -TimeoutSec 2 http://localhost:8503/_stcore/health | Out-Null; Start-Process http://localhost:8503; break } catch { Start-Sleep 1 } }"
 REM Email alerts: the Gmail sender and app password in email.env (see email.env.example), if present.
 set "EMAIL_ENV="
 if exist email.env set "EMAIL_ENV=--env-file email.env"
-docker run --rm -it -p 8501:8501 -v "%cd%:/app" %EMAIL_ENV% cloudsec python pipeline.py --watch incoming --show-events --reset-state --dashboard --feed %*
+docker run --rm -it -p 8503:8503 -v "%cd%:/app" %EMAIL_ENV% cloudsec python cloudsec.py %*

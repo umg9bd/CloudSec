@@ -68,6 +68,8 @@ FAST_SUITES = [
     # ── real-time pipeline ───────────────────────────────────────────────
     "test_pipeline",              # streaming == batch (LSTM), fallback, alert schema
     "test_watch_folder",          # one watcher per file, no crash when a file vanishes
+    "test_ingestion_gate",        # benign/malicious gate: validate, route to Neo4j/LSTM stores vs template
+    "test_agent_orchestrator",    # agent gate: locked security section, execution == approved plan
     "test_ensemble_explain",      # per-alert HGT + LSTM explanation: exact model shares, reasons
     "test_notify",                # email alerts: reach the admin; never break detection when misconfigured
     "test_lstm_scorer",           # v5/v6 checkpoints load with the right vocab; pipeline can feed both

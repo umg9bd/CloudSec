@@ -1,0 +1,36 @@
+@startuml sequence_diagram
+' CloudSec -- sequence diagram: how a CloudTrail log file becomes an alert.
+' Render: docker run --rm -v "%cd%:/data" -w /data plantuml/plantuml -tpng -tsvg docs/sequence_diagram.puml
+
+title CloudSec: from CloudTrail log to alert
+
+skinparam shadowing false
+skinparam defaultFontSize 14
+skinparam titleFontSize 20
+skinparam sequenceMessageAlign center
+autonumber
+
+participant "AWS CloudTrail" as CT
+control "Pipeline" as P
+participant "Feature\nengine" as FE
+participant "HGT\n(graph model)" as HGT
+participant "LSTM\n(sequence model)" as LSTM
+database "alerts/" as Out
+
+CT -> P : log file
+activate P
+P -> FE : extract features
+FE --> P : features
+P -> HGT : score
+HGT --> P : p_graph
+P -> LSTM : score
+LSTM --> P : p_sequence
+P -> P : risk = w * p_graph + (1 - w) * p_sequence
+
+opt risk >= threshold
+  P -> P : explain alert (HGT + LSTM reasons)
+  P -> Out : alert + explanation
+end
+deactivate P
+
+@enduml

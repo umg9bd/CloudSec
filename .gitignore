@@ -92,3 +92,16 @@ risk_scores*.csv
 /incoming/processed/
 /incoming/failed/
 /.incoming_staging/
+
+# ingestion gate (ingestion_gate.py) stores: benign graph/LSTM history + revised templates
+/gate_store/
+/gate_store_demo/
+
+# agent gate (cloudsec.py): service logs, and the requests/responses it puts through Stage 2's queue
+/logs/
+/prompt_hardening_realtime/output/.request_index.sqlite3
+/prompt_hardening_realtime/incoming/pig-*.json
+/prompt_hardening_realtime/output/pig-*.response.json
+/prompt_hardening_realtime/processed/pig-*.json
+/prompt_hardening_realtime/failed/pig-*.json
+/prompt_hardening_realtime/incoming/.processing/

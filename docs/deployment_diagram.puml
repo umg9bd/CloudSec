@@ -1,0 +1,56 @@
+@startuml deployment_diagram
+' CloudSec -- deployment diagram.
+' Render: docker run --rm -v "%cd%:/data" -w /data plantuml/plantuml -tpng -tsvg docs/deployment_diagram.puml
+
+title CloudSec: deployment
+
+skinparam shadowing false
+skinparam defaultFontSize 14
+skinparam titleFontSize 20
+skinparam linetype ortho
+skinparam nodesep 50
+skinparam ranksep 60
+
+actor "Security analyst" as Analyst
+
+cloud "AWS account" {
+  node "CloudTrail" as CT
+}
+
+node "Host machine (Windows / macOS / Linux)" as Host {
+
+  artifact "run.cmd / run.sh" as Run
+
+  node "Docker Engine" {
+    node "cloudsec container\n(python:3.14-slim, CPU PyTorch)" as Container {
+      component "pipeline.py\n(watcher + ensemble)" as Pipe
+      component "feature_engine9" as FE
+      component "HGT\n(PyTorch Geometric)" as HGT
+      component "LSTM-Transformer\n(PyTorch)" as LSTM
+      component "ensemble_explain\n(alert explanations)" as Explain
+      component "feed_incoming.py\n(demo feeder)" as Feed
+    }
+  }
+
+  folder "Repository (mounted at /app)" {
+    folder "incoming/" as In
+    folder "Outputs" as Outputs {
+      folder "alerts/\n(alert JSON + explanations)" as Alerts
+      file "output/risk_scores.csv" as Scores
+    }
+  }
+}
+
+Analyst --> Run : starts
+Run --> Container : docker run
+Pipe --> FE
+Pipe --> HGT
+Pipe --> LSTM
+Pipe --> Explain : per alert
+Container --> In : watches
+Container --> Outputs : writes
+CT ..> In : log files
+Feed ..> In : replays a dataset (demo)
+Analyst --> Outputs : reviews alerts
+
+@enduml

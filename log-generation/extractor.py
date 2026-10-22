@@ -169,8 +169,14 @@ class DeterministicFastPath:
         hardened_prompt: str
     ) -> Optional[Tuple[ParsedIntent, List[SecurityConstraint]]]:
         orig = original_prompt.strip()
-        hard = hardened_prompt.strip()
-        combined = f"{orig} {hard}".lower()
+        # The task is what the USER asked for, so it is classified from the original prompt only.
+        # The hardened prompt adds Stage 2's security block, whose clauses name other services
+        # ("use a KMS key", "the IAM role") -- classifying on it turned an S3 bucket request into
+        # KMS CreateKey. The hardened prompt contributes the security constraints, nothing else.
+        combined = orig.lower()
+        # "Create an IAM role for Lambda ..." asks for a role, not a function.
+        role_requested = re.search(r"\b(?:create|provision)\s+(?:an?\s+)?(?:new\s+)?(?:iam\s+)?(?:execution\s+)?role\b",
+                                   combined) is not None
 
         # Extract Security Constraints from hardened prompt
         security_constraints = self._extract_security_constraints(hardened_prompt)
@@ -196,7 +202,8 @@ class DeterministicFastPath:
                     ), security_constraints
 
         # 1. Lambda Create Function (check before IAM role to prevent matching execution role in Lambda creation)
-        if re.search(r"\b(lambda|function)\b", combined) and ("create" in combined or "deploy" in combined):
+        if (re.search(r"\b(lambda|function)\b", combined) and ("create" in combined or "deploy" in combined)
+                and not role_requested):
             fn_name_match = re.search(r"(?:function\s+(?:named|name|called)?\s*[:=]?\s*['\"]?([a-zA-Z0-9-_]{1,64})['\"]?)", orig, re.IGNORECASE)
             role_match = re.search(r"(arn:aws:iam::[0-9]{12}:role/[a-zA-Z0-9+=,.@-]{1,64})", orig)
 
@@ -344,7 +351,9 @@ class DeterministicFastPath:
             ), security_constraints
 
         # 4. KMS Create Key
-        if re.search(r"\b(kms|key)\b", combined) and ("create" in combined or "provision" in combined or "rotation" in combined):
+        # A bucket "encrypted with a KMS key" is an S3 request; the key is its encryption setting.
+        if (re.search(r"\b(kms|key)\b", combined) and ("create" in combined or "provision" in combined or "rotation" in combined)
+                and not re.search(r"\b(s3|bucket)\b", combined)):
             provided_params = {
                 "description": orig,
                 "keyUsage": "ENCRYPT_DECRYPT"
