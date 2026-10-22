@@ -109,6 +109,7 @@ CSS = """
   .cnode .t{font-weight:600;color:#fff;font-size:12px;display:block} .cnode .s2{font-size:10.5px;color:#646b82}
   .cedge{display:inline-block;color:#8b5cf6;padding:0 8px;font-size:14px}
   .stSelectbox label, .stRadio label{color:#9aa0b4 !important}
+  [data-testid="InputInstructions"]{display:none}   /* "Press Enter to submit form" covered the address */
 </style>
 """
 st.markdown(CSS, unsafe_allow_html=True)

@@ -16,6 +16,8 @@ st.markdown("""
   [data-testid="stSidebar"]{background:#0d0e15;border-right:1px solid #242835}
   [data-testid="stSidebarCollapseButton"],[data-testid="stExpandSidebarButton"],
   [data-testid="stSidebarHeader"]{display:none}
+  /* Streamlit's "Press Enter to submit form" hint overlaps the text in narrow inputs */
+  [data-testid="InputInstructions"]{display:none}
   [data-testid="stSidebarNav"]::before{content:"🛡️  CloudSec";display:block;padding:18px 18px 12px;
       font-weight:700;font-size:16px;letter-spacing:.02em;color:#e7e9f0}
   [data-testid="stSidebarNavLink"]{border-radius:8px;margin:2px 10px}
