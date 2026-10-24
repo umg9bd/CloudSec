@@ -214,17 +214,56 @@ class DryRunScorer:
             scored = self.p.score(new)
             flagged = scored[scored["alert"] | scored["fast_lane"]]
             explanations = self.p.explain(flagged) if len(flagged) else {}
+            # Preserve the exact structural input window used by Pipeline.score(). The proposed
+            # dry-run rows are in memory only; this copy is read-only enrichment data and is not
+            # written to the live history or any output file.
+            scored_inputs = getattr(self.p, "_scored_inputs", {}) or {}
+            graph_rows = scored_inputs.get("graph_rows")
+            graph_window = graph_rows.copy(deep=True) if hasattr(graph_rows, "copy") else None
         events = []
         for r in scored.to_dict("records"):
             exp = explanations.get(str(r["log_id"])) or {}
+            is_flagged = bool(r["alert"] or r["fast_lane"])
+            blast_radius = None
+            if is_flagged:
+                # Blast-radius enrichment must never affect the model score or fail closed/open
+                # behavior. Failures are explicitly returned as unavailable metadata.
+                try:
+                    from blast_radius_ui import calculate_event_blast_radius
+                    blast_radius = calculate_event_blast_radius(
+                        graph_window if graph_window is not None else [],
+                        source_node=r.get("source_node"),
+                        principal_arn=r.get("principal_arn"),
+                        username=r.get("username"),
+                    )
+                except Exception as exc:
+                    blast_radius = {
+                        "status": "calculation_failed",
+                        "message": f"Blast-radius calculation failed: {type(exc).__name__}: {exc}",
+                        "limitation": (
+                            "Observed reachability from CloudTrail-derived graph data only; this is not proof "
+                            "of all permissions granted by IAM policies."
+                        ),
+                        "window_rows": 0, "origin": None, "score": None,
+                        "reachable_count": None, "critical_count": None,
+                        "asset_categories": {}, "reachable_resources": [], "paths": [],
+                        "snapshot": {"nodes": [], "edges": []},
+                    }
             events.append({
+                "log_id": str(r["log_id"]),
                 "event_name": r["event_name"], "target": r["target_node"], "edge_type": r["edge_type"],
+                "source_node": r.get("source_node"), "principal_arn": r.get("principal_arn"),
+                "username": r.get("username"), "timestamp": str(r.get("timestamp")),
                 "p_graph": None if r["p_graph"] != r["p_graph"] else round(float(r["p_graph"]), 4),
                 "p_sequence": round(float(r["p_sequence"]), 4),
                 "risk": round(float(r["risk"]), 4), "risk_score": float(r["risk_score"]),
                 "alert": bool(r["alert"]), "fast_lane": bool(r["fast_lane"]),
                 "fast_lane_reason": fe9.CRITICAL_ACTIONS.get(r["event_name"]) if r["fast_lane"] else None,
                 "why": exp.get("summary"), "reasons": exp.get("reasons", []),
+                # Keep the original structured graph/sequence explanation alongside the legacy
+                # summary and reasons so callers can display real feature/event attribution.
+                "explanation": copy.deepcopy(exp) if exp else None,
+                "blast_radius": blast_radius,
             })
         return {"events": events, "threshold": self.cfg.alert_threshold,
                 "weight_graph": self.cfg.weight_graph,
