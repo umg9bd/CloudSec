@@ -259,6 +259,172 @@ def render_stage3(rnd: ao.Round):
         st.json(s3.get("downstream_lstm_records", {}))
 
 
+def _stage4_snapshot_dot(snapshot: dict) -> str | None:
+    """Graphviz for real nodes/edges returned by the shared blast-radius helper."""
+    nodes, edges = snapshot.get("nodes", []), snapshot.get("edges", [])
+    if not nodes:
+        return None
+
+    def dot_escape(value) -> str:
+        return str(value).replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
+
+    lines = [
+        "digraph blast_radius {", "rankdir=LR;", 'graph [bgcolor="transparent"];',
+        'node [shape=box, style="rounded,filled", fillcolor="#191c27", color="#4a5068", '
+        'fontcolor="#e7e9f0", fontsize=10];',
+        'edge [color="#8b5cf6", fontcolor="#9aa0b4", fontsize=8];',
+    ]
+    for node in nodes:
+        label = f'{node.get("label", "Node")}\n{node.get("key", "")}'
+        fill = "#5a2038" if node.get("origin") else "#242835"
+        lines.append(f'{node["id"]} [label="{dot_escape(label)}", fillcolor="{fill}"];')
+    for edge in edges:
+        label = str(edge.get("relation", "RELATED"))
+        if edge.get("edge_type"):
+            label += " / " + str(edge["edge_type"])
+        lines.append(f'{edge["source_id"]} -> {edge["target_id"]} [label="{dot_escape(label)}"];')
+    lines.append("}")
+    return "\n".join(lines)
+
+
+def render_stage4_explanation(event: dict, threshold: float):
+    """Show the actual per-event model explanation retained by DryRunScorer.assess()."""
+    st.markdown("#### Why Was This Event Flagged?")
+    hgt = event.get("p_graph")
+    lstm = event.get("p_sequence")
+    risk_score = event.get("risk_score")
+    c = st.columns(4)
+    c[0].metric("HGT probability", "n/a" if hgt is None else f"{hgt:.4f}")
+    c[1].metric("LSTM probability", "n/a" if lstm is None else f"{lstm:.4f}")
+    c[2].metric("Ensemble risk /10", "n/a" if risk_score is None else f"{risk_score:.2f}")
+    c[3].metric("Alert threshold /10", "n/a" if threshold is None else f"{threshold * 10:.2f}")
+
+    if event.get("fast_lane"):
+        st.info("Flagged by the existing fast-lane rule: " + str(event.get("fast_lane_reason") or "critical action")
+                + ". Fast-lane classification is independent of the ensemble threshold.")
+    elif event.get("alert"):
+        st.caption(f"Ensemble risk {float(event.get('risk', 0.0)) * 10:.2f}/10 met or exceeded the existing "
+                   f"threshold {threshold * 10:.2f}/10.")
+
+    explanation = event.get("explanation") or {}
+    summary = explanation.get("summary") or event.get("why")
+    if summary:
+        st.markdown("**Explanation summary**")
+        st.write(summary)
+    elif event.get("reasons"):
+        st.markdown("**Explanation summary**")
+        for reason in event["reasons"]:
+            st.write("- " + str(reason))
+    else:
+        st.caption("A structured model explanation was not available for this event; scores and the alert rule above are still shown.")
+
+    graph_exp = explanation.get("graph") or {}
+    graph_features = graph_exp.get("top_features") or []
+    graph_related = graph_exp.get("related_events") or []
+    if graph_features:
+        st.markdown("**HGT feature contributions**")
+        st.dataframe(pd.DataFrame([{
+            "Feature": item.get("label") or item.get("feature", "unknown"),
+            "Attribution share": item.get("share"),
+        } for item in graph_features]), hide_index=True, width="stretch")
+    if graph_related:
+        st.markdown("**Earlier / related graph events**")
+        st.dataframe(pd.DataFrame([{
+            "Event ID": item.get("log_id"), "Action": item.get("edge_type"),
+            "Source": item.get("source_node"), "Target": item.get("target_node"),
+            "Attribution share": item.get("share"),
+        } for item in graph_related]), hide_index=True, width="stretch")
+
+    sequence_exp = explanation.get("sequence") or {}
+    seq_features = sequence_exp.get("top_features") or []
+    seq_events = sequence_exp.get("top_events") or []
+    if seq_features:
+        st.markdown("**LSTM feature contributions**")
+        st.dataframe(pd.DataFrame([{
+            "Feature": item.get("label") or item.get("feature", "unknown"),
+            "Contribution": item.get("contribution_window"),
+        } for item in seq_features]), hide_index=True, width="stretch")
+    if seq_events:
+        st.markdown("**Earlier-event effects in the sequence**")
+        st.dataframe(pd.DataFrame([{
+            "Earlier event": item.get("event_name"), "Minutes before": item.get("minutes_before"),
+            "Effect": item.get("effect"),
+        } for item in seq_events]), hide_index=True, width="stretch")
+
+    if explanation:
+        with st.expander("Full structured explanation metadata (JSON)"):
+            st.json(explanation)
+
+
+def render_stage4_blast_radius(event: dict):
+    """Render read-only blast radius derived from the exact dry-run scoring graph window."""
+    st.markdown("#### Blast Radius")
+    result = event.get("blast_radius") or {}
+    st.caption(
+        "Dry-run projection using the same structural graph window as Stage 4 scoring. Proposed events are "
+        "hypothetical and have not been persisted or executed; this is not evidence of a compromise. "
+        + str(result.get("limitation") or (
+            "Observed reachability from CloudTrail-derived graph data only; not proof of all IAM policy permissions."
+        ))
+    )
+    if result.get("status") != "ok":
+        st.warning("Blast radius unavailable: " + str(result.get("message") or "the origin or graph could not be resolved."))
+        return
+
+    c = st.columns(4)
+    c[0].metric("Blast-radius score (0–1)", f'{result["score"]:.3f}')
+    c[1].metric("Reachable assets", f'{result["reachable_count"]:,}')
+    c[2].metric("Critical assets", f'{result["critical_count"]:,}')
+    origin = result.get("origin") or {}
+    c[3].metric("Origin node type", origin.get("label") or "Unknown")
+    st.caption(f'Origin principal/node: {origin.get("display") or "unresolved"} · '
+               f'graph rows in scoring window: {result.get("window_rows", 0)}')
+
+    categories = result.get("asset_categories") or {}
+    st.markdown("**Reachable asset categories**")
+    if categories:
+        st.dataframe(pd.DataFrame([
+            {"Category": name.replace("_", " ").title(), "Count": count}
+            for name, count in sorted(categories.items(), key=lambda item: (-item[1], item[0]))
+        ]), hide_index=True, width="stretch")
+    else:
+        st.caption("The origin was resolved; the existing engine found no reachable assets in this window.")
+
+    resources = result.get("reachable_resources") or []
+    st.markdown("**Relevant reachable resources**")
+    if resources:
+        st.dataframe(pd.DataFrame([{
+            "Node": item.get("display"), "Category": str(item.get("category", "unknown")).replace("_", " "),
+            "Depth": item.get("depth"), "Critical": item.get("critical"),
+            "Service": item.get("service") or "—",
+        } for item in resources]), hide_index=True, width="stretch")
+        if result.get("additional_reachable_resources"):
+            st.caption(f'{result["additional_reachable_resources"]} additional reachable node(s) omitted from this compact list.')
+
+    st.markdown("**Highest-impact propagation paths**")
+    paths = result.get("paths") or []
+    if paths:
+        for index, path in enumerate(paths, start=1):
+            st.write(f'{index}. Impact weight {path.get("impact_score", 0.0):.2f} — '
+                     f'{path.get("display", "path unavailable")}')
+            relations = " → ".join(
+                f'{edge.get("relation", "RELATED")} ({edge.get("edge_type", "unknown action")})'
+                for edge in path.get("edges", [])
+            )
+            if relations:
+                st.caption(relations)
+    else:
+        st.caption("The existing engine did not identify a reachable propagation path to a scored asset.")
+
+    snapshot = result.get("snapshot") or {}
+    st.markdown("**Graph snapshot (actual event-derived nodes and relationships)**")
+    dot = _stage4_snapshot_dot(snapshot)
+    if dot and snapshot.get("edges"):
+        st.graphviz_chart(dot, use_container_width=True)
+    else:
+        st.caption("No connected relationships are available to visualize for this resolved origin in the scoring window.")
+
+
 def render_stage4(rnd: ao.Round):
     a = rnd.assessment
     st.markdown("<div class='up'>Stage 4 · Pre-execution risk (HGT + LSTM, dry run)</div>", unsafe_allow_html=True)
@@ -276,10 +442,11 @@ def render_stage4(rnd: ao.Round):
                  column_config={"risk /10": st.column_config.ProgressColumn("risk /10", min_value=0, max_value=10,
                                                                             format="%.2f")})
     for e in a["events"]:
-        if (e["alert"] or e["fast_lane"]) and (e["why"] or e["reasons"]):
-            st.markdown(f"**Why {esc(e['event_name'])} was flagged:** {esc(e['why'] or '')}")
-            for r in e["reasons"][:4]:
-                st.markdown(f"- {esc(r)}")
+        if e["alert"] or e["fast_lane"]:
+            label = "FAST-LANE" if e["fast_lane"] else "ALERT"
+            with st.expander(f'{label} · {e["event_name"]} · {e["target"]}', expanded=True):
+                render_stage4_explanation(e, thr)
+                render_stage4_blast_radius(e)
 
 
 def render_verdict(rnd: ao.Round):
