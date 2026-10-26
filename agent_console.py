@@ -463,18 +463,32 @@ def render_execute(rnd: ao.Round, gate: ao.AgentGate):
         st.caption("Execution unlocks when every stage approves the request.")
         return
     if rnd.execution is None:
-        st.caption(f"Simulated execution: the {len(rnd.approved_records)} approved call(s) are logged as CloudTrail "
-                   f"for {gate.principal_arn} and dropped into incoming/, where the real-time pipeline scores them "
-                   "and adds them to this agent's history. No AWS API is called.")
+        reuse = st.checkbox("Reuse the Stage-4 score (no re-scoring)", value=True, key=f"reuse_{rnd.request_id}",
+                            help="On: reuse the scores Stage 4 already computed — the model is NOT run again. "
+                                 "Off: re-process the events through the live pipeline, adding them to this "
+                                 "agent's history and the Live Dashboard (this re-scores them).")
+        st.caption(f"Simulated execution of the {len(rnd.approved_records)} approved call(s) for "
+                   f"{gate.principal_arn}. No AWS API is called (use the Stage 5 panel for a real run).")
         if st.button("▶ Execute approved plan", type="primary", key=f"exec_{rnd.request_id}"):
             try:
-                gate.execute(rnd)
+                gate.execute(rnd, feed_live=not reuse)
             except PermissionError as e:
                 st.error(str(e))
                 return
             st.rerun()
         return
     ex = rnd.execution
+    if ex.get("reused"):
+        banner("ok", f"Executed {ex['events']} call(s) at <code>{esc(ex['executed_at'])}</code> — scores "
+                     "<b>reused from Stage 4</b>; the model was not run again.")
+        scores = ex.get("scores", [])
+        if scores:
+            st.dataframe(pd.DataFrame([{"event": s.get("event_name"), "target": s.get("target"),
+                                        "p_graph": s.get("p_graph"), "p_sequence": s.get("p_sequence"),
+                                        "risk_score": s.get("risk_score"), "alert": s.get("alert")}
+                                       for s in scores]), hide_index=True, width="stretch")
+        st.caption("Not added to the agent's history. Uncheck 'Reuse' and re-run to feed the live pipeline.")
+        return
     st.markdown(f"Executed at `{esc(ex['executed_at'])}` → `incoming/{esc(ex['file'])}` ({ex['events']} event(s)).")
     dashboard_link("See it on the Live Dashboard")
     status = ao.execution_status(ex["file"])

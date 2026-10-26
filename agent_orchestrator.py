@@ -417,19 +417,31 @@ class AgentGate:
               approved=rnd.approved, blockers=rnd.blockers)
         return rnd
 
-    # Execute (simulated)
-    def execute(self, rnd: Round) -> dict:
-        """Writes the approved plan's CloudTrail, as executed now, into the pipeline's incoming/."""
+    # Execute (simulated).
+    #   feed_live=False (default): REUSE the Stage-4 scores -- the model is NOT run again (no
+    #       duplicate inference). The events are not added to the agent's persistent history.
+    #   feed_live=True: drop the events into incoming/ so the live pipeline re-processes them,
+    #       updating the agent's history and the Live Dashboard -- at the cost of a second score.
+    # (Stage 4 itself always scores once, before execution -- that is the gate decision and cannot
+    #  be skipped; the only avoidable re-run is this post-execution live re-score.)
+    def execute(self, rnd: Round, feed_live: bool = False) -> dict:
         if not rnd.approved:
             raise PermissionError("this request was not approved by every stage; it cannot execute")
         executed = materialize_events(rnd.approved_records, self.principal_arn)
         if plan_fingerprint(executed) != rnd.fingerprint:
             raise PermissionError("the execution differs from the approved plan; refusing to run it")
-        name = f"agent_{rnd.request_id}.json"
-        _atomic_json(PIPELINE_INCOMING / name, {"Records": executed}, PIPELINE_STAGING)
-        rnd.execution = {"file": name, "events": len(executed),
-                         "executed_at": executed[0]["eventTime"] if executed else None}
-        audit("execute", request_id=rnd.request_id, file=name, events=len(executed), fingerprint=rnd.fingerprint)
+        at = executed[0]["eventTime"] if executed else None
+        if feed_live:
+            name = f"agent_{rnd.request_id}.json"
+            _atomic_json(PIPELINE_INCOMING / name, {"Records": executed}, PIPELINE_STAGING)
+            rnd.execution = {"reused": False, "file": name, "events": len(executed), "executed_at": at}
+            audit("execute", request_id=rnd.request_id, file=name, events=len(executed),
+                  fingerprint=rnd.fingerprint, feed_live=True)
+        else:
+            rnd.execution = {"reused": True, "events": len(executed), "executed_at": at,
+                             "scores": (rnd.assessment or {}).get("events", [])}
+            audit("execute", request_id=rnd.request_id, events=len(executed),
+                  fingerprint=rnd.fingerprint, reused=True)
         return rnd.execution
 
     # Stage 5: REAL enforcement -- run the approved plan on AWS (scoped), verify predicted-vs-real.
@@ -518,6 +530,9 @@ def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description="Run one request through the CloudSec agent gate.")
     ap.add_argument("prompt")
     ap.add_argument("--execute", action="store_true", help="execute (simulated) if every stage approves")
+    ap.add_argument("--feed-live", action="store_true",
+                    help="re-process the executed events through the live pipeline (updates history + the "
+                         "dashboard, re-scores). Default reuses the Stage-4 score -- no second model run.")
     ap.add_argument("--principal", default=DEFAULT_PRINCIPAL)
     ap.add_argument("--aws-account", help="also run the approved plan on this real account (Stage 5)")
     ap.add_argument("--aws-role-arn", help="assume this role, scoped to the plan (least-privilege enforcement)")
@@ -546,16 +561,20 @@ def main(argv=None) -> int:
         return 1
     print("\nAPPROVED: every stage passed.")
     if args.execute:
-        ex = gate.execute(rnd)
-        print(f"Executed (simulated): {ex['events']} event(s) -> incoming/{ex['file']}")
-        for _ in range(60):
-            st = execution_status(ex["file"])
-            if st["state"] in ("scored", "failed"):
-                print(f"Real-time pipeline: {st['state']}; {len(st['rows'])} event(s) in output/risk_scores.csv")
-                break
-            time.sleep(1)
+        ex = gate.execute(rnd, feed_live=args.feed_live)
+        if ex.get("reused"):
+            print(f"Executed (simulated): {ex['events']} event(s); Stage-4 score reused (model not re-run). "
+                  "Pass --feed-live to add them to history + the dashboard.")
         else:
-            print("Real-time pipeline has not picked it up yet (is pipeline.py --watch incoming running?)")
+            print(f"Executed (simulated): {ex['events']} event(s) -> incoming/{ex['file']}")
+            for _ in range(60):
+                st = execution_status(ex["file"])
+                if st["state"] in ("scored", "failed"):
+                    print(f"Real-time pipeline: {st['state']}; {len(st['rows'])} event(s) in output/risk_scores.csv")
+                    break
+                time.sleep(1)
+            else:
+                print("Real-time pipeline has not picked it up yet (is pipeline.py --watch incoming running?)")
     if args.aws_account:
         print(f"\nStage 5  {'LIVE' if args.aws_live else 'dry-run'} on account {args.aws_account}"
               f"{' (scoped STS)' if args.aws_role_arn else ''}...")
