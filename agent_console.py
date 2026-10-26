@@ -16,6 +16,7 @@ on its own:  streamlit run agent_console.py
 from __future__ import annotations
 
 import html
+import json
 import threading
 import time
 
@@ -500,6 +501,71 @@ def render_execute(rnd: ao.Round, gate: ao.AgentGate):
         st.button("Refresh", key=f"refresh_{rnd.request_id}")
 
 
+def render_aws_execution(rnd: ao.Round, gate: ao.AgentGate):
+    """Stage 5: real enforcement -- run the approved plan on a sandbox account, scoped, and verify
+    predicted-vs-real CloudTrail. Only the safe allowlist runs; a dangerous plan can't act here."""
+    if not rnd.approved:
+        return
+    import stage5_execute as s5
+    st.divider()
+    st.markdown("<div class='up'>Stage 5 · Execute on AWS (real, scoped)</div>", unsafe_allow_html=True)
+    pred = [r.get("eventName") for r in rnd.approved_records if r.get("eventName")]
+    src = {r.get("eventName"): r.get("eventSource", "") for r in rnd.approved_records}
+    executable = [n for n in pred if (src.get(n, ""), n) in s5.ALLOW]
+    skipped = [n for n in pred if n not in executable]
+    if not executable:
+        st.caption("No action in this plan is in the safe allowlist (S3 secure-bucket lifecycle), so there is "
+                   "nothing to execute on AWS from this console.")
+        if skipped:
+            st.markdown("Not in allowlist (would be refused): "
+                        + " ".join(f"<span class='chip'>{esc(n)}</span>" for n in skipped), unsafe_allow_html=True)
+        return
+    st.caption("These allowlisted actions run under a least-privilege session scoped to only this bucket + these "
+               "actions. A dangerous plan cannot act here — only the safe allowlist runs.")
+    st.markdown("Will execute: " + " ".join(f"<span class='chip'>{esc(n)}</span>" for n in executable),
+                unsafe_allow_html=True)
+    if skipped:
+        st.markdown("Skipped (not in allowlist): "
+                    + " ".join(f"<span class='chip'>{esc(n)}</span>" for n in skipped), unsafe_allow_html=True)
+    with st.expander("Least-privilege session policy (what the executor is scoped to)"):
+        st.json(json.loads(s5.session_policy(executable, "<bucket>")))
+
+    c1, c2, c3 = st.columns([2, 3, 2], vertical_alignment="bottom")
+    account = c1.text_input("Sandbox account", value=ao.SANDBOX_ACCOUNT, key=f"acct_{rnd.request_id}")
+    role_arn = c2.text_input("Scoped role ARN (optional, for STS enforcement)", value="",
+                             key=f"role_{rnd.request_id}", placeholder="arn:aws:iam::…:role/gate-executor")
+    keep = c3.checkbox("Keep (provision)", value=False, key=f"keep_{rnd.request_id}",
+                       help="Leave the created resource (actually provision) instead of validate-and-delete.")
+    if st.button("▶ Execute on AWS (live)", type="primary", key=f"awsx_{rnd.request_id}"):
+        with st.spinner("Executing on AWS and waiting for real CloudTrail (management events lag a few minutes)…"):
+            res = gate.execute_on_aws(rnd, account=account.strip(), role_arn=(role_arn.strip() or None),
+                                      live=True, keep=keep)
+        if res.get("error"):
+            st.error(res["error"])
+        elif res.get("match"):
+            m = res["match"]
+            banner("ok" if m["pct"] == 100 else "mid",
+                   f"<b>Predicted-vs-real: {m['matched']}/{m['expected']} events matched ({m['pct']}%)</b>"
+                   f"{' · scoped STS' if res['scoped'] else ''} · cleanup: {esc(res['cleanup'])}.")
+            st.markdown("Real CloudTrail seen: "
+                        + " ".join(f"<span class='chip'>{esc(n)}</span>" for n in res["real_events"]),
+                        unsafe_allow_html=True)
+
+
+def render_audit_trail():
+    """Everything the gate did, one line per step -- so engineers can see the whole flow."""
+    log = ao.AUDIT_LOG
+    if not log.exists():
+        return
+    try:
+        recs = [json.loads(l) for l in log.read_text(encoding="utf-8").splitlines()[-250:] if l.strip()]
+    except OSError:
+        return
+    with st.expander(f"🔧 Full audit trail — every step, for engineers ({len(recs)} recent)"):
+        st.caption("output/agent_audit.jsonl — one JSON line per pipeline step. Prompts are hashed, never stored.")
+        st.dataframe(pd.DataFrame(reversed(recs)), hide_index=True, width="stretch")
+
+
 # ── page ──────────────────────────────────────────────────────────────────────
 
 def run_round(request: str):
@@ -574,6 +640,7 @@ def main():
     st.divider()
     render_verdict(rnd)
     render_execute(rnd, gate)
+    render_aws_execution(rnd, gate)
 
     if len(rounds) > 1:
         with st.expander(f"Revision history ({len(rounds) - 1} earlier round(s))"):
@@ -581,6 +648,9 @@ def main():
                 outcome = ("executed" if r.execution else "approved" if r.approved
                            else f"stopped at {r.stopped_at}")
                 st.markdown(f"**Round {i + 1}** · {outcome} · `{esc(r.request[:140])}`")
+
+    st.divider()
+    render_audit_trail()
 
 
 main()

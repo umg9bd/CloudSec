@@ -13,6 +13,12 @@ The agent security gate, end to end: one prompt in, an approved (or refused) AWS
     Execute  (simulated)                write the approved events, freshly stamped, into incoming/:
                                         the real-time pipeline scores them for real, adds them to the
                                         agent's history, and the dashboard shows them
+    Stage 5  execute_on_aws (real)      run the approved plan on a sandbox account -- ONLY the safe
+                                        allowlist (stage5_execute.ALLOW), optionally under a scoped
+                                        STS session (least privilege) -- then read the real CloudTrail
+                                        and report predicted-vs-real. Dry-run by default; keep=True
+                                        provisions, keep=False validates-and-deletes. A dangerous plan
+                                        cannot act here. Every step is written to the audit trail.
 
 A revision goes round the whole loop again: the edited request is re-screened (Stage 1), re-hardened
 (Stage 2), re-predicted (Stage 3) and re-scored (Stage 4). The security section Stage 2 appends is
@@ -26,7 +32,9 @@ approved; only the timestamps and IDs a real execution would create are new.
 agent_console.py is the interactive UI over this module. Headless:
 
     python agent_orchestrator.py "Create a private S3 bucket named audit-logs-prod with versioning."
-    python agent_orchestrator.py --execute "..."      # also execute it if every stage approves
+    python agent_orchestrator.py --execute "..."                              # simulated execution
+    python agent_orchestrator.py --execute --aws-account 536697249497 "..."   # + Stage 5 dry run on AWS
+    python agent_orchestrator.py --execute --aws-account 536697249497 --aws-live "..."   # really run + verify
 """
 from __future__ import annotations
 
@@ -60,6 +68,7 @@ AUDIT_LOG = ROOT / "output" / "agent_audit.jsonl"
 
 DEFAULT_PRINCIPAL = "arn:aws:iam::111122223333:user/agentic-operator"
 AGENT_SOURCE_IP = "10.20.30.40"
+SANDBOX_ACCOUNT = "536697249497"   # the account real execution (Stage 5) is allowed to touch
 AGENT_USER_AGENT = "cloudsec-agent/1.0 (simulated execution)"
 STAGE2_PROCEED = {"HARDENED", "ALREADY_ADEQUATE"}
 SECURITY_BLOCK_PREFIX = "--- SECURITY HARDENING"   # prompt_hardener.BLOCK_BEGIN, without its version
@@ -287,6 +296,7 @@ class Round:
     blockers: list = field(default_factory=list)
     stopped_at: Optional[str] = None
     execution: Optional[dict] = None
+    aws_execution: Optional[dict] = None   # Stage 5: real run + predicted-vs-real verify
 
     @property
     def approved(self) -> bool:
@@ -422,6 +432,67 @@ class AgentGate:
         audit("execute", request_id=rnd.request_id, file=name, events=len(executed), fingerprint=rnd.fingerprint)
         return rnd.execution
 
+    # Stage 5: REAL enforcement -- run the approved plan on AWS (scoped), verify predicted-vs-real.
+    def execute_on_aws(self, rnd: "Round", account: str = SANDBOX_ACCOUNT, role_arn: Optional[str] = None,
+                       live: bool = False, keep: bool = False, region: str = "us-east-1",
+                       max_wait_min: float = 8.0) -> dict:
+        """Only runs if EVERY stage approved, and only the safe allowlist in stage5_execute.ALLOW
+        (a dangerous plan can't act through this). role_arn -> scoped STS (least privilege).
+        live=False is a dry run (plan + session policy, no AWS writes). keep=True provisions
+        (leaves the resource); keep=False validates (deletes it after verifying). Every step is
+        written to the audit trail so engineers see exactly what happened."""
+        import stage5_execute as s5
+        import random as _r, string as _s
+        if not rnd.approved:
+            raise PermissionError("not approved by every stage; refusing to execute on AWS")
+        records = rnd.approved_records
+        pred = [r.get("eventName") for r in records if r.get("eventName")]
+        src = {r.get("eventName"): r.get("eventSource", "") for r in records}
+        run_names = [n for n in pred if (src.get(n, ""), n) in s5.ALLOW]
+        skipped = [n for n in pred if n not in run_names]
+        bucket = "stage5-" + "".join(_r.choices(_s.ascii_lowercase + _s.digits, k=8))
+        policy = s5.session_policy(run_names, bucket)
+        res = {"account": account, "bucket": bucket, "executable": run_names, "skipped": skipped,
+               "scoped": bool(role_arn), "live": live, "keep": keep, "region": region,
+               "session_policy": json.loads(policy) if run_names else None,
+               "match": None, "real_events": [], "cleanup": None, "error": None}
+        audit("stage5_plan", request_id=rnd.request_id, executable=run_names, skipped=skipped,
+              scoped=bool(role_arn), account=account, live=live, keep=keep)
+        if not live:
+            res["commands"] = ["aws " + " ".join(s5.ALLOW[("s3.amazonaws.com", n)](bucket, region))
+                               for n in run_names]
+            rnd.aws_execution = res
+            return res
+        ident = s5.caller_account()
+        if ident.get("Account") != account:
+            res["error"] = f"caller {ident.get('Account')} != sandbox {account}; refused"
+            audit("stage5_refused", request_id=rnd.request_id, reason=res["error"])
+            rnd.aws_execution = res
+            return res
+        creds = s5.assume_scoped(role_arn, policy) if role_arn else None
+        start = (dt.datetime.now(dt.timezone.utc) - dt.timedelta(minutes=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        try:
+            for n in run_names:
+                rc, _, err = s5.aws(s5.ALLOW[("s3.amazonaws.com", n)](bucket, region), creds, region)
+                audit("stage5_exec", request_id=rnd.request_id, action=n, ok=(rc == 0), err=err[:200])
+            real = s5.fetch_real_cloudtrail(bucket, start, set(run_names), creds, region, max_wait_min)
+            real_names = sorted(real)
+            matched = set(run_names) & set(real_names)
+            res["real_events"] = real_names
+            res["match"] = {"matched": len(matched), "expected": len(run_names),
+                            "pct": round(len(matched) / len(run_names) * 100, 1) if run_names else 0.0}
+            audit("stage5_verify", request_id=rnd.request_id, expected=run_names,
+                  real=real_names, match_pct=res["match"]["pct"])
+        finally:
+            if keep:
+                res["cleanup"] = "kept (provisioned)"
+            else:
+                rc, _, err = s5.aws(["s3", "rb", f"s3://{bucket}", "--force"], creds, region)
+                res["cleanup"] = "deleted" if rc == 0 else f"FAILED: {err[:200]}"
+            audit("stage5_cleanup", request_id=rnd.request_id, bucket=bucket, status=res["cleanup"])
+        rnd.aws_execution = res
+        return res
+
 
 def execution_status(file_name: str) -> dict:
     """Where the real-time pipeline is with an executed file, and its live scores once it has them."""
@@ -448,6 +519,10 @@ def main(argv=None) -> int:
     ap.add_argument("prompt")
     ap.add_argument("--execute", action="store_true", help="execute (simulated) if every stage approves")
     ap.add_argument("--principal", default=DEFAULT_PRINCIPAL)
+    ap.add_argument("--aws-account", help="also run the approved plan on this real account (Stage 5)")
+    ap.add_argument("--aws-role-arn", help="assume this role, scoped to the plan (least-privilege enforcement)")
+    ap.add_argument("--aws-live", action="store_true", help="really execute on AWS (default is a dry run)")
+    ap.add_argument("--keep", action="store_true", help="provision (keep the resource) instead of validate-and-delete")
     args = ap.parse_args(argv)
 
     gate = AgentGate(principal_arn=args.principal)
@@ -481,6 +556,21 @@ def main(argv=None) -> int:
             time.sleep(1)
         else:
             print("Real-time pipeline has not picked it up yet (is pipeline.py --watch incoming running?)")
+    if args.aws_account:
+        print(f"\nStage 5  {'LIVE' if args.aws_live else 'dry-run'} on account {args.aws_account}"
+              f"{' (scoped STS)' if args.aws_role_arn else ''}...")
+        r5 = gate.execute_on_aws(rnd, account=args.aws_account, role_arn=args.aws_role_arn,
+                                 live=args.aws_live, keep=args.keep)
+        if r5.get("skipped"):
+            print(f"  skipped (not in safe allowlist): {r5['skipped']}")
+        if not args.aws_live:
+            print("  would run:\n   " + "\n   ".join(r5.get("commands", [])))
+        elif r5.get("error"):
+            print(f"  refused: {r5['error']}")
+        else:
+            m = r5["match"]
+            print(f"  predicted-vs-real: {m['matched']}/{m['expected']} matched ({m['pct']}%); "
+                  f"cleanup: {r5['cleanup']}")
     return 0
 
 
