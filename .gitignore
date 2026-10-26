@@ -105,3 +105,13 @@ risk_scores*.csv
 /prompt_hardening_realtime/processed/pig-*.json
 /prompt_hardening_realtime/failed/pig-*.json
 /prompt_hardening_realtime/incoming/.processing/
+/prompt_hardening_realtime/failed/req-*.json
+
+# secrets: never commit any env file (except the .example templates)
+.env
+*.env
+!*.env.example
+!email.env.example
+
+# feature-engine per-input runtime state (regenerated; not source)
+datasets/privilege-escalation/.identity_state_*
