@@ -113,19 +113,19 @@ def suggest_corrected_prompt(original_request: str, conflicts: list[dict],
     if not alts:
         return original_request.strip(), "no conflicts"
 
-    def _fallback() -> tuple[str, str]:
+    def _fallback(reason: str) -> tuple[str, str]:
         parts = [original_request.strip()] + [c["proposed_alternative"].strip() for c in alts]
-        return "\n\n".join(p for p in parts if p), "deterministic fallback"
+        return "\n\n".join(p for p in parts if p), f"fallback: {reason}"
 
     api_key = os.environ.get("GEMINI_API_KEY")
     if not api_key:
-        return _fallback()
+        return _fallback("GEMINI_API_KEY is not set in the Streamlit process")
     model_name = model_name or GEMINI_MODEL
     try:
         from google import genai
         from google.genai import types
-    except Exception:
-        return _fallback()
+    except Exception as e:
+        return _fallback(f"google-genai not importable here ({type(e).__name__})")
 
     reqs = "\n".join(
         f"- [{c.get('control_id', '')}] {c['proposed_alternative'].strip()}"
@@ -141,15 +141,23 @@ def suggest_corrected_prompt(original_request: str, conflicts: list[dict],
     prompt = (f"User's request:\n{original_request.strip()}\n\n"
               f"Security requirements to satisfy (each is an approved safer alternative):\n{reqs}\n\n"
               "Rewritten request:")
-    try:
-        client = genai.Client(api_key=api_key)
-        response = client.models.generate_content(
-            model=model_name, contents=prompt,
-            config=types.GenerateContentConfig(system_instruction=system_instruction, temperature=0.0))
-        text = (response.text or "").strip()
-        return (text, "gemini") if text else _fallback()
-    except Exception:
-        return _fallback()
+    cfg = types.GenerateContentConfig(system_instruction=system_instruction, temperature=0.0)
+    last_err = ""
+    for attempt in range(3):          # 503 "high demand" spikes are usually transient -> brief retry
+        try:
+            client = genai.Client(api_key=api_key)
+            response = client.models.generate_content(model=model_name, contents=prompt, config=cfg)
+            text = (response.text or "").strip()
+            if text:
+                return text, "gemini"
+            last_err = f"{model_name} returned empty text"
+        except Exception as e:
+            last_err = str(e)
+            transient = any(s in last_err for s in ("503", "UNAVAILABLE", "429", "RESOURCE_EXHAUSTED"))
+            if not transient:
+                break
+            time.sleep(1.5 * (attempt + 1))
+    return _fallback(f"{model_name} call failed: {last_err[:160]}")
 
 
 def materialize_events(records: list[dict], principal_arn: str,

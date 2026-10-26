@@ -247,9 +247,10 @@ def render_template_editor(rnd: ao.Round, idx: int):
     if note == "gemini":
         st.info("Draft below rewritten by Gemini, grounded in the cited alternatives. Review it — "
                 "resending re-screens and re-scores it through Stages 1-4.", icon="✨")
-    elif note == "deterministic fallback":
-        st.warning("No Gemini key/SDK available, so the safer alternatives were appended verbatim "
-                   "instead of rewritten. Edit the draft below before resending.", icon="⚠️")
+    elif note and note.startswith("fallback"):
+        reason = note.split(":", 1)[1].strip() if ":" in note else note
+        st.warning(f"Appended verbatim instead of AI-rewritten — reason: {reason}. "
+                   "Edit the draft below before resending.", icon="⚠️")
     left, right = st.columns([1, 1], gap="large")
     with left:
         st.caption("Your request — edit it to answer open questions, resolve a conflict, or change the task.")
