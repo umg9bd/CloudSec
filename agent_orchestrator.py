@@ -91,8 +91,11 @@ def _status(value: Any) -> str:
     return str(getattr(value, "value", value))
 
 
+GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.8-flash")
+
+
 def suggest_corrected_prompt(original_request: str, conflicts: list[dict],
-                             model_name: str = "gemini-2.5-flash") -> tuple[str, str]:
+                             model_name: Optional[str] = None) -> tuple[str, str]:
     """Rewrite `original_request` so it keeps the same legitimate goal but complies with the
     Stage-2 conflicts' safer-alternatives.
 
@@ -117,6 +120,7 @@ def suggest_corrected_prompt(original_request: str, conflicts: list[dict],
     api_key = os.environ.get("GEMINI_API_KEY")
     if not api_key:
         return _fallback()
+    model_name = model_name or GEMINI_MODEL
     try:
         from google import genai
         from google.genai import types
