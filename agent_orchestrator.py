@@ -91,6 +91,63 @@ def _status(value: Any) -> str:
     return str(getattr(value, "value", value))
 
 
+def suggest_corrected_prompt(original_request: str, conflicts: list[dict],
+                             model_name: str = "gemini-2.5-flash") -> tuple[str, str]:
+    """Rewrite `original_request` so it keeps the same legitimate goal but complies with the
+    Stage-2 conflicts' safer-alternatives.
+
+    The rewrite is GROUNDED, not improvised: the instruction embeds each conflict's cited
+    `proposed_alternative` verbatim (the text prompt_hardening's catalogue supplies), so the model
+    replaces the unsafe part with the catalogue's remediation rather than inventing security advice.
+    The result still goes back through Stages 1-4 (the console resends it), so a bad rewrite cannot
+    slip through unchecked.
+
+    Returns (corrected_prompt, method). `method` is "gemini" on a real rewrite, or
+    "deterministic fallback" when no key/SDK is available or the call fails -- then the request is
+    returned with the safer-alternative clauses appended (the same text the Apply button produces).
+    Uses the project's existing Gemini setup (google-genai, GEMINI_API_KEY, temperature 0)."""
+    alts = [c for c in (conflicts or []) if c.get("proposed_alternative")]
+    if not alts:
+        return original_request.strip(), "no conflicts"
+
+    def _fallback() -> tuple[str, str]:
+        parts = [original_request.strip()] + [c["proposed_alternative"].strip() for c in alts]
+        return "\n\n".join(p for p in parts if p), "deterministic fallback"
+
+    api_key = os.environ.get("GEMINI_API_KEY")
+    if not api_key:
+        return _fallback()
+    try:
+        from google import genai
+        from google.genai import types
+    except Exception:
+        return _fallback()
+
+    reqs = "\n".join(
+        f"- [{c.get('control_id', '')}] {c['proposed_alternative'].strip()}"
+        f"  (source: {((c.get('source_references') or [{}])[0] or {}).get('source_name', 'security control catalogue')})"
+        for c in alts)
+    system_instruction = (
+        "You rewrite a user's AWS request so it still accomplishes the same legitimate goal while "
+        "complying with the given security requirements. Replace the unsafe part of the request with "
+        "the requirement; do NOT merely append the requirement, and do NOT add anything the "
+        "requirements do not call for. Keep it as one short request in the user's own voice. "
+        "Output ONLY the rewritten request text -- no preamble, no bullet list, no explanation."
+    )
+    prompt = (f"User's request:\n{original_request.strip()}\n\n"
+              f"Security requirements to satisfy (each is an approved safer alternative):\n{reqs}\n\n"
+              "Rewritten request:")
+    try:
+        client = genai.Client(api_key=api_key)
+        response = client.models.generate_content(
+            model=model_name, contents=prompt,
+            config=types.GenerateContentConfig(system_instruction=system_instruction, temperature=0.0))
+        text = (response.text or "").strip()
+        return (text, "gemini") if text else _fallback()
+    except Exception:
+        return _fallback()
+
+
 def materialize_events(records: list[dict], principal_arn: str,
                        start: Optional[dt.datetime] = None, spacing_seconds: int = 2) -> list[dict]:
     """Stage 3's predicted records, as the CloudTrail an execution starting at `start` would log:

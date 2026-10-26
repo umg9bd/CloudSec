@@ -192,7 +192,8 @@ def render_stage2(rnd: ao.Round, idx: int = 0):
     c[1].metric("Requirements added", len(added))
     c[2].metric("Already met", len(s2.get("satisfied_controls", [])))
     c[3].metric("Open questions", len(s2.get("clarification_questions", [])))
-    for n, conf in enumerate(s2.get("conflicts", [])):
+    conflicts = s2.get("conflicts", [])
+    for n, conf in enumerate(conflicts):
         alt = conf.get("proposed_alternative")
         st.markdown(f"⛔ **Conflict `{esc(conf.get('control_id'))}`** ({esc(conf.get('enforcement', ''))}) — "
                     f"{esc(conf.get('why', ''))}"
@@ -205,11 +206,22 @@ def render_stage2(rnd: ao.Round, idx: int = 0):
             st.caption(f"{cite}  ·  {esc(url)}" if url else cite)
         if alt:
             base = (rnd.request or "").strip()
-            if st.button("✎ Apply this safer alternative to my request", key=f"applyalt_{idx}_{n}"):
-                # Pre-fill the edit box below; the user still reviews it and clicks
-                # "Send revised request back through the gate", so it re-enters Stages 1-4.
+            if st.button("✎ Append this safer alternative to my request", key=f"applyalt_{idx}_{n}"):
+                # Deterministic: append the cited alternative to the request. The user still reviews
+                # it and resends, so it re-enters Stages 1-4.
                 st.session_state[f"prefill_{idx}"] = f"{base}\n\n{alt}".strip()
                 st.rerun()
+    if any(c.get("proposed_alternative") for c in conflicts):
+        # One clean rewritten prompt covering every conflict, grounded in the cited alternatives
+        # above. It is only a draft: it drops into the edit box for the user to review and resend,
+        # so it is re-screened and re-scored by Stages 1-4 before anything can run.
+        if st.button("✨ Generate a corrected prompt (AI draft, re-checked by the gate)",
+                     key=f"rewrite_{idx}", type="primary"):
+            with st.spinner("Rewriting the request to satisfy the cited alternatives…"):
+                text, method = ao.suggest_corrected_prompt(rnd.request or "", conflicts)
+            st.session_state[f"prefill_{idx}"] = text
+            st.session_state[f"prefill_note_{idx}"] = method
+            st.rerun()
     for g in gaps:
         st.markdown(f"{sev(g.get('severity', 'info'))} &nbsp;`{esc(g.get('control_id'))}` — {esc(g.get('description', ''))}",
                     unsafe_allow_html=True)
@@ -231,6 +243,13 @@ def render_template_editor(rnd: ao.Round, idx: int):
     prefill = st.session_state.pop(f"prefill_{idx}", None)
     if prefill is not None:
         st.session_state[f"edit_{idx}"] = prefill
+    note = st.session_state.pop(f"prefill_note_{idx}", None)
+    if note == "gemini":
+        st.info("Draft below rewritten by Gemini, grounded in the cited alternatives. Review it — "
+                "resending re-screens and re-scores it through Stages 1-4.", icon="✨")
+    elif note == "deterministic fallback":
+        st.warning("No Gemini key/SDK available, so the safer alternatives were appended verbatim "
+                   "instead of rewritten. Edit the draft below before resending.", icon="⚠️")
     left, right = st.columns([1, 1], gap="large")
     with left:
         st.caption("Your request — edit it to answer open questions, resolve a conflict, or change the task.")
