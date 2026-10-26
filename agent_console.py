@@ -172,7 +172,7 @@ def render_stage1(rnd: ao.Round):
         st.markdown("<br>".join(bits), unsafe_allow_html=True)
 
 
-def render_stage2(rnd: ao.Round):
+def render_stage2(rnd: ao.Round, idx: int = 0):
     s2 = rnd.stage2
     st.markdown("<div class='up'>Stage 2 · Security hardening</div>", unsafe_allow_html=True)
     if s2 is None:
@@ -192,10 +192,24 @@ def render_stage2(rnd: ao.Round):
     c[1].metric("Requirements added", len(added))
     c[2].metric("Already met", len(s2.get("satisfied_controls", [])))
     c[3].metric("Open questions", len(s2.get("clarification_questions", [])))
-    for conf in s2.get("conflicts", []):
+    for n, conf in enumerate(s2.get("conflicts", [])):
+        alt = conf.get("proposed_alternative")
         st.markdown(f"⛔ **Conflict `{esc(conf.get('control_id'))}`** ({esc(conf.get('enforcement', ''))}) — "
                     f"{esc(conf.get('why', ''))}"
-                    + (f"  \n**Safer alternative:** {esc(conf['proposed_alternative'])}" if conf.get("proposed_alternative") else ""))
+                    + (f"  \n💡 **Suggested safer alternative:** {esc(alt)}" if alt else ""))
+        # Show where the suggestion comes from: it is the catalogue's cited alternative,
+        # not an improvised value. Each ref carries the official source and section.
+        for ref in conf.get("source_references", []) or []:
+            url, section = ref.get("source_url", ""), ref.get("source_version_or_section", "")
+            cite = f"Source: {esc(ref.get('source_name', ''))}" + (f" — {esc(section)}" if section else "")
+            st.caption(f"{cite}  ·  {esc(url)}" if url else cite)
+        if alt:
+            base = (rnd.request or "").strip()
+            if st.button("✎ Apply this safer alternative to my request", key=f"applyalt_{idx}_{n}"):
+                # Pre-fill the edit box below; the user still reviews it and clicks
+                # "Send revised request back through the gate", so it re-enters Stages 1-4.
+                st.session_state[f"prefill_{idx}"] = f"{base}\n\n{alt}".strip()
+                st.rerun()
     for g in gaps:
         st.markdown(f"{sev(g.get('severity', 'info'))} &nbsp;`{esc(g.get('control_id'))}` — {esc(g.get('description', ''))}",
                     unsafe_allow_html=True)
@@ -213,6 +227,10 @@ def render_template_editor(rnd: ao.Round, idx: int):
     st.markdown("<div class='up'>Prompt template · edit and send back</div>", unsafe_allow_html=True)
     template = (rnd.stage2 or {}).get("revised_prompt") or ""
     request, block = ao.split_template(template) if template else (rnd.request, "")
+    # A "safer alternative" button in Stage 2 may have pre-filled the request for this round.
+    prefill = st.session_state.pop(f"prefill_{idx}", None)
+    if prefill is not None:
+        st.session_state[f"edit_{idx}"] = prefill
     left, right = st.columns([1, 1], gap="large")
     with left:
         st.caption("Your request — edit it to answer open questions, resolve a conflict, or change the task.")
@@ -642,7 +660,7 @@ def main():
     render_stage1(rnd)
     if rnd.stage2 is not None or rnd.stopped_at == "stage2":
         st.divider()
-        render_stage2(rnd)
+        render_stage2(rnd, idx)
     st.divider()
     render_template_editor(rnd, idx)
     if rnd.stage3 is not None:
