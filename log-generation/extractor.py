@@ -113,10 +113,13 @@ class MockLLMProvider(LLMProvider):
 class GoogleGenAIProvider(LLMProvider):
     """
     Google Gemini API provider using official google-genai SDK.
-    Uses gemini-2.5-flash with structured JSON output and temperature=0.0.
+    Model is configurable via the GEMINI_MODEL env var (default gemini-flash-lite-latest);
+    structured JSON output and temperature=0.0. The old default gemini-2.5-flash is rejected
+    with HTTP 404 ("no longer available to new users"), which silently forced the regex
+    fast-path; this keeps the model current and overridable.
     """
-    def __init__(self, model_name: str = "gemini-2.5-flash", api_key: Optional[str] = None):
-        self.model_name = model_name
+    def __init__(self, model_name: Optional[str] = None, api_key: Optional[str] = None):
+        self.model_name = model_name or os.environ.get("GEMINI_MODEL", "gemini-flash-lite-latest")
         self.api_key = api_key or os.environ.get("GEMINI_API_KEY")
 
     def extract_intent_raw(self, original_prompt: str, hardened_prompt: str) -> str:

@@ -91,7 +91,7 @@ def _status(value: Any) -> str:
     return str(getattr(value, "value", value))
 
 
-GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.8-flash")
+GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-flash-lite-latest")
 
 
 def suggest_corrected_prompt(original_request: str, conflicts: list[dict],
