@@ -1,6 +1,13 @@
 """
-generate_prompt_dataset.py  (v0.3.0)
+generate_prompt_dataset.py  (v0.4.0)
 ====================================
+v0.4.0: terminal-punctuation robustness. The benign cloud rows mostly ended in a
+period, so v2 keyed on it: the SAME benign prompt scored 0.049 (REVIEW) without a
+trailing period and 0.020 (SAFE) with one -- one character flipping the decision
+near safe_threshold. Adds both terminal forms of each benign cloud base (plain,
+own RNG, appended after the v0.3.0 rows). Every v0.2.0 and v0.3.0 row and its split
+are unchanged.
+
 v0.3.0: adds BENIGN_OPS + Stage-2 catalogue wording (benign cloud operations), see
 the block above build(). Every v0.2.0 row and its split are unchanged.
 
@@ -40,7 +47,7 @@ import os
 import random
 
 SEED = 42
-VERSION = "0.3.0"          # v0.2.0 rows keep "0.2.0"; rows added in v0.3.0 carry "0.3.0"
+VERSION = "0.4.0"          # rows carry the version that introduced them (0.2.0 / 0.3.0 / 0.4.0)
 LICENSE = "CC-BY-4.0"          # team's own synthetic rows; confirm with the team
 random.seed(SEED)
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -102,6 +109,17 @@ def para(text, rng=random):
     if p in LOWER_AFTER:
         text = text[0].lower() + text[1:]
     return (p + text + s).strip()
+
+
+def terminal_variants(text):
+    """Both terminal-punctuation forms of a declarative request, so the label stays
+    invariant to a trailing period. Questions keep their '?'. (v2 scored the same
+    benign prompt 0.049/REVIEW without a final period and 0.020/SAFE with one.)"""
+    t = text.rstrip()
+    if not t or t.endswith("?"):
+        return [t] if t else []
+    core = t[:-1] if t.endswith((".", "!")) else t
+    return [core, core + "."]
 
 
 rot13 = lambda s: codecs.encode(s, "rot_13")
@@ -680,6 +698,18 @@ def build():
             add(para(text.format(**slots(rng)), rng), "user_prompt", ["benign"], "benign_catalogue",
                 "request carrying Stage-2 catalogue security wording (v0.3.0 hard negative)", base=base,
                 version="0.3.0")
+    # ── v0.4.0: terminal-punctuation robustness. Emit both the no-period and the
+    #    with-period form of each benign cloud base, plain (no paraphrase wrapper) so
+    #    the bare request shape is covered -- that is the form that flipped on v2.
+    #    Same base -> same template_id -> same split, so nothing leaks and the rows
+    #    above are untouched (this loop only draws from rng after them).
+    benign_bases = [(b, b) for b in BENIGN_OPS] + list(catalogue_texts())
+    for base, tmpl in benign_bases:
+        for _ in range(2):
+            for v in terminal_variants(tmpl.format(**slots(rng))):
+                add(v, "user_prompt", ["benign"], "benign_terminal_robustness",
+                    "benign request, terminal-punctuation variant (v0.4.0 hard negative)",
+                    base=base, version="0.4.0")
     new = []
     for r in rows[start:]:
         h = hashlib.sha1(r["text"].encode("utf-8")).hexdigest()
