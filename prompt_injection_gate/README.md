@@ -56,7 +56,7 @@ only place they meet, and neither alone can authorise a prompt:
   "threat_categories": [],
   "explanation": "No malicious prompt indicators were identified by the required screening checks.",
   "rules_version": "0.1.0",
-  "classifier_version": "distilbert-mbert-pi-v2-s2@<sha>"
+  "classifier_version": "distilbert-mbert-pi-v3-s3@<sha>"
 }
 ```
 
@@ -161,14 +161,25 @@ private, so it needs `GITHUB_TOKEN` or a logged-in GitHub CLI (`gh auth login`).
 python prompt_injection_gate/fetch_checkpoint.py          # fetch if missing
 ```
 
-**Shipped: `distilbert-mbert-pi-v2-s2`** (dataset v0.3.0, dev drawn from cloud train
-templates only). Three seeds were trained; seed 2 was picked on dev AUC alone; all
-three are in `results/`. Versus v1 on the same held-out rows: attacks blocked on the
-original cloud test 8% → 65%, public benign much less over-blocked (deepset 93% SAFE,
-jackhhao 78% vs 26%). Known gaps (xfail-documented in `test_adversarial_cases.py`):
-original cloud benign SAFE 58% → 30% with 9% hard-blocked, 41% of ambiguous prompts
-hard-blocked (v1 1%), and some defensive questions that quote attack phrases are
-blocked. Cloud-test ranking (AUC ≈ 0.82) did not improve over v1.
+**Shipped: `distilbert-mbert-pi-v3-s3`** (dataset v0.4.0, dev drawn from cloud train
+templates only). Three seeds were trained; seed 3 was picked on dev AUC alone; all
+three (and v2's three) are in `results/`. On the same held-out rows, v1 → v2-s2 → v3-s3:
+
+| | v1 | v2-s2 | v3-s3 |
+|---|---|---|---|
+| original cloud test AUC | 0.82 | 0.81 | 0.85 |
+| original cloud attacks blocked / not SAFE | 8% / 86% | 65% / 89% | 67% / 97% |
+| original cloud benign SAFE / blocked | 58% / 0% | 30% / 9% | 41% / 8% |
+| v0.4.0 benign SAFE / blocked | 33% / 11% | 28% / 23% | 61% / 3% |
+| decision flips from a trailing period (36 held-out pairs) | 1 | 22 | 4 |
+| deepset benign SAFE | 100% | 93% | 62% |
+| jackhhao benign SAFE | 26% | 78% | 36% |
+| ambiguous hard-blocked | 1% | 41% | 46% |
+
+Known gaps (xfail-documented in `test_adversarial_cases.py`): ambiguous prompts and
+some defensive questions that quote attack phrases are hard-blocked (v1 routed them
+to review), public-chat benign is more over-blocked than v2, and results vary a lot
+between seeds (v3 seed 2's thresholds came out at 0.003 / 0.001).
 
 ## The classifier
 

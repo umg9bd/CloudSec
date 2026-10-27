@@ -165,7 +165,7 @@ def main():
     ap.add_argument("--base-model", default=os.path.join(GATE, "artifacts", "base_model"))
     ap.add_argument("--base-model-id",
                     default="distilbert/distilbert-base-multilingual-cased@45c032ab32cc946ad88a166f7cb282f58c753c2e")
-    ap.add_argument("--run-name", default="distilbert-mbert-pi-v2-s2")
+    ap.add_argument("--run-name", default="distilbert-mbert-pi-v3-s3")
     ap.add_argument("--epochs", type=int, default=4)
     ap.add_argument("--batch-size", type=int, default=16)
     ap.add_argument("--lr", type=float, default=3e-5)
@@ -173,7 +173,7 @@ def main():
     ap.add_argument("--warmup", type=float, default=0.1)
     ap.add_argument("--max-len", type=int, default=256)
     ap.add_argument("--category-loss-weight", type=float, default=0.5)
-    ap.add_argument("--seed", type=int, default=2, help="the shipped v2 checkpoint is seed 2 of seeds 1-3, picked on dev AUC")
+    ap.add_argument("--seed", type=int, default=3, help="the shipped v3 checkpoint is seed 3 of seeds 1-3, picked on dev AUC")
     ap.add_argument("--threads", type=int, default=0, help="torch CPU threads (0 = torch default)")
     ap.add_argument("--dev-from", choices=("cloud", "all"), default="cloud",
                     help="cloud: hold the dev slice out of the cloud train templates only, and select the epoch "
