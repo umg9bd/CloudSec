@@ -23,5 +23,11 @@ docker build -q -t cloudsec . >/dev/null
 # email alerts: the Gmail sender and app password in email.env (see email.env.example), if present
 EMAIL_ENV=()
 [ -f email.env ] && EMAIL_ENV=(--env-file email.env)
-MSYS_NO_PATHCONV=1 docker run --rm -it -p 8503:8503 -v "$PWD:/app" "${EMAIL_ENV[@]}" cloudsec \
+# Stage 1 classifier: if it is not in prompt_injection_gate/artifacts yet, cloudsec.py downloads it from the
+# repo's GitHub Release, which needs read access: GITHUB_TOKEN, or a logged-in GitHub CLI (gh auth login).
+if [ -z "${GITHUB_TOKEN:-}" ] && command -v gh >/dev/null 2>&1; then
+  GITHUB_TOKEN="$(gh auth token 2>/dev/null || true)"
+  export GITHUB_TOKEN
+fi
+MSYS_NO_PATHCONV=1 docker run --rm -it -p 8503:8503 -v "$PWD:/app" -e GITHUB_TOKEN "${EMAIL_ENV[@]}" cloudsec \
   python cloudsec.py "$@"

@@ -1,4 +1,4 @@
-# Stage-1 Prompt-Injection Dataset (cloud-specific slice) — v0.2.0
+# Stage-1 Prompt-Injection Dataset (cloud-specific slice) — v0.3.0
 
 The team-generated, **cloud-specific** portion of the Stage-1 prompt-injection
 dataset — the gap public sets don't cover (AWS credential theft, privilege
@@ -8,6 +8,15 @@ counterparts that keep a security gate from blocking legitimate cloud work.
 
 It is **not the whole Stage-1 dataset** and **must not be trained on alone**
 (see "Honest numbers"). Merge it with the public sets via `merge_public.py`.
+
+## v0.3.0 — benign cloud-ops negatives
+Adds 675 benign rows / 154 templates (all `dataset_version: "0.3.0"`): ~117 hand-written
+cloud-ops and security-hardening request templates (S3, IAM, KMS, logging, VPC, DBs,
+secrets, IaC, non-English, security-worded rewrites) plus the Stage-2 catalogue's
+`required_prompt_clause` / safer-alternative texts, so the gate stops flagging the
+safer rewrites Stage 2 produces. The v0.2.0 rows are byte-identical; the new templates
+have their own seeded 80/20 template split. Total 1,933 rows / 418 templates. These
+are synthetic (one author) -- real team-written benign prompts are still the gap.
 
 ## v0.2.0 — Stage-1 review fixes applied
 This version addresses the Stage-1 review in full:
@@ -29,8 +38,8 @@ This version addresses the Stage-1 review in full:
 ## Files
 | File | What |
 |---|---|
-| `generate_prompt_dataset.py` | generator (v0.2.0). Deterministic; re-run to regenerate. |
-| `prompt_injection_cloud.jsonl` / `.csv` | the cloud slice (1,258 rows / 264 templates) |
+| `generate_prompt_dataset.py` | generator (v0.3.0). Deterministic; re-run to regenerate. |
+| `prompt_injection_cloud.jsonl` / `.csv` | the cloud slice (1,933 rows / 418 templates) |
 | `merge_public.py` | maps + merges the licensed public sets, keeping their splits apart |
 
 Regenerate: `python datasets/prompt-injection/generate_prompt_dataset.py`

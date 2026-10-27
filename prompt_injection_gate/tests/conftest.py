@@ -15,8 +15,8 @@ from prompt_injection_gate.screening_service import ScreeningService  # noqa: E4
 
 
 def _trained_dir():
-    for name in ("distilbert-mbert-pi-v1", "deberta-v3-small-pi-v1"):
-        d = os.path.join(GATE, "artifacts", name)
+    for d in (GateConfig().classifier_dir,
+              *(os.path.join(GATE, "artifacts", n) for n in ("distilbert-mbert-pi-v1", "deberta-v3-small-pi-v1"))):
         if os.path.isfile(os.path.join(d, "gate_model.json")) and os.path.isfile(os.path.join(d, "model.safetensors")):
             return d
     return None

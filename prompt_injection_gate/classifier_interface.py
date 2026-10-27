@@ -102,9 +102,11 @@ class Classifier:
             attack = float(scores[0])
             cat_scores = {c: float(scores[1 + i]) for i, c in enumerate(cats)}
             cat_thr = self._meta.get("category_thresholds", {})
+            min_f1 = self.cfg.category_min_dev_f1
             flagged = [c for c in cats
                        if cat_scores[c] >= cat_thr.get(c, {}).get("threshold", 0.5)
-                       and cat_thr.get(c, {}).get("calibrated", False)]
+                       and cat_thr.get(c, {}).get("calibrated", False)
+                       and cat_thr.get(c, {}).get("dev_f1", 0.0) >= min_f1]
             mal = float(self._meta["malicious_threshold"]); safe = float(self._meta["safe_threshold"])
             if attack >= mal:
                 verdict = Decision.MALICIOUS

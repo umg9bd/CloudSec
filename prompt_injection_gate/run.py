@@ -31,7 +31,9 @@ DEPS = ["transformers>=4.50", "datasets>=3", "streamlit==1.64.0", "pyyaml>=6", "
         "pydantic>=2"]   # pydantic: Stage 3 (log-generation) schemas, used by the downstream chain
 DATASET = os.path.join(ROOT, "datasets", "prompt-injection")
 MERGED = os.path.join(DATASET, "prompt_injection_merged.jsonl")
-CKPT = os.path.join(HERE, "artifacts", "distilbert-mbert-pi-v1")
+sys.path.insert(0, ROOT)
+from prompt_injection_gate.config import load_config  # noqa: E402
+CKPT = load_config().classifier_dir
 
 
 def step(msg):

@@ -16,7 +16,7 @@ Rates are reported overall and per attack category for the held-out `test` split
 fixtures from test_adversarial_cases.py. They are printed and written to
 results/adversarial_rates_rules_only.json. Only sanity floors are asserted; the three documented
 weak spots (data_destruction, defense_evasion_logging, benign over-blocking) are recorded as
-measured, next to the v1 model's numbers from results/distilbert-mbert-pi-v1.json.
+measured, next to the shipped model's numbers from the results file checkpoint.json names.
 """
 import hashlib
 import json
@@ -34,7 +34,8 @@ from conftest import GATE, ROOT
 DATA = os.path.join(ROOT, "datasets", "prompt-injection", "prompt_injection_merged.jsonl")
 CLOUD = os.path.join(ROOT, "datasets", "prompt-injection", "prompt_injection_cloud.jsonl")
 OUT = os.path.join(GATE, "results", "adversarial_rates_rules_only.json")
-V1 = os.path.join(GATE, "results", "distilbert-mbert-pi-v1.json")
+with open(os.path.join(GATE, "checkpoint.json"), encoding="utf-8") as _f:
+    MODEL_RESULTS = os.path.join(GATE, json.load(_f)["results"])     # the shipped checkpoint's results
 NON_ATTACK = ("benign", "ambiguous")
 WEAK_SPOTS = ("data_destruction", "defense_evasion_logging")
 
@@ -127,14 +128,14 @@ def _structural(service):
     return out
 
 
-def _v1_reference():
-    if not os.path.exists(V1):
+def _model_reference():
+    if not os.path.exists(MODEL_RESULTS):
         return None
-    with open(V1, encoding="utf-8") as f:
-        v1 = json.load(f)
-    by_cat = v1.get("held_out", {}).get("cloud_test", {})
-    cats = v1.get("cloud_test_by_category", {})
-    return {"source": os.path.relpath(V1, ROOT).replace("\\", "/"),
+    with open(MODEL_RESULTS, encoding="utf-8") as f:
+        res = json.load(f)
+    by_cat = res.get("held_out", {}).get("cloud_test", {})
+    cats = res.get("cloud_test_by_category", {})
+    return {"source": os.path.relpath(MODEL_RESULTS, ROOT).replace("\\", "/"),
             "cloud_test_attack_recall_malicious": by_cat.get("attack_recall_malicious"),
             "cloud_test_benign_fpr_malicious": by_cat.get("benign_fpr_malicious"),
             "not_safe_recall": {c: cats.get(c, {}).get("not_safe_recall") for c in WEAK_SPOTS}}
@@ -159,7 +160,7 @@ def report():
         "data_file": os.path.relpath(DATA_PATH, ROOT).replace("\\", "/"), "data_sha256": data_sha,
         "rules_version": services["rules_only"].rules_version,
         "modes": {},
-        "v1_model_reference": _v1_reference(),
+        "model_reference": _model_reference(),
     }
     for mode, svc in services.items():
         rep["modes"][mode] = {split: _evaluate(svc, rows) for split, rows in splits.items()}

@@ -165,7 +165,7 @@ def main():
     ap.add_argument("--base-model", default=os.path.join(GATE, "artifacts", "base_model"))
     ap.add_argument("--base-model-id",
                     default="distilbert/distilbert-base-multilingual-cased@45c032ab32cc946ad88a166f7cb282f58c753c2e")
-    ap.add_argument("--run-name", default="distilbert-mbert-pi-v1")
+    ap.add_argument("--run-name", default="distilbert-mbert-pi-v2-s2")
     ap.add_argument("--epochs", type=int, default=4)
     ap.add_argument("--batch-size", type=int, default=16)
     ap.add_argument("--lr", type=float, default=3e-5)
@@ -173,8 +173,13 @@ def main():
     ap.add_argument("--warmup", type=float, default=0.1)
     ap.add_argument("--max-len", type=int, default=256)
     ap.add_argument("--category-loss-weight", type=float, default=0.5)
-    ap.add_argument("--seed", type=int, default=42)
+    ap.add_argument("--seed", type=int, default=2, help="the shipped v2 checkpoint is seed 2 of seeds 1-3, picked on dev AUC")
     ap.add_argument("--threads", type=int, default=0, help="torch CPU threads (0 = torch default)")
+    ap.add_argument("--dev-from", choices=("cloud", "all"), default="cloud",
+                    help="cloud: hold the dev slice out of the cloud train templates only, and select the epoch "
+                         "and every threshold there (the gate screens cloud-agent prompts). all: the harness "
+                         "split over cloud + public train, as in v1 -- it groups each public source as ONE "
+                         "template, so a whole public source can land in dev and out of training.")
     args = ap.parse_args()
 
     if args.threads:
@@ -197,8 +202,12 @@ def run(args):
         if r["split"] == "public_test":
             test_sets.setdefault("public_test:" + r["source"], []).append(r)
     tr_all = [r for r in train_pool if H.cls(r) in ("attack", "benign")]
-    tr, dev = H.dev_split(tr_all)
-    print(f"train {len(tr)} | dev {len(dev)} | test sets: {', '.join(test_sets)}", flush=True)
+    if args.dev_from == "cloud":
+        tr, dev = H.dev_split([r for r in tr_all if r["split"] == "train"])
+        tr += [r for r in tr_all if r["split"] == "public_train"]
+    else:
+        tr, dev = H.dev_split(tr_all)
+    print(f"train {len(tr)} | dev {len(dev)} (from {args.dev_from}) | test sets: {', '.join(test_sets)}", flush=True)
 
     tok = AutoTokenizer.from_pretrained(args.base_model)
     id2label = {0: "attack", **{i + 1: c for i, c in enumerate(CATEGORIES)}}
@@ -375,6 +384,7 @@ def run(args):
         "status": "fine-tuned checkpoint trained and evaluated in this run",
         "gate_model": gate_model,
         "task": "attack vs benign + multi-label threat categories; ambiguous not trained, reported separately",
+        "dev_from": args.dev_from,
         "data_file": os.path.relpath(data_path, ROOT).replace("\\", "/"),
         "data_sha256": sha256(data_path),
         "dataset_versions": sorted({str(r.get("dataset_version")) for r in rows}),

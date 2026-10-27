@@ -12,6 +12,7 @@ location and the structural limits.
 """
 from __future__ import annotations
 
+import json
 import os
 from dataclasses import dataclass, field
 
@@ -27,6 +28,15 @@ def _int(name, default):
 
 def _path(name, default):
     return os.environ.get(name, default)
+
+
+def _default_classifier_dir():
+    """The checkpoint checkpoint.json names (the one fetch_checkpoint.py installs)."""
+    try:
+        with open(os.path.join(HERE, "checkpoint.json"), encoding="utf-8") as f:
+            return os.path.join(HERE, "artifacts", json.load(f)["dir"])
+    except (OSError, ValueError, KeyError):
+        return os.path.join(HERE, "artifacts", "distilbert-mbert-pi-v1")
 
 
 @dataclass
@@ -45,9 +55,13 @@ class GateConfig:
     # --- classifier (classifier_interface.py) ---
     # Directory holding the fine-tuned checkpoint + gate_model.json. Empty / missing
     # => the classifier is UNAVAILABLE and the combiner fails closed (never SAFE).
-    classifier_dir: str = _path("PIGATE_CLASSIFIER_DIR",
-                                os.path.join(HERE, "artifacts", "distilbert-mbert-pi-v1"))
+    classifier_dir: str = _path("PIGATE_CLASSIFIER_DIR", _default_classifier_dir())
     classifier_timeout_s: float = float(os.environ.get("PIGATE_CLASSIFIER_TIMEOUT_S", "20"))
+    # A category head names a threat (in threat_categories and the explanation) only if
+    # its dev F1 in gate_model.json reached this. v1's heads mostly scored 0.03-0.10 with
+    # thresholds near 0.1, so they "flagged" nine categories on a plain bucket request.
+    # Heads below the bar still report scores; they just don't label the prompt.
+    category_min_dev_f1: float = float(os.environ.get("PIGATE_CATEGORY_MIN_DEV_F1", "0.5"))
 
     # --- decision combiner (decision_combiner.py) ---
     # Rule severities at/above this block outright; "medium" routes to review.

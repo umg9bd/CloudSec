@@ -1,0 +1,8 @@
+{
+  "dir": "distilbert-mbert-pi-v2-s2",
+  "repo": "umg9bd/CloudSec",
+  "release_tag": "stage1-classifier-v2",
+  "asset": "distilbert-mbert-pi-v2-s2.zip",
+  "model_sha256": "1954f151b82b273ba1dd41a9663fc2b7e0d05c62bd2c7a0a35633dacd417b6fa",
+  "results": "results/distilbert-mbert-pi-v2-s2.json"
+}

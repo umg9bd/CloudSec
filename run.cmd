@@ -20,4 +20,7 @@ start "" /min powershell -NoProfile -WindowStyle Hidden -Command "for ($i = 0; $
 REM Email alerts: the Gmail sender and app password in email.env (see email.env.example), if present.
 set "EMAIL_ENV="
 if exist email.env set "EMAIL_ENV=--env-file email.env"
-docker run --rm -it -p 8503:8503 -v "%cd%:/app" %EMAIL_ENV% cloudsec python cloudsec.py %*
+REM Stage 1 classifier: if it is not in prompt_injection_gate\artifacts yet, cloudsec.py downloads it from the
+REM repo's GitHub Release, which needs read access: GITHUB_TOKEN, or a logged-in GitHub CLI (gh auth login).
+if not defined GITHUB_TOKEN for /f "delims=" %%t in ('gh auth token 2^>nul') do set "GITHUB_TOKEN=%%t"
+docker run --rm -it -p 8503:8503 -v "%cd%:/app" -e GITHUB_TOKEN %EMAIL_ENV% cloudsec python cloudsec.py %*

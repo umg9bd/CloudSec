@@ -56,7 +56,7 @@ only place they meet, and neither alone can authorise a prompt:
   "threat_categories": [],
   "explanation": "No malicious prompt indicators were identified by the required screening checks.",
   "rules_version": "0.1.0",
-  "classifier_version": "distilbert-mbert-pi-v1@<sha>"
+  "classifier_version": "distilbert-mbert-pi-v2-s2@<sha>"
 }
 ```
 
@@ -137,7 +137,7 @@ Stage 2 hardened prompt and Stage 3 predicted events.
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `PIGATE_CLASSIFIER_DIR` | `artifacts/distilbert-mbert-pi-v1` | checkpoint dir; missing ⇒ fail closed |
+| `PIGATE_CLASSIFIER_DIR` | `artifacts/<dir in checkpoint.json>` | checkpoint dir; missing ⇒ fail closed |
 | `PIGATE_RULES_CATALOGUE` | `rules_catalogue.yaml` | rules file |
 | `PIGATE_MAX_PROMPT_CHARS` | 20000 | prompt size limit |
 | `PIGATE_MAX_CONTEXT_ITEMS` | 32 | untrusted-context count limit |
@@ -147,6 +147,28 @@ Stage 2 hardened prompt and Stage 3 predicted events.
 | `PIGATE_STAGE2_INCOMING` | `../prompt_hardening_realtime/incoming` | Stage 2 inbox the bridge delivers to |
 | `PIGATE_STAGE2_ROOT` | `../prompt_hardening_realtime` | Stage 2 module root (in-process demo) |
 | `PIGATE_STAGE3_DIR` | `../log-generation` | Stage 3 module dir (in-process demo) |
+
+## Getting the checkpoint
+
+The weights (~540 MB) are too big for git, so `artifacts/` is gitignored and the
+shipped checkpoint is a GitHub Release asset. `checkpoint.json` names the release,
+the asset and the SHA-256 of `model.safetensors`; `fetch_checkpoint.py` downloads it,
+refuses anything whose hash differs, and installs it into `artifacts/<dir>`.
+`cloudsec.py` (so `run.cmd` / `run.sh`) does this automatically on start. The repo is
+private, so it needs `GITHUB_TOKEN` or a logged-in GitHub CLI (`gh auth login`).
+
+```bash
+python prompt_injection_gate/fetch_checkpoint.py          # fetch if missing
+```
+
+**Shipped: `distilbert-mbert-pi-v2-s2`** (dataset v0.3.0, dev drawn from cloud train
+templates only). Three seeds were trained; seed 2 was picked on dev AUC alone; all
+three are in `results/`. Versus v1 on the same held-out rows: attacks blocked on the
+original cloud test 8% → 65%, public benign much less over-blocked (deepset 93% SAFE,
+jackhhao 78% vs 26%). Known gaps (xfail-documented in `test_adversarial_cases.py`):
+original cloud benign SAFE 58% → 30% with 9% hard-blocked, 41% of ambiguous prompts
+hard-blocked (v1 1%), and some defensive questions that quote attack phrases are
+blocked. Cloud-test ranking (AUC ≈ 0.82) did not improve over v1.
 
 ## The classifier
 

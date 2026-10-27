@@ -50,10 +50,11 @@ def check_deps() -> None:
         sys.exit(f"[cloudsec] this interpreter ({sys.executable}) is missing: {', '.join(missing)}.\n"
                  "           Use run.cmd / ./run.sh (Docker), or an environment with the deps "
                  "(e.g. prompt_injection_gate/.venv).")
-    if not os.path.isfile(os.path.join(ROOT, "prompt_injection_gate", "artifacts", "distilbert-mbert-pi-v1",
-                                       "gate_model.json")):
+    from prompt_injection_gate import fetch_checkpoint   # weights are a release asset, not in git
+    if not fetch_checkpoint.ensure():
         print("[cloudsec] WARNING: no Stage 1 classifier checkpoint -- every prompt will be held for review "
-              "(fail closed). Train it with: python prompt_injection_gate/run.py --train", flush=True)
+              "(fail closed). Fetch it (above), or train it with: python prompt_injection_gate/run.py --train",
+              flush=True)
 
 
 def clear_stale_feed_batches() -> int:

@@ -13,7 +13,7 @@ Worktree: `c:\Users\nanda\OneDrive\Desktop\Capstone-2027\CloudSec-pi-test` (deta
 | Existing suite | Command | Pass | Fail | Skip | Xfail | Notes |
 |---|---|---:|---:|---:|---:|---|
 | Root fast suites | `python tests/run_tests.py` | 409 | 0 | 0 | 0 | Includes `test_ingestion_gate` (8) and `test_agent_orchestrator` (11) |
-| Stage 1 — Prompt-injection gate | `cd prompt_injection_gate/tests; pytest -q` | 64 | 0 | 14 | 0 | 14 skipped because `artifacts/distilbert-mbert-pi-v1/` checkpoint is not in the repo (the 3 xfail markers inside `test_adversarial_cases.py` are skipped before execution) |
+| Stage 1 — Prompt-injection gate | `cd prompt_injection_gate/tests; pytest -q` | 64 | 0 | 14 | 0 | 14 skipped when the classifier checkpoint is absent (it is now fetched from the GitHub Release named in `prompt_injection_gate/checkpoint.json`; measured before v2) (the 3 xfail markers inside `test_adversarial_cases.py` are skipped before execution) |
 | Stage 2 — Prompt hardening | `python prompt_hardening_realtime/tests/run_tests.py` | 104 | 4 | 1 | 0 (+1 error) | 1 skip = `test_parent_pipeline_integration`; 3 timing fails (~6.2 s vs 5 s cap); 1 manifest dirty fail; 1 missing `IMPLEMENTATION_STATUS.md` error |
 | Stage 3 — Log generation | `cd log-generation; pytest -q tests/test_stage3.py` | 16 | 0 | 0 | 0 | All pass |
 
