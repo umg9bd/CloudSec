@@ -1,6 +1,0 @@
-
-{
-  "request_id": "req-demo-s3-001",
-  "screening_status": "SAFE",
-  "original_prompt": "Create an Amazon S3 bucket to store application audit logs. The bucket must remain private and must not allow public access. Allow only the application's IAM role to upload logs and the security team's IAM role to read them. Enforce HTTPS for all data transfers, enable server-side encryption using S3-managed encryption (SSE-S3), enable bucket versioning, and enable appropriate access logging. Follow least-privilege IAM permissions and provide verification steps to confirm that the bucket and its policies are configured securely. Do not deploy any resources."
-}

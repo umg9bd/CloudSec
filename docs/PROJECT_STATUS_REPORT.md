@@ -5,6 +5,35 @@
 
 ---
 
+## 0. CANONICAL RESULTS — READ FIRST (reconciles the two dataset generations)
+
+This report is a running audit log and contains numbers from **two dataset
+generations**. For the paper and any external claim, quote only the **final**
+generation below. The source of truth for the final config is
+[`pipeline_config.json`](../pipeline_config.json) (`notes.ensemble_3seed`, 2026-10-17).
+
+**Final (canonical) — expanded real test set, shipped system:**
+- **Data:** 546 dev / **821** held-out test sessions (107 attacks), 4 AWS accounts,
+  including 30 real Stratus Red Team detonations + CAMPAIGN_LIBRARY + cross-account mixture.
+- **System:** HGT **3-seed** ensemble (`gnn_scorer.EnsembleGNNScorer`) + LSTM v6.3-ft,
+  risk = **0.8·graph + 0.2·sequence**, alert threshold **0.1849**; weight and threshold
+  tuned on dev only (dev session F1 0.922), test touched once.
+- **Headline:** session **F1 0.872** [95% CI 0.821–0.916], **AUC 0.991**,
+  event-level AP **0.654**. Beats the curated rule baseline (**F1 0.789** on the same
+  821 sessions) and LogReg (p<0.001); statistical dead-heat with Random Forest
+  (−0.005, p=0.82) and XGBoost (+0.017, ns).
+- **Live path:** `cloudsec.py` → `pipeline.py --watch` → `gnn_scorer` + `lstm_inference`.
+  (The GraphSAGE streaming orchestrator `graph_construction/infer.py` is **deprecated/legacy**
+  and is **not** part of this result — see §9 and its module docstring.)
+
+**Superseded (historical — do NOT quote as final):** every number below computed on the
+earlier **397-session** real dataset (159 dev / **238** test) — e.g. the GraphSAGE-alone
+runs, the `ensemble.py` 0.5/0.5 result (F1 0.907), and the rule baseline F1 0.747/0.732.
+These predate the expanded 821-session test set and the switch to the HGT 3-seed + v6.3-ft
+shipped ensemble. They remain here as the audit trail of how the final result was reached.
+
+---
+
 ## 1. Data Collection (Phase 1)
 
 Built a full pipeline (`datasets/privilege-escalation/stratus_collection/`) to generate a real, labeled attack dataset using [Stratus Red Team](https://stratus-red-team.cloud/), since the project's original real data (`aws_dataset/`, from the public invictus-ir repo) was a single 55-minute capture with only ~3 real attacker identities — not enough for a statistically meaningful held-out test set.

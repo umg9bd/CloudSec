@@ -127,7 +127,10 @@ class ExecuteTests(unittest.TestCase):
         return ao.Round(request="r", request_id="pig-test", approved_records=plan, fingerprint=ao.plan_fingerprint(plan))
 
     def test_approved_plan_lands_in_incoming_as_one_cloudtrail_file(self):
-        ex = self.gate.execute(self.approved_round())
+        # feed_live=True is the path that writes the plan into incoming/ for the live
+        # pipeline; the default (feed_live=False) reuses the Stage-4 scores and writes
+        # no file (no re-scoring), so it has no "file" key.
+        ex = self.gate.execute(self.approved_round(), feed_live=True)
         path = ao.PIPELINE_INCOMING / ex["file"]
         rows = list(fe9.iter_input_rows(str(path)))
         self.assertEqual([r["event_name"] for r in rows], ["CreateBucket", "PutBucketEncryption"])

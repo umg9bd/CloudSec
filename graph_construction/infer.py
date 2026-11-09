@@ -1,6 +1,22 @@
 """
 infer.py  —  Real-Time Streaming Inference Orchestrator
 =========================================================
+
+⚠️  DEPRECATED / LEGACY — DO NOT USE FOR LIVE SCORING OR IN ANY RESULTS CLAIM.
+    This is the original *GraphSAGE* streaming orchestrator. The shipped
+    real-time path is now `pipeline.py --watch` (HGT 3-seed ensemble + LSTM
+    v6.3-ft, via gnn_scorer.EnsembleGNNScorer), which never imports this file.
+    Two known, unfixed desyncs make this path produce WRONG scores if run:
+      * its single-event edge-feature builder was never updated to the
+        rank-normalized schema in data_loader._rank_normalize (§6.16); and
+      * incremental_updater builds a slightly different node set than the
+        batch graph builder (§6.15), so hop_count / distance_to_sensitive_
+        resource differ from what the model was trained on.
+    The `--wrap-checkpoint` utility still works and is safe (it only re-saves a
+    checkpoint). The streaming modes (--watch / --input) are gated behind
+    --run-anyway and must not be used for any reported number.
+    See docs/PROJECT_STATUS_REPORT.md §6.16 / §9.
+
 Converts the offline GraphSAGE training pipeline into a continuous,
 incremental inference system. Watches an incoming directory for new
 CloudTrail events (or pre-featurised structural rows written by
@@ -1792,6 +1808,10 @@ python graph_construction/infer.py \\
     p.add_argument("--wrapped-output", default=None,
                    help="For --wrap-checkpoint: output path for the wrapped file. "
                         "Default: <original>_wrapped.pt")
+    p.add_argument("--run-anyway", action="store_true",
+                   help="Override the deprecation guard on --watch/--input. "
+                        "Legacy debugging only — scores are NOT valid and must "
+                        "never be used for any reported result.")
 
     return p.parse_args()
 
@@ -1813,6 +1833,17 @@ def main():
         )
         print(f"Wrapped checkpoint: {out}")
         return
+
+    # ── Guard: streaming modes are DEPRECATED and desynced (see module docstring)
+    if (args.watch or args.input) and not args.run_anyway:
+        raise SystemExit(
+            "infer.py streaming (--watch / --input) is DEPRECATED and currently "
+            "produces INCORRECT scores: its edge-feature builder is out of sync "
+            "with data_loader._rank_normalize (report sec 6.16) and the streaming "
+            "graph differs from the batch graph (report sec 6.15).\n"
+            "The shipped live path is `pipeline.py --watch` (HGT 3-seed + LSTM).\n"
+            "Pass --run-anyway only for legacy debugging; results are NOT valid."
+        )
 
     # ── Shared: build InferenceEngine ─────────────────────────────────────────
     engine = InferenceEngine(
