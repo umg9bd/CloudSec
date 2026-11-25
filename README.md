@@ -1,348 +1,136 @@
-# Real-Time Privilege Escalation Detection for AWS CloudTrail
+# CloudSec: A Pre-Execution Security Framework for AI Agents in AWS
 
-Detects AWS privilege-escalation attacks in CloudTrail logs as they arrive.
-Two models score every event in parallel: a heterogeneous graph transformer
-(HGT) over the principal/resource graph, and an LSTM-Transformer over each
-principal's recent activity. An ensemble combines the two scores into one
-risk score per event. Both models are trained on synthetic CloudTrail and
-validated on real attacks collected with
-[Stratus Red Team](https://stratus-red-team.cloud/) across 4 independent AWS
-accounts.
+AI agents are given AWS credentials to carry out tasks. A single manipulated
+prompt can make an agent escalate privileges, harvest credentials, disable
+logging or move data out of the account, using its own legitimate credentials.
+CloudTrail monitoring and rule services such as GuardDuty only see this after
+the API calls have run.
 
-## Architecture
+CloudSec checks an agent's request **before** anything reaches AWS. It screens
+the prompt, adds missing security controls, predicts the CloudTrail events the
+request would produce, scores those events for privilege-escalation risk, and
+runs the plan only if every stage approves it.
 
-``` text
-                        +-> structural row -> graph (rolling 24 h window) -> HGT  -> p_graph ----+
-incoming/<file> -> feature_engine9                                                               +-> ensemble -> alert
- (CloudTrail JSON,      +-> temporal row   -> the principal's last hour   -> LSTM -> p_sequence -+   w p_graph + (1-w) p_sequence
-  JSONL, or CSV)                                                                                     w, threshold: pipeline_config.json
-```
+Capstone project (UE23CS441A), Dept. of Computer Science and Engineering,
+PES University, Aug–Nov 2026. Team 49: Akshaya N., Nandan D., Udita Negi,
+Vanshitha Soma. Guide: Dr. Gokul Kannan Sadasivam.
 
-`pipeline.py` runs this. It watches `incoming/` and scores each new file's
-events. It writes alerts to `alerts/alert_<id>.json` (one per principal per
-file) and every event's scores to `output/risk_scores.csv`. Processed files
-are moved to `incoming/processed/`.
+## How it works
 
-- **Same scores as batch.** Each event gets the score a batch run over the same
-  events would give it:
-  - The LSTM branch matches a single batch pass on real dev to 3e-7.
-  - The graph is rebuilt with the batch code on every file.
-  - The Neo4j-free graph builder (`graph_construction/offline_graph.py`) is
-    tensor-identical to the Neo4j loader on real dev and on the synthetic
-    training graph.
-  - `tests/test_pipeline.py` guards all of this.
-- **Frozen at inference time.** Live traffic never changes the model's inputs:
-  feature_engine9's vocabulary and risk priors are frozen from training, and
-  both models use their training-time scalers.
-- **Settings.** The ensemble weight, alert threshold, checkpoints and graph
-  window live in `pipeline_config.json`. Its weight and threshold were chosen
-  on `real_dataset_dev.csv` only. The alert threshold (4.20/10) is the median
-  best-F1 threshold over 1,000 bootstrap resamples of dev sessions, from the
-  LSTM's out-of-fold scores (its heads were fitted on dev); `tuned_on` in the
-  config records how.
+| Stage | What it does | Code |
+|---|---|---|
+| 1. Prompt screening | Unicode normalisation, 10 YAML rules (OWASP LLM / MITRE ATLAS), a fine-tuned multilingual DistilBERT, and a fail-closed combiner. Returns SAFE, REVIEW_REQUIRED or MALICIOUS; only SAFE goes on. | `prompt_injection_gate/` |
+| 2. Security hardening | Finds the AWS services in the request and appends missing controls from a signed catalogue (OWASP, Microsoft, Red Hat, AWS). Conflicts, missing information and unsupported services block the request. | `prompt_hardening_realtime/` |
+| 3. Pre-flight simulation | Extracts the intent (deterministic fast path, with an LLM fallback for intent only), plans the AWS calls and emits one predicted CloudTrail event per call from a versioned action catalogue. | `log-generation/` |
+| 4. Risk scoring | `feature_engine9` builds 44 temporal features and a principal–resource graph. A 3-seed Heterogeneous Graph Transformer and a BiLSTM–Transformer score each event; risk = 0.8·p_graph + 0.2·p_sequence, alert at ≥ 0.1849. Defence-evasion calls (e.g. `StopLogging`) raise a fast-lane alert whatever the score. | `feature_engine9.py`, `graph_construction/`, `temporal-analysis/`, `pipeline.py` |
+| 5. Execution gate | Approves only when every stage passes and risk is below the threshold. The plan is fingerprinted (SHA-256) so exactly the approved plan runs. Alerts carry an explanation (gradient attributions) and appear on the dashboard. | `agent_orchestrator.py`, `ensemble_explain.py`, `cloudsec_dashboard.py` |
 
-### Alert explanations
-
-Every alert says why it was flagged. The top `explain_top_events` events of each
-alert (default 3, in `pipeline_config.json`; `--no-explain` turns it off), and
-every fast-lane event whatever its risk, get an explanation, computed on the exact graph window and LSTM history they were
-scored with (`ensemble_explain.py`). A one-line summary prints under the alert:
-
-``` text
-[ALERT] stratus-redteam: 133 event(s), max risk 8.43/10 (top: PutRolePolicy)
-        why: risk 8.43/10 (alert at 4.20) | LSTM 49% (p=0.82): the action PutRolePolicy (+2.40);
-             risk learned for this action (+1.05); earlier GetUser 0.08 min before (+0.19)
-             | HGT 51% (p=0.86): how common this action is overall (49%); known privilege-escalation action (39%)
-```
-
-How to read it:
-- **Model shares** (`LSTM 49%`, `HGT 51%`) are exact: the ensemble is
-  `w p_graph + (1-w) p_sequence`, so each term's share of the risk is its share
-  of the alert. A model under 25% of the risk is reported as "not a driver". When
-  the graph model has no weights for an event's relation, the LSTM decides alone
-  and the summary says so.
-- **LSTM reasons** come from `temporal-analysis/lstm_explain.py`: feature
-  contributions by Integrated Gradients (logit units; they add up to the score's
-  change from an all-absent input), and "earlier X n min before", the effect of
-  removing that earlier event from the principal's 10-minute window.
-- **HGT reasons** are gradient x input on the flagged event's edge in the window
-  graph, as shares of the total (a first-order attribution, not an exact
-  decomposition). Other events that moved the score through the graph are named
-  when they carry at least 5% of it.
-- **Fast-lane** events (trail deletion and similar) are flagged by rule whatever
-  their risk; the summary starts with the rule.
-
-The alert JSON's `explanations` list has the full detail per event: each model's
-probability, weight, contribution and share, the graph's feature shares and
-related events (with source, target and action), and the LSTM's per-feature and
-per-earlier-event effects. Every feature carries its raw name and a label.
-
-## Run it
-
-One command, with Docker Desktop running:
-
-``` powershell
-.\run.cmd          # Windows (PowerShell or cmd)
-./run.sh           # macOS / Linux / Git Bash
-```
-
-It starts the whole system (`cloudsec.py`) and opens the CloudSec app on
-http://localhost:8503. The app has two pages, switched from its sidebar:
-
-| Page | What it does |
-|---|---|
-| **Agent Gate** (`agent_console.py`) | Ask the agent for an AWS change and watch every stage decide on it |
-| **Live Dashboard** (`cloudsec_dashboard.py`) | The real-time pipeline's event stream, alerts and their explanations |
-
-Behind the app:
-- the Stage 2 watcher (`prompt_hardening_realtime`) hardens each SAFE prompt dropped
-  into `prompt_hardening_realtime/incoming/`;
-- the real-time pipeline (`pipeline.py`) scores every executed (or dropped-in)
-  CloudTrail file in `incoming/` with HGT + LSTM, and prints each event in this terminal.
-
-A request on the Agent Gate page goes through:
-
-1. **Stage 1, screening:** a prompt injection or malicious request is refused, with
-   the reason. Nothing is forwarded.
-2. **Stage 2, hardening:** a SAFE prompt is written into Stage 2's `incoming/`. The
-   watcher returns the **prompt template**: your request, plus a locked security
-   section with the missing requirements, any conflicts and open questions.
-3. **Stage 3, prediction:** the exact AWS calls and CloudTrail events the request
-   would produce.
-4. **Stage 4, assessment:** HGT + LSTM score those predicted events against the
-   agent's stored history. It is a dry run, so nothing is saved.
-5. **Revise:** edit the request in the template and send it back. It goes through
-   every stage again. The security section is regenerated every round, so it
-   cannot be edited away.
-6. **Execute:** once every stage approves, **Execute** writes the plan's CloudTrail
-   into `incoming/`. The real-time pipeline scores it, adds it to the agent's
-   history, and the dashboard shows it. Execution is simulated, so no AWS API is
-   called. It runs exactly the approved plan: any change to the calls, targets,
-   parameters or principal is refused.
-
-Ctrl+C stops all of it. Options:
-- `--keep-state`: keep the agent's history, scores and alerts from the last run.
-  Otherwise each start is fresh.
-- `--feed [DATASET]`: also replay a dataset (default `real_dataset_test.csv`) as
-  background traffic, as the pipeline-only demo did.
-
-`agent_orchestrator.py` runs the same gate without the UI:
-`python agent_orchestrator.py --execute "Create a private S3 bucket named audit-logs-prod with versioning."`.
-Each step is logged, without the prompt text, to `output/agent_audit.jsonl`.
-Service logs are in `logs/`.
-
-### Dashboard
-
-`cloudsec_dashboard.py` (Streamlit) reads what the pipeline writes and refreshes every
-5 s ("Live updates" pauses it):
-
-- **Fast-lane alerts** get their own orange panel at the top, newest first. They are
-  rule-based (trail deleted, logging stopped, flow logs deleted, ...) and raised whatever
-  the models score.
-- **Processed logs**: every scored event in arrival order, new ones appended at the
-  bottom, in a scrollable table. Filter it to All / Alerts / Fast-lane. The Flag column
-  marks `⚡ FAST-LANE` and `▲ ALERT` rows; Why says whether an explanation exists.
-- **Why was this flagged?** Click a row to get the event's explanation:
-  - each model's exact share of the risk;
-  - the plain-English summary;
-  - what moved the LSTM (feature contributions and the earlier events that mattered);
-  - what moved the HGT (feature shares and related graph events);
-  - the attack chain.
-
-  Explained events are the top `explain_top_events` of each alert plus every fast-lane
-  event. For any other flagged event, the page shows its alert's top explanation.
-- **Email alerts** (sidebar): the admin enters the address alerts are emailed to.
-
-### Email alerts
-
-Every alert whose risk is at or above the threshold is emailed to the admin, with the
-principal, the risk, the plain-English reason and the riskiest events (`notify.py`).
-
-1. Copy `email.env.example` to `email.env` and fill in the Gmail account that sends the
-   alerts and its app password (Google Account -> Security -> 2-Step Verification -> App
-   passwords; not the normal password). `email.env` is git-ignored.
-2. Start `run.cmd` / `./run.sh`, then enter the admin's address in the dashboard's sidebar
-   and press **Send test email**.
-
-Detection never depends on it: without `email.env` or an address, alerts are only shown on
-the dashboard; a failed send is logged and dropped; emails go out on a background thread.
-At most 60 emails an hour are sent (`CLOUDSEC_EMAIL_MAX_PER_HOUR`), since Gmail locks
-accounts that send in bulk -- the demo feed alone raises over 100 alerts. Alerts raised only
-by a fast-lane rule, below the threshold, stay on the dashboard.
-
-The pieces, run individually. PyTorch runs in Docker because Windows Smart
-App Control blocks torch's unsigned DLLs on the development machine.
-
-``` bash
-docker build -t cloudsec .
-docker run --rm -v "$PWD:/app" cloudsec python pipeline.py --watch incoming
-# then drop CloudTrail files into incoming/, e.g.
-cp samples/cloudtrail/synthetic_attack_chain.json incoming/
-```
-
-``` text
-[FAST-LANE ALERT] 2026-07-30 09:00:45+00:00 session1 StopLogging: CloudTrail logging disabled
-[ALERT] session1: 9 event(s), max risk 9.91/10 (top: SetDefaultPolicyVersion)
-[PIPELINE] synthetic_attack_chain.json: 10 events scored, 9 above threshold (0.5s)
-```
-
-To stream a whole dataset through it the way CloudTrail delivers logs (a new
-file of events every few seconds), with a live line per event:
-
-``` bash
-docker run --rm -it -v "$PWD:/app" cloudsec python pipeline.py --watch incoming --show-events
-python feed_incoming.py --batch-size 200 --interval 5     # second terminal (or add --feed to the line above)
-```
-
-``` text
-2023-07-10 11:42:18  benjamin                     GetRegionOptStatus             HGT  0.92  LSTM 0.16  risk  4.63/10
-[FAST-LANE ALERT] 2023-07-10 11:59:02+00:00 bert-jan DeleteTrail: CloudTrail trail deleted
-[ALERT] bert-jan: 61 event(s), max risk 9.98/10 (top: TagInstanceProfile)
-[PIPELINE] real_dataset_test_batch0005.csv: 200 events scored, 62 above threshold (1.6s)
-```
-
-Other commands:
-
-- Score files once: `python pipeline.py --files a.json b.json`.
-- Start with no per-principal history: add `--reset-state`.
-- Tests: `python tests/run_tests.py` (390 tests).
-- Re-tune on dev (add `--test` for the single held-out test run):
-  `python datasets/privilege-escalation/evaluate_pipeline.py`.
+Every stage fails closed: an error, an ambiguity or a missing artifact gives a
+non-permissive outcome, never an approval.
 
 ## Results
 
-The pipeline exactly as served (LSTM v6.3-ft, alert threshold 0.42), scored on
-14 Oct 2026 on 821 held-out real test sessions, 107 of them attacks
-(`real_dataset_test.csv`; 4 collectors, including 30 real Stratus
-privilege-escalation detonations). A session is flagged if any of its events
-alerts. Every threshold and configuration was frozen on `real_dataset_dev.csv`
-first.
+Risk detector, scored once with the served configuration on **821 held-out real
+sessions** (107 attacks) collected with Stratus Red Team across four AWS
+accounts. The models were trained only on synthetic CloudTrail; the ensemble
+weight and threshold were chosen on the 546-session dev split.
 
-**Is a session an attack?** Session level, best F1 first:
+| | Session-level result | vs CloudSec (paired bootstrap) |
+|---|---|---|
+| **CloudSec (3-seed HGT + LSTM)** | **F1 0.872** [0.821, 0.916], **ROC-AUC 0.991** | |
+| Curated 11-rule IAM baseline | F1 0.789 | CloudSec better, p = 0.019 |
+| Logistic regression (bag of actions) | lower | CloudSec better, p < 0.001 |
+| Random Forest (same features) | within 0.005 F1 | tie, p = 0.82 |
+| XGBoost (same features) | CloudSec +0.017 F1 | not significant |
 
-| | Precision | Recall | F1 [95% CI] | Pipeline minus this, paired bootstrap |
-|---|---|---|---|---|
-| XGBoost (temporal features) | 0.865 | 0.897 | 0.881 [0.832, 0.923] | -0.013 (p = 0.56) |
-| **Real-time pipeline** (HGT + LSTM, `pipeline.py`) | 0.848 | 0.888 | **0.868** [0.816, 0.912] | |
-| Random Forest (temporal features) | 0.841 | 0.888 | 0.864 [0.812, 0.909] | +0.004 (p = 0.89) |
-| LSTM alone | 0.814 | 0.897 | 0.853 [0.800, 0.900] | +0.014 (p = 0.47) |
-| HGT alone | 0.769 | 0.841 | 0.804 [0.741, 0.857] | +0.064 (p = 0.009) |
-| Curated IAM rule baseline (11 rules) | 0.904 | 0.701 | 0.789 [0.720, 0.849] | +0.078 (p = 0.027) |
-| Logistic regression (bag of actions) | 0.600 | 0.869 | 0.710 [0.644, 0.769] | +0.158 (p < 0.001) |
+What these numbers do and don't show:
+- At session level CloudSec **ties** Random Forest and XGBoost. Its advantage is
+  finding the attacking event: in the earlier single-checkpoint configuration,
+  event-level average precision was 0.654 against 0.250 for XGBoost. The LSTM
+  alone reached 0.792 there, so the graph branch is the next part to improve.
+- The test split was used by earlier configurations during development. Final
+  claims need a fresh Stratus Red Team collection.
 
-The pipeline is statistically tied with XGBoost, Random Forest and its own LSTM,
-and significantly better than the rule baseline, the HGT alone and logistic
-regression. Its session ranking is the strongest of its branches (AUC 0.989,
-AP 0.927).
+Prompt-injection classifier (DistilBERT v3) on 465 held-out cloud-agent prompts:
+ROC-AUC 0.89, F1 0.76, 5.8% of benign prompts flagged as malicious, about 32 ms
+per prompt on CPU. Held-out public test splits: ROC-AUC 0.97 (deepset) and 0.99
+(jackhhao). The gate is cautious: only 41% of benign cloud prompts pass as SAFE,
+and most of the rest go to review.
 
-**Which event is the attack?** Event level, average precision over all 31,837
-test events (3,452 attacks, base rate 0.108), nothing tuned on test:
+Full evaluation history: [`docs/PROJECT_STATUS_REPORT.md`](docs/PROJECT_STATUS_REPORT.md).
+Detector details (alerts, dashboard, email alerts):
+[`docs/DETECTOR_README.md`](docs/DETECTOR_README.md).
 
-| | Event AP |
-|---|---|
-| LSTM alone | 0.792 |
-| **Real-time pipeline** (HGT + LSTM) | **0.654** |
-| XGBoost | 0.250 |
-| Random Forest | 0.233 |
-| HGT alone | 0.127 |
+## Run it
 
-This is where the pipeline is clearly ahead: it points to the attack event
-about 2.6x better than XGBoost, which is what an alert's explanation depends
-on. The HGT pulls event AP down from the LSTM's 0.792, so the graph branch is
-the next thing to improve.
+With Docker Desktop running:
 
-How these numbers came about, and what they do not show:
-- **The threshold was stale for two weeks.** The LSTM was swapped to v6.3-ft on
-  29 Sep without re-tuning the v5-era threshold (0.5139). As served until
-  14 Oct, the pipeline scored F1 0.802 (P 0.938, R 0.701), significantly behind
-  XGBoost (-0.079, p = 0.018). 0.42 was then chosen on dev from the LSTM's
-  out-of-fold scores (see `tuned_on` in `pipeline_config.json`).
-- **This test set is no longer untouched.** It was scored on 28 Sep and twice on
-  14 Oct (old and new threshold). Final numbers need a fresh Stratus collection.
-- **Earlier README figures** (pipeline 0.872, 28 Sep, commit `5c6d085`) were for
-  the previous LSTM (v5), which relied on label-leaking features
-  (`temporal-analysis/README_v6_3.md`).
-- **Dev**, each model at its own best dev threshold, LSTM out-of-fold: pipeline
-  0.909, XGBoost 0.907, Random Forest 0.904, LSTM 0.842, HGT 0.803.
-- The threshold-selection, out-of-fold and event-level scripts behind these
-  numbers are not in the repository yet; the replay is
-  `evaluate_pipeline.py`'s and the baselines are `evaluate_ml_baselines.py`'s.
+```powershell
+.\run.cmd          # Windows
+./run.sh           # macOS / Linux / Git Bash
+```
 
-`pipeline.py` is the only ensemble. The earlier `ensemble.py` /
-`ensemble1.py` were removed: their graph side was a hand-written topology
-rule, not a trained GNN, and with a leak-clean LSTM they scored 0.769 / 0.722
-on test (§6.21; the code is in git history at commit `2fe5977`).
+This starts the Stage 2 watcher, the real-time pipeline and the CloudSec app on
+http://localhost:8503, which has two pages:
 
-Worth knowing:
-- **What the pipeline's numbers do and don't show.** At session level the
-  classical ML baselines tie the pipeline, so the paper cannot claim that
-  HGT + LSTM detects attack sessions better than standard ML. It can claim
-  that the pipeline identifies the attack event far better (test event AP
-  0.654 vs XGBoost 0.250). Every further fix must be tuned on dev and checked
-  on fresh test data.
-- **GraphSAGE alone (batch)** has session AUC 0.986 on test (beats all 200
-  size-preserving permutations, p = 0.005), stable across every dataset
-  iteration (0.982-0.987), and F1 0.929 / AUC 0.997 on held-out unseen attack
-  families. Its operating-point F1 is threshold-sensitive (0.79-0.89), so AUC
-  is its primary metric. The pipeline uses HGT, not GraphSAGE.
-- Older versions of this README reported 0.907 / 0.903 for those removed
-  ensembles. Those numbers came from an LSTM checkpoint that had trained on
-  real Invictus data, so they are not valid.
-- The rule baseline is a curated list built by reading AWS's public GuardDuty
-  finding-type docs -- it was never validated against real GuardDuty output
-  (this project's data collection never enabled it), so it's *not* a stand-in
-  for the actual commercial product.
-- The classical ML baselines (`evaluate_ml_baselines.py`) train on
-  `train_temporal_aug.csv`, the synthetic table the previous LSTM (v5) trained
-  on, and each gets its configuration chosen on dev, as the proposed system
-  did. The served LSTM (v6.3) trains on `cloudtrail_temporal.csv`; retrained
-  on that table, XGBoost and Random Forest score lower on dev, so the table
-  above reports the stronger baselines. An earlier version trained on
-  less data and on three features the synthetic generator hardcodes for
-  attacks (MFA fields, request-parameter length). It scored RF 0.669 /
-  XGBoost 0.595, and its conclusion that "ML on these features doesn't
-  transfer" was wrong. The numbers in the table above come from
-  re-running them on the data merged from `feat/credential-access-chains`
-  (§6.23).
-- The standalone GraphSAGE model's raw edge-level ranking on real data was
-  initially inverted (AUC ~0.26) -- root-caused to one dominant relation
-  (`User->READ->Resource`, 87% of real attack-labeled edges) where the
-  model learned "READ = safe" from synthetic training data, which real
-  credential-theft techniques (`GetSecretValue`, `GetPasswordData`, both
-  AWS-classified as "Read") directly violate. A per-relation orientation
-  correction fit on dev only and frozen (not baked into the checkpoint,
-  to keep the train/eval boundary clean) lifts edge-level AUC to 0.89 on
-  both dev and test. The pipeline uses HGT rather than GraphSAGE. Trained on
-  the same corrected schema, HGT's per-event ranking on real dev is healthier
-  (event AUC 0.713 vs GraphSAGE's 0.517), which is what matters for an
-  ensemble that combines per-event scores.
+- **Agent Gate**: ask the agent for an AWS change and watch each stage decide.
+- **Live Dashboard**: scored events, alerts and their explanations.
 
-Full evidence trail: `docs/PROJECT_STATUS_REPORT.md`.
-Full runnable walkthrough: `docs/DEMO_GUIDE.md`.
+Options: `--keep-state` keeps the previous run's history; `--feed [DATASET]`
+replays a dataset as background traffic. Ctrl+C stops everything. Service logs
+are in `logs/`.
+
+Without the UI:
+
+```bash
+python agent_orchestrator.py --execute "Create a private S3 bucket named audit-logs-prod with versioning."
+```
+
+Execution from the Agent Gate is simulated: the approved plan's CloudTrail is
+written into `incoming/` and no AWS API is called. `stage5_execute.py` can run an
+approved plan in a sandbox account; it is a dry run by default and only executes
+an allow-list of reversible S3 actions.
+
+The Stage 1 classifier weights (~540 MB) are a GitHub Release asset, not in git.
+`cloudsec.py` fetches them on first start; see
+[`prompt_injection_gate/README.md`](prompt_injection_gate/README.md).
+
+Setup without Docker: `pip install -r requirements.txt`. The batch tools run
+natively; anything that loads a PyTorch checkpoint needs a machine where PyTorch
+loads, or the Docker image.
 
 ## Repository
 
--   `pipeline.py` -- the real-time detector (watch `incoming/`, HGT + LSTM, ensemble, alerts); settings in `pipeline_config.json`
--   `Dockerfile` -- the runtime everything torch-based runs in
--   `feature_engine9.py` -- raw CloudTrail -> structural rows (graph) + temporal rows (LSTM), plus fast-lane alerts
--   `graph_construction/offline_graph.py`, `gnn_scorer.py`, `model_hgt.py` -- Neo4j-free graph building and HGT/GraphSAGE/GAT scoring
--   `samples/cloudtrail/` -- example CloudTrail files to drop into `incoming/`
--   `feed_incoming.py` -- replays a dataset into `incoming/` batch by batch (a CloudTrail delivery simulator)
--   `run.cmd`, `run.sh` -- the one-command demo (pipeline + feeder + dashboard in Docker)
--   `leakage_guard.py` -- audits any file for train/test contamination
--   `datasets/privilege-escalation/` -- synthetic data generator, rule baselines, raw/derived datasets
--   `graph_construction/` -- models (HGT, GraphSAGE, GAT), training (`train.py --model hgt --offline-csv ...`), graph construction, evaluation. `infer.py`'s incremental Neo4j path is legacy and not used by the pipeline.
--   `tests/run_tests.py` -- test suites
--   `docs/PROJECT_STATUS_REPORT.md` -- full evaluation history and evidence
--   `docs/DEMO_GUIDE.md` -- runnable demo with expected output
+| Path | Contents |
+|---|---|
+| `prompt_injection_gate/` | Stage 1: normalisation, rules catalogue, classifier, combiner, tests |
+| `prompt_hardening_realtime/` | Stage 2: task analysis, control catalogue, hardener, watcher |
+| `log-generation/` | Stage 3: intent extraction, planner, action catalogue, event enumerator |
+| `feature_engine9.py` | Raw CloudTrail → temporal rows (LSTM) and structural rows (graph), fast-lane alerts |
+| `graph_construction/` | HGT / GraphSAGE / GAT models, training, offline (Neo4j-free) graph builder, blast radius |
+| `temporal-analysis/` | BiLSTM–Transformer sequence model, training and explanations |
+| `pipeline.py`, `pipeline_config.json` | Real-time detector and its frozen, dev-tuned settings |
+| `agent_orchestrator.py`, `agent_console.py`, `stage5_execute.py` | Stage 5: orchestration, Agent Gate page, sandbox execution |
+| `cloudsec_app.py`, `cloudsec_dashboard.py`, `ensemble_explain.py`, `notify.py` | App, dashboard, alert explanations, email alerts |
+| `datasets/` | Synthetic data generator, real-data builders, baselines (`evaluate_ml_baselines.py`), prompt dataset |
+| `leakage_guard.py` | Checks that no test session appears in any training file |
+| `tests/` | Pipeline and cross-component tests |
+| `docs/` | Status report, demo guide, design diagrams |
 
-## Setup without Docker
+## Data and privacy
 
-``` bash
-pip install -r requirements.txt
-```
+- Real CloudTrail was collected only from the team's own sandbox AWS accounts
+  by detonating Stratus Red Team techniques. No production account was touched.
+- AWS access-key IDs are redacted in the datasets. Prompts are stored only as
+  SHA-256 hashes, and no credentials are kept.
+- The raw logs still contain the sandbox account IDs and the source IP
+  addresses of the machines used. Remove or mask them before making this
+  repository public.
 
-The batch tools (`feature_engine9.py`, the rule and ML baselines) run
-natively. Anything that loads a torch checkpoint needs a machine where
-PyTorch can load, or the Docker image above.
+## Credits
 
+Stratus Red Team (Datadog), Invictus IR cloud incident-response data,
+`policy_sentry` (Salesforce), and the deepset/prompt-injections,
+jackhhao/jailbreak-classification and Lakera Gandalf datasets on Hugging Face.
+Models build on DistilBERT, the Heterogeneous Graph Transformer and PyTorch
+Geometric.
