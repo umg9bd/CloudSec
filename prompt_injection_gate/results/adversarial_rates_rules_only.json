@@ -1,20 +1,20 @@
 {
   "description": "Stage-1 gate rates without the fine-tuned classifier (checkpoint absent from this branch). detection = attack -> MALICIOUS, review = attack -> REVIEW_REQUIRED, false positive = benign -> not SAFE.",
-  "data_file": "datasets/prompt-injection/prompt_injection_cloud.jsonl",
-  "data_sha256": "d4d176986a6a032c3401927af166314f6d8d2374dc3d5b22ec2c574df6f7f0da",
+  "data_file": "datasets/prompt-injection/prompt_injection_merged.jsonl",
+  "data_sha256": "ec38b844973152d10aab23564f90c59eb85d84dec730a44d9a27fec31d651448",
   "rules_version": "0.1.0",
   "modes": {
     "deployed_fail_closed": {
       "test": {
         "attacks_overall": {
-          "n": 165,
+          "n": 584,
           "detection_rate": 0.0,
           "review_rate": 1.0,
           "withheld_rate": 1.0,
           "missed_rate": 0.0
         },
         "benign": {
-          "n": 64,
+          "n": 242,
           "fp_rate_any": 1.0,
           "fp_rate_malicious": 0.0,
           "fp_rate_review": 1.0,
@@ -59,7 +59,7 @@
             "missed_rate": 0.0
           },
           "jailbreak": {
-            "n": 32,
+            "n": 168,
             "detection_rate": 0.0,
             "review_rate": 1.0,
             "withheld_rate": 1.0,
@@ -73,7 +73,7 @@
             "missed_rate": 0.0
           },
           "prompt_injection_direct": {
-            "n": 10,
+            "n": 70,
             "detection_rate": 0.0,
             "review_rate": 1.0,
             "withheld_rate": 1.0,
@@ -87,7 +87,7 @@
             "missed_rate": 0.0
           },
           "system_prompt_extraction": {
-            "n": 9,
+            "n": 232,
             "detection_rate": 0.0,
             "review_rate": 1.0,
             "withheld_rate": 1.0,
@@ -97,14 +97,14 @@
       },
       "train": {
         "attacks_overall": {
-          "n": 622,
+          "n": 2119,
           "detection_rate": 0.0,
           "review_rate": 1.0,
           "withheld_rate": 1.0,
           "missed_rate": 0.0
         },
         "benign": {
-          "n": 288,
+          "n": 1147,
           "fp_rate_any": 1.0,
           "fp_rate_malicious": 0.0,
           "fp_rate_review": 1.0,
@@ -149,7 +149,7 @@
             "missed_rate": 0.0
           },
           "jailbreak": {
-            "n": 127,
+            "n": 644,
             "detection_rate": 0.0,
             "review_rate": 1.0,
             "withheld_rate": 1.0,
@@ -163,7 +163,7 @@
             "missed_rate": 0.0
           },
           "prompt_injection_direct": {
-            "n": 49,
+            "n": 252,
             "detection_rate": 0.0,
             "review_rate": 1.0,
             "withheld_rate": 1.0,
@@ -177,7 +177,7 @@
             "missed_rate": 0.0
           },
           "system_prompt_extraction": {
-            "n": 35,
+            "n": 812,
             "detection_rate": 0.0,
             "review_rate": 1.0,
             "withheld_rate": 1.0,
@@ -216,14 +216,14 @@
     "rules_only": {
       "test": {
         "attacks_overall": {
-          "n": 165,
+          "n": 584,
           "detection_rate": 0.0,
-          "review_rate": 0.0,
-          "withheld_rate": 0.0,
-          "missed_rate": 1.0
+          "review_rate": 0.1216,
+          "withheld_rate": 0.1216,
+          "missed_rate": 0.8784
         },
         "benign": {
-          "n": 64,
+          "n": 242,
           "fp_rate_any": 0.0,
           "fp_rate_malicious": 0.0,
           "fp_rate_review": 0.0,
@@ -268,11 +268,11 @@
             "missed_rate": 1.0
           },
           "jailbreak": {
-            "n": 32,
+            "n": 168,
             "detection_rate": 0.0,
-            "review_rate": 0.0,
-            "withheld_rate": 0.0,
-            "missed_rate": 1.0
+            "review_rate": 0.119,
+            "withheld_rate": 0.119,
+            "missed_rate": 0.881
           },
           "privilege_escalation": {
             "n": 27,
@@ -282,7 +282,7 @@
             "missed_rate": 1.0
           },
           "prompt_injection_direct": {
-            "n": 10,
+            "n": 70,
             "detection_rate": 0.0,
             "review_rate": 0.0,
             "withheld_rate": 0.0,
@@ -296,28 +296,28 @@
             "missed_rate": 1.0
           },
           "system_prompt_extraction": {
-            "n": 9,
+            "n": 232,
             "detection_rate": 0.0,
-            "review_rate": 0.0,
-            "withheld_rate": 0.0,
-            "missed_rate": 1.0
+            "review_rate": 0.2198,
+            "withheld_rate": 0.2198,
+            "missed_rate": 0.7802
           }
         }
       },
       "train": {
         "attacks_overall": {
-          "n": 622,
+          "n": 2119,
           "detection_rate": 0.0,
-          "review_rate": 0.0788,
-          "withheld_rate": 0.0788,
-          "missed_rate": 0.9212
+          "review_rate": 0.1425,
+          "withheld_rate": 0.1425,
+          "missed_rate": 0.8575
         },
         "benign": {
-          "n": 288,
-          "fp_rate_any": 0.0,
+          "n": 1147,
+          "fp_rate_any": 0.0026,
           "fp_rate_malicious": 0.0,
-          "fp_rate_review": 0.0,
-          "pass_rate_safe": 1.0
+          "fp_rate_review": 0.0026,
+          "pass_rate_safe": 0.9974
         },
         "ambiguous": {
           "n": 94,
@@ -358,11 +358,11 @@
             "missed_rate": 1.0
           },
           "jailbreak": {
-            "n": 127,
+            "n": 644,
             "detection_rate": 0.0,
-            "review_rate": 0.0709,
-            "withheld_rate": 0.0709,
-            "missed_rate": 0.9291
+            "review_rate": 0.104,
+            "withheld_rate": 0.104,
+            "missed_rate": 0.896
           },
           "privilege_escalation": {
             "n": 49,
@@ -372,11 +372,11 @@
             "missed_rate": 0.9184
           },
           "prompt_injection_direct": {
-            "n": 49,
+            "n": 252,
             "detection_rate": 0.0,
-            "review_rate": 0.3673,
-            "withheld_rate": 0.3673,
-            "missed_rate": 0.6327
+            "review_rate": 0.1111,
+            "withheld_rate": 0.1111,
+            "missed_rate": 0.8889
           },
           "prompt_injection_indirect": {
             "n": 109,
@@ -386,11 +386,11 @@
             "missed_rate": 1.0
           },
           "system_prompt_extraction": {
-            "n": 35,
+            "n": 812,
             "detection_rate": 0.0,
-            "review_rate": 0.4857,
-            "withheld_rate": 0.4857,
-            "missed_rate": 0.5143
+            "review_rate": 0.2488,
+            "withheld_rate": 0.2488,
+            "missed_rate": 0.7512
           }
         }
       },
@@ -423,13 +423,13 @@
       }
     }
   },
-  "v1_model_reference": {
-    "source": "prompt_injection_gate/results/distilbert-mbert-pi-v1.json",
-    "cloud_test_attack_recall_malicious": 0.07878787878787878,
-    "cloud_test_benign_fpr_malicious": 0.0,
+  "model_reference": {
+    "source": "prompt_injection_gate/results/distilbert-mbert-pi-v3-s3.json",
+    "cloud_test_attack_recall_malicious": 0.6727272727272727,
+    "cloud_test_benign_fpr_malicious": 0.05818181818181818,
     "not_safe_recall": {
-      "data_destruction": 0.55,
-      "defense_evasion_logging": 0.5416666666666666
+      "data_destruction": 0.95,
+      "defense_evasion_logging": 0.875
     }
   },
   "weak_spots_test_split": {
@@ -449,7 +449,7 @@
         "missed_rate": 0.0
       },
       "benign_false_positives": {
-        "n": 64,
+        "n": 242,
         "fp_rate_any": 1.0,
         "fp_rate_malicious": 0.0,
         "fp_rate_review": 1.0,
@@ -472,7 +472,7 @@
         "missed_rate": 1.0
       },
       "benign_false_positives": {
-        "n": 64,
+        "n": 242,
         "fp_rate_any": 0.0,
         "fp_rate_malicious": 0.0,
         "fp_rate_review": 0.0,
